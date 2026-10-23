@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { emailLink, expectAccessible, uniqueSuffix } from './helpers';
+import { emailLink, emailLinks, expectAccessible, uniqueSuffix } from './helpers';
 
 // Registering an unconfirmed email twice removes its password; confirming then asks the owner to set one by email.
 test('a repeated registration is confirmed, then the password is set from the emailed link', async ({ page }) => {
@@ -14,8 +14,14 @@ test('a repeated registration is confirmed, then the password is set from the em
     await expect(page).toHaveURL(/\/check-email$/);
   }
 
-  await page.goto(await emailLink(page.request, email, 'verify-email', startedAt));
-  await expect(page.getByRole('heading', { level: 1, name: 'إيميلك اتأكد. فاضل خطوة' })).toBeVisible();
+  // Only the second registration's link still works, and the two emails may arrive in either order.
+  const confirmed = page.getByRole('heading', { level: 1, name: 'إيميلك اتأكد. فاضل خطوة' });
+  for (const link of await emailLinks(page.request, email, 'verify-email', startedAt, 2)) {
+    await page.goto(link);
+    await expect(confirmed.or(page.getByRole('heading', { level: 1, name: 'اللينك ده مش شغال' }))).toBeVisible();
+    if (await confirmed.isVisible()) break;
+  }
+  await expect(confirmed).toBeVisible();
   await expect(page.getByText('بعتنا لك لينك تختار بيه كلمة السر')).toBeVisible();
   await expectAccessible(page, 'verify email: password setup');
 

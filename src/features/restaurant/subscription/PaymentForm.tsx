@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useImperativeHandle, useRef, useState } from 'react';
+import type { Ref } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { BankIcon, CalendarCheckIcon, DeviceMobileIcon, LightningIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react';
+import { BankIcon, CalendarCheckIcon, CreditCardIcon, DeviceMobileIcon, LightningIcon, LockSimpleIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
 import {
-  BILLING_ERROR_CODES, type BillingSummary, type ImageSet, type PaymentMethod, type PaymentInstructions, submitPaymentSchema,
+  BILLING_ERROR_CODES, type BillingMonths, type BillingSummary, type ImageSet, type ManualPaymentMethod, type PaymentInstructions, type PlanCode, submitPaymentSchema,
 } from '@bilhanah/contracts';
 import { Alert } from '../../../components/Alert';
 import { Button } from '../../../components/Button';
@@ -21,28 +22,50 @@ import { useLanguage } from '../../../lib/language';
 import { methodName, monthsLabel, PlanFeatureList, planName } from '../../billing/labels';
 import { periodFrom, startsLater } from '../../billing/period';
 import { queryKeys } from '../queries';
+import { safeCheckoutUrl } from './online-return';
 
-const METHOD_ICONS: Record<PaymentMethod, Icon> = { INSTAPAY: LightningIcon, VODAFONE_CASH: DeviceMobileIcon, BANK_TRANSFER: BankIcon };
+const METHOD_ICONS: Record<ManualPaymentMethod, Icon> = { INSTAPAY: LightningIcon, VODAFONE_CASH: DeviceMobileIcon, BANK_TRANSFER: BankIcon };
 
-/** Choose a plan and length, pay by one of the offered methods, then send the transfer details for review. */
-export function PaymentForm({ summary }: { summary: BillingSummary }) {
+export type PaymentFormHandle = { focusOnline: () => void };
+type Props = {
+  summary: BillingSummary;
+  /** Plan and length to start with (e.g. those of an online payment that did not go through). */
+  initial?: { planCode: PlanCode; months: number };
+  ref?: Ref<PaymentFormHandle>;
+};
+
+/**
+ * Choose a plan and length, then pay online through Paymob (when offered) or by one of the
+ * transfer methods, sending the transfer details for review.
+ */
+export function PaymentForm({ summary, initial, ref }: Props) {
   const { text, number, language } = useLanguage();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [proof, setProof] = useState<ImageSet | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const defaultPlan = summary.access.planCode && summary.plans.some(plan => plan.code === summary.access.planCode) ? summary.access.planCode : summary.plans[0]?.code ?? 'MENU';
+  const offered = (code: PlanCode | null | undefined): code is PlanCode => !!code && summary.plans.some(plan => plan.code === code);
+  const defaultPlan = offered(initial?.planCode) ? initial.planCode : offered(summary.access.planCode) ? summary.access.planCode : summary.plans[0]?.code ?? 'MENU';
+  const defaultMonths = (summary.months as readonly number[]).includes(initial?.months ?? 0) ? initial!.months as BillingMonths : 1;
   const { control, register, handleSubmit, watch, setError: setFieldError, formState: { errors, isSubmitting } } = useForm({
     resolver: schemaResolver(submitPaymentSchema),
-    defaultValues: { planCode: defaultPlan, months: 1 as const, method: summary.availableMethods[0], reference: '', payerName: '' },
+    defaultValues: { planCode: defaultPlan, months: defaultMonths, method: summary.availableMethods[0], reference: '', payerName: '' },
   });
+  const onlineButton = useRef<HTMLButtonElement>(null);
+  useImperativeHandle(ref, () => ({
+    focusOnline: () => {
+      onlineButton.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+      onlineButton.current?.focus({ preventScroll: true });
+    },
+  }));
   const [planCode, months, method] = watch(['planCode', 'months', 'method']);
   const plan = summary.plans.find(entry => entry.code === planCode) ?? summary.plans[0];
   const total = (plan?.priceMonthlyPiastres ?? 0) * months;
   const period = periodFrom(summary.nextPeriodStartsAt, months);
   const later = startsLater(summary.nextPeriodStartsAt);
   const noMethods = summary.availableMethods.length === 0;
+  const transferStep = summary.onlinePayment ? 4 : 3;
 
   const submit = useMutation({
     mutationFn: billingApi.submit,
@@ -123,14 +146,16 @@ export function PaymentForm({ summary }: { summary: BillingSummary }) {
       </div>
     </section>
 
+    {summary.onlinePayment && <OnlinePayment planCode={planCode} months={months} total={total} buttonRef={onlineButton} />}
+
     {noMethods
-      ? <Alert kind="info" live={false} title={text('الدفع لسه مش متاح', 'Payments are not open yet')}>
+      ? !summary.onlinePayment && <Alert kind="info" live={false} title={text('الدفع لسه مش متاح', 'Payments are not open yet')}>
           {text('لسه بنجهز طرق الدفع. تواصل معانا وهنساعدك تشترك.', 'We are still setting up payment methods. Please contact us and we will help you subscribe.')}
         </Alert>
       : <>
           <section className="card card-padded" aria-labelledby="step-method">
             <div className="card-header"><div>
-              <h3 id="step-method" className="step-title"><span className="step-number" aria-hidden="true">{number(3)}</span>{text('حوّل المبلغ', 'Send the money')}</h3>
+              <h3 id="step-method" className="step-title"><span className="step-number" aria-hidden="true">{number(transferStep)}</span>{summary.onlinePayment ? text('أو حوّل المبلغ بنفسك', 'Or send a transfer') : text('حوّل المبلغ', 'Send the money')}</h3>
               <p>{text('اختار طريقة الدفع، وحوّل المبلغ بالظبط على البيانات دي.', 'Pick a method and transfer the exact amount to these details.')}</p>
             </div></div>
             <div className="method-layout">
@@ -150,7 +175,7 @@ export function PaymentForm({ summary }: { summary: BillingSummary }) {
 
           <section className="card card-padded" aria-labelledby="step-details">
             <div className="card-header"><div>
-              <h3 id="step-details" className="step-title"><span className="step-number" aria-hidden="true">{number(4)}</span>{text('ابعت بيانات التحويل', 'Send the transfer details')}</h3>
+              <h3 id="step-details" className="step-title"><span className="step-number" aria-hidden="true">{number(transferStep + 1)}</span>{text('ابعت بيانات التحويل', 'Send the transfer details')}</h3>
               <p>{text('بنطابقها مع التحويل اللي وصلنا.', 'We match them against the transfer we receive.')}</p>
             </div></div>
             <div className="details-layout">
@@ -181,7 +206,7 @@ export function PaymentForm({ summary }: { summary: BillingSummary }) {
   </form>;
 }
 
-function Instructions({ method, instructions, total }: { method: PaymentMethod; instructions: PaymentInstructions; total: number }) {
+function Instructions({ method, instructions, total }: { method: ManualPaymentMethod; instructions: PaymentInstructions; total: number }) {
   const { text, language } = useLanguage();
   const copied = text('اتنسخ', 'Copied');
   const rows: { label: string; value: string | null; copy?: boolean }[] = method === 'INSTAPAY'
@@ -209,4 +234,50 @@ function Instructions({ method, instructions, total }: { method: PaymentMethod; 
     </dl>
     {notes && <p className="instructions-notes">{notes}</p>}
   </div>;
+}
+
+/** Pay the chosen plan online: the API starts a Paymob checkout and the browser goes there. */
+function OnlinePayment({ planCode, months, total, buttonRef }: { planCode: PlanCode; months: BillingMonths; total: number; buttonRef: Ref<HTMLButtonElement> }) {
+  const { text, number, language } = useLanguage();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [leaving, setLeaving] = useState(false);
+  const start = useMutation({
+    mutationFn: () => billingApi.startOnline({ planCode, months }),
+    onSuccess: checkout => {
+      const url = safeCheckoutUrl(checkout.checkoutUrl);
+      if (!url) { toast.error(text('حصلت مشكلة في فتح صفحة الدفع. جرّب تاني.', 'We couldn’t open the payment page. Please try again.')); return; }
+      setLeaving(true);
+      window.location.assign(url);
+    },
+    onError: error => {
+      // Settings changed, or a transfer was sent from elsewhere: show what is offered now.
+      if (isApiError(error, BILLING_ERROR_CODES.ONLINE_PAYMENT_UNAVAILABLE) || isApiError(error, BILLING_ERROR_CODES.PAYMENT_ALREADY_PENDING)) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.billing });
+      }
+    },
+  });
+  return <section className="card card-padded online-pay" aria-labelledby="step-online" data-testid="online-payment">
+    <div className="card-header"><div>
+      <h3 id="step-online" className="step-title"><span className="step-number" aria-hidden="true">{number(3)}</span>{text('ادفع أونلاين', 'Pay online')}</h3>
+      <p>{text('أسرع طريقة: بتدفع بالكارت (فيزا، ماستركارد، ميزة) أو بالمحفظة على صفحة Paymob الآمنة، واشتراكك بيتفعّل أول ما الدفع يتأكد.',
+        'The quickest way: pay by card (Visa, Mastercard, Meeza) or mobile wallet on Paymob’s secure page, and your plan is active as soon as the payment is confirmed.')}</p>
+    </div></div>
+    {start.isError && <Alert kind="error">{errorMessage(start.error, text)}</Alert>}
+    <div className="online-pay-row">
+      <div className="online-pay-amount">
+        <span>{text('هتدفع', 'You pay')}</span>
+        <strong data-testid="online-total">{formatPrice(total, language)}</strong>
+        <small>{planName(planCode, text)} · {monthsLabel(months, text, number)}</small>
+      </div>
+      <div className="online-pay-action">
+        <Button ref={buttonRef} loading={start.isPending || leaving} onClick={() => start.mutate()} icon={<CreditCardIcon size={19} aria-hidden="true" />} data-testid="pay-online">
+          {text('ادفع أونلاين (كارت أو محفظة)', 'Pay online (card or wallet)')}
+        </Button>
+        <small className="online-pay-secure"><LockSimpleIcon size={14} aria-hidden="true" />{leaving
+          ? <span role="status">{text('بنفتح صفحة الدفع…', 'Opening the payment page…')}</span>
+          : text('بنحوّلك لصفحة Paymob وبعد الدفع بترجع هنا.', 'You go to Paymob’s page and come back here after paying.')}</small>
+      </div>
+    </div>
+  </section>;
 }

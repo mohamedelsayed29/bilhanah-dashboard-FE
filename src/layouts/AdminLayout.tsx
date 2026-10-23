@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { ChartLineUpIcon, ClipboardTextIcon, GearSixIcon, ReceiptIcon, ShieldCheckIcon, SignOutIcon, StorefrontIcon } from '@phosphor-icons/react';
+import { ChartBarIcon, ChartLineUpIcon, ClipboardTextIcon, GearSixIcon, PackageIcon, ReceiptIcon, ShieldCheckIcon, SignOutIcon, StorefrontIcon } from '@phosphor-icons/react';
+import type { AdminOverview } from '@bilhanah/contracts';
 import type { Icon } from '@phosphor-icons/react';
 import { Brand } from '../components/Brand';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -9,21 +10,27 @@ import { useLanguage } from '../lib/language';
 import { useSession } from '../lib/session';
 import { useRouteFocus } from '../lib/use-route-focus';
 
-type NavItem = { to: string; end?: boolean; icon: Icon; ar: string; en: string; short?: [string, string]; pending?: boolean };
+/** `count`: the overview figure shown as a badge. `phone`: also in the bottom tab bar (five fit; reports and the audit log are linked from the overview). */
+type NavItem = { to: string; end?: boolean; icon: Icon; ar: string; en: string; short?: [string, string]; count?: 'pendingPayments' | 'newStandOrders'; phone?: boolean };
 const NAV: NavItem[] = [
-  { to: '/admin', end: true, icon: ChartLineUpIcon, ar: 'نظرة عامة', en: 'Overview', short: ['الرئيسية', 'Overview'] },
-  { to: '/admin/payments', icon: ReceiptIcon, ar: 'التحويلات', en: 'Payments', pending: true },
-  { to: '/admin/restaurants', icon: StorefrontIcon, ar: 'المطاعم', en: 'Restaurants' },
-  { to: '/admin/settings', icon: GearSixIcon, ar: 'الإعدادات', en: 'Settings' },
+  { to: '/admin', end: true, icon: ChartLineUpIcon, ar: 'نظرة عامة', en: 'Overview', short: ['الرئيسية', 'Overview'], phone: true },
+  { to: '/admin/payments', icon: ReceiptIcon, ar: 'التحويلات', en: 'Payments', count: 'pendingPayments', phone: true },
+  { to: '/admin/stand-orders', icon: PackageIcon, ar: 'طلبات الستاندات', en: 'Stand orders', short: ['الستاندات', 'Stands'], count: 'newStandOrders', phone: true },
+  { to: '/admin/restaurants', icon: StorefrontIcon, ar: 'المطاعم', en: 'Restaurants', phone: true },
+  { to: '/admin/stats', icon: ChartBarIcon, ar: 'التقارير', en: 'Reports' },
+  { to: '/admin/settings', icon: GearSixIcon, ar: 'الإعدادات', en: 'Settings', phone: true },
   { to: '/admin/audit', icon: ClipboardTextIcon, ar: 'سجل المراجعة', en: 'Audit log', short: ['السجل', 'Audit'] },
 ];
 
-function PendingCount({ count, inverse = false }: { count: number; inverse?: boolean }) {
+function NavCount({ kind, overview, inverse = false }: { kind: NavItem['count']; overview: AdminOverview | undefined; inverse?: boolean }) {
   const { text, number } = useLanguage();
+  const count = kind && overview ? overview[kind] ?? 0 : 0;
   if (count <= 0) return null;
-  return <span className={`nav-count ${inverse ? 'nav-count-on-dark' : ''}`} data-testid="pending-count">
+  return <span className={`nav-count ${inverse ? 'nav-count-on-dark' : ''}`} data-testid={kind === 'pendingPayments' ? 'pending-count' : 'stand-orders-count'}>
     <span aria-hidden="true">{number(count)}</span>
-    <span className="visually-hidden">{text(`(${number(count)} مستني المراجعة)`, `(${count} waiting for review)`)}</span>
+    <span className="visually-hidden">{kind === 'pendingPayments'
+      ? text(`(${number(count)} مستني المراجعة)`, `(${count} waiting for review)`)
+      : text(`(${number(count)} طلب جديد)`, `(${count} new)`)}</span>
   </span>;
 }
 
@@ -35,7 +42,6 @@ export function AdminLayout() {
   const overview = useAdminOverview();
   useRouteFocus();
   const user = session.status === 'authenticated' ? session.user : null;
-  const pending = overview.data?.pendingPayments ?? 0;
   return <div className="owner-shell admin-shell">
     <a className="skip-link" href="#main-content">{text('انتقل للمحتوى', 'Skip to content')}</a>
     <div className="sidebar-column"><aside className="sidebar">
@@ -44,7 +50,7 @@ export function AdminLayout() {
       <nav aria-label={text('قائمة الإدارة', 'Admin navigation')} className="sidebar-nav">
         {NAV.map(item => <NavLink key={item.to} to={item.to} end={item.end} className="sidebar-link">
           <item.icon size={21} aria-hidden="true" />{text(item.ar, item.en)}
-          {item.pending && <PendingCount count={pending} inverse />}
+          <NavCount kind={item.count} overview={overview.data} inverse />
         </NavLink>)}
       </nav>
       <div className="sidebar-footer">
@@ -75,9 +81,9 @@ export function AdminLayout() {
       </div>
     </main>
     <nav className="tabbar" aria-label={text('التنقل', 'Navigation')}>
-      {NAV.map(item => <NavLink key={item.to} to={item.to} end={item.end} className="tabbar-link">
+      {NAV.filter(item => item.phone).map(item => <NavLink key={item.to} to={item.to} end={item.end} className="tabbar-link">
         {({ isActive }) => <>
-          <span className="tabbar-icon"><item.icon size={24} weight={isActive ? 'fill' : 'regular'} aria-hidden="true" />{item.pending && <PendingCount count={pending} />}</span>
+          <span className="tabbar-icon"><item.icon size={24} weight={isActive ? 'fill' : 'regular'} aria-hidden="true" /><NavCount kind={item.count} overview={overview.data} /></span>
           <span>{item.short ? text(...item.short) : text(item.ar, item.en)}</span>
         </>}
       </NavLink>)}

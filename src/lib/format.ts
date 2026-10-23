@@ -50,3 +50,14 @@ export function formatRelative(iso: string, language: Language, now = Date.now()
 export function daysUntil(iso: string, now = Date.now()): number {
   return Math.max(0, Math.ceil((new Date(iso).getTime() - now) / 86_400_000));
 }
+
+/** 12500 → "12.5K" / "١٢٫٥ ألف", for chart axes. */
+export function formatCompact(value: number, language: Language): string {
+  return new Intl.NumberFormat(locale(language), { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+}
+
+/** An amount in piastres, compact, for chart axes ("EGP 1.2K"). */
+export function formatCompactPrice(piastres: number, language: Language): string {
+  const amount = formatCompact(piastres / 100, language);
+  return language === 'ar' ? `${amount} ج.م` : `EGP ${amount}`;
+}

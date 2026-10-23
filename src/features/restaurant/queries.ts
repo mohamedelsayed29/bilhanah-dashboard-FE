@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { RESTAURANT_ERROR_CODES, type OwnerRestaurant } from '@bilhanah/contracts';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { type BillingSummary, RESTAURANT_ERROR_CODES, type OwnerRestaurant, type StatsPeriod } from '@bilhanah/contracts';
 import { isApiError } from '../../lib/api';
 import { authApi, billingApi, menuApi, restaurantApi, tablesApi } from '../../lib/api/endpoints';
 
@@ -15,6 +15,7 @@ export const queryKeys = {
   orderHistoryAll: ['orders', 'history'] as const,
   order: (id: string) => ['orders', 'detail', id] as const,
   tables: ['tables'] as const,
+  stats: (days: StatsPeriod) => ['stats', days] as const,
 };
 
 export function useRestaurantQuery() {
@@ -40,10 +41,21 @@ export function useSessionsQuery() {
   return useQuery({ queryKey: queryKeys.sessions, queryFn: authApi.sessions });
 }
 
-export function useBillingQuery() {
-  return useQuery({ queryKey: queryKeys.billing, queryFn: billingApi.summary });
+/** `refetchInterval`: e.g. every few seconds while an online payment is being confirmed. */
+export function useBillingQuery(options: { refetchInterval?: (data: BillingSummary | undefined) => number | false } = {}) {
+  const { refetchInterval } = options;
+  return useQuery({
+    queryKey: queryKeys.billing,
+    queryFn: billingApi.summary,
+    refetchInterval: refetchInterval ? query => refetchInterval(query.state.data) : undefined,
+  });
 }
 
 export function useTablesQuery() {
   return useQuery({ queryKey: queryKeys.tables, queryFn: tablesApi.list });
+}
+
+/** Visits and orders over the last `days` days; the previous period stays on screen while another loads. */
+export function useStatsQuery(days: StatsPeriod) {
+  return useQuery({ queryKey: queryKeys.stats(days), queryFn: ({ signal }) => restaurantApi.stats(days, signal), placeholderData: keepPreviousData });
 }

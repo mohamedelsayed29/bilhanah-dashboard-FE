@@ -1,28 +1,29 @@
 import { Link } from 'react-router';
 import { CheckCircleIcon, MagnifyingGlassIcon } from '@phosphor-icons/react';
-import { PAYMENT_STATUSES, type PaymentStatus } from '@bilhanah/contracts';
+import type { PaymentStatus } from '@bilhanah/contracts';
 import { ErrorPanel } from '../../../components/ErrorBoundary';
 import { PageHeader } from '../../../components/PageHeader';
 import { Pagination } from '../../../components/Pagination';
 import { Skeleton } from '../../../components/Skeleton';
 import { formatDate, formatPrice } from '../../../lib/format';
 import { useLanguage, usePageTitle } from '../../../lib/language';
-import { methodName, monthsLabel, PaymentStatusBadge, planName } from '../../billing/labels';
+import { isReviewable, methodName, monthsLabel, PaymentStatusBadge, planName } from '../../billing/labels';
 import { useAdminOverview, usePaymentsQuery } from '../queries';
 import { pageParam, useListParams } from '../shared';
 import { PaymentDialog } from './PaymentDialog';
 
-type Tab = PaymentStatus | 'ALL';
+/** The statuses the admin list can filter by (online payments in progress or declined appear under "All"). */
+type Tab = Extract<PaymentStatus, 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED'> | 'ALL';
 const TABS: { value: Tab; ar: string; en: string }[] = [
   { value: 'PENDING', ar: 'مستني المراجعة', en: 'Pending' },
   { value: 'APPROVED', ar: 'اتقبل', en: 'Approved' },
   { value: 'REJECTED', ar: 'اترفض', en: 'Rejected' },
-  { value: 'CANCELLED', ar: 'اتسحب', en: 'Cancelled' },
+  { value: 'CANCELLED', ar: 'اتسحب أو اتلغى', en: 'Cancelled' },
   { value: 'ALL', ar: 'الكل', en: 'All' },
 ];
 
 function tabParam(value: string | null): Tab {
-  return value === 'ALL' || (PAYMENT_STATUSES as readonly string[]).includes(value ?? '') ? value as Tab : 'PENDING';
+  return TABS.find(entry => entry.value === value)?.value ?? 'PENDING';
 }
 
 /** The review queue (oldest pending first) and every other payment by status. */
@@ -81,11 +82,11 @@ export function AdminPaymentsPage() {
               <td data-label={text('رقم العملية', 'Reference')}><span className="ltr cell-mono">{payment.reference}</span></td>
               <td data-label={text('المحوّل', 'Payer')}>{payment.payerName ?? <span className="muted">—</span>}</td>
               <td data-label={text('اتبعت', 'Submitted')}>{formatDate(payment.createdAt, language, { dateStyle: 'medium' })}<small>{formatDate(payment.createdAt, language, { timeStyle: 'short' })}</small></td>
-              {tab !== 'PENDING' && <td data-label={text('الحالة', 'Status')}><PaymentStatusBadge status={payment.status} /></td>}
+              {tab !== 'PENDING' && <td data-label={text('الحالة', 'Status')}><PaymentStatusBadge status={payment.status} method={payment.method} /></td>}
               <td className="cell-action">
-                <button type="button" className={`button button-small ${payment.status === 'PENDING' ? 'button-primary' : 'button-secondary'}`} onClick={() => update({ view: payment.id })}
-                  aria-label={payment.status === 'PENDING' ? text(`راجع تحويل ${payment.restaurant.name}`, `Review the payment from ${payment.restaurant.name}`) : text(`التفاصيل، تحويل ${payment.restaurant.name}`, `Details of the payment from ${payment.restaurant.name}`)}>
-                  {payment.status === 'PENDING' ? text('راجع', 'Review') : text('التفاصيل', 'Details')}
+                <button type="button" className={`button button-small ${isReviewable(payment) ? 'button-primary' : 'button-secondary'}`} onClick={() => update({ view: payment.id })}
+                  aria-label={isReviewable(payment) ? text(`راجع تحويل ${payment.restaurant.name}`, `Review the payment from ${payment.restaurant.name}`) : text(`التفاصيل، دفع ${payment.restaurant.name}`, `Details of the payment from ${payment.restaurant.name}`)}>
+                  {isReviewable(payment) ? text('راجع', 'Review') : text('التفاصيل', 'Details')}
                 </button>
               </td>
             </tr>)}

@@ -58,6 +58,7 @@ export const router = createBrowserRouter([
               { path: 'orders/history', lazy: page(() => import('../features/restaurant/orders/OrderHistoryPage'), module => module.OrderHistoryPage) },
               { path: 'tables', lazy: page(() => import('../features/restaurant/tables/TablesPage'), module => module.TablesPage) },
               { path: 'tables/print', lazy: page(() => import('../features/restaurant/tables/TablesPrintPage'), module => module.TablesPrintPage) },
+              { path: 'insights', lazy: page(() => import('../features/restaurant/insights/InsightsPage'), module => module.InsightsPage) },
               { path: 'subscription', lazy: page(() => import('../features/restaurant/subscription/SubscriptionPage'), module => module.SubscriptionPage) },
               {
                 path: 'settings',
@@ -88,6 +89,9 @@ export const router = createBrowserRouter([
           children: [
             { index: true, lazy: page(() => import('../features/admin/overview/AdminOverviewPage'), module => module.AdminOverviewPage) },
             { path: 'payments', lazy: page(() => import('../features/admin/payments/AdminPaymentsPage'), module => module.AdminPaymentsPage) },
+            { path: 'stand-orders', lazy: page(() => import('../features/admin/stand-orders/AdminStandOrdersPage'), module => module.AdminStandOrdersPage) },
+            { path: 'stand-orders/:orderId', lazy: page(() => import('../features/admin/stand-orders/AdminStandOrderPage'), module => module.AdminStandOrderPage) },
+            { path: 'stats', lazy: page(() => import('../features/admin/reports/AdminStatsPage'), module => module.AdminStatsPage) },
             { path: 'restaurants', lazy: page(() => import('../features/admin/restaurants/AdminRestaurantsPage'), module => module.AdminRestaurantsPage) },
             { path: 'restaurants/:restaurantId', lazy: page(() => import('../features/admin/restaurants/AdminRestaurantPage'), module => module.AdminRestaurantPage) },
             { path: 'settings', lazy: page(() => import('../features/admin/settings/AdminSettingsPage'), module => module.AdminSettingsPage) },

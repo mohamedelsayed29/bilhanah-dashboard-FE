@@ -20,6 +20,7 @@ import { applyServerIssues, schemaResolver } from '../../../lib/forms';
 import { useLanguage, usePageTitle } from '../../../lib/language';
 import { planName } from '../../billing/labels';
 import { adminKeys, useAdminSettingsQuery } from '../queries';
+import { ShopSettingsCard } from './ShopSettings';
 
 export function AdminSettingsPage() {
   const { text } = useLanguage();
@@ -28,8 +29,9 @@ export function AdminSettingsPage() {
   if (settings.isPending) return <PageSkeleton blocks={3} />;
   if (settings.isError) return <div className="page"><ErrorPanel error={settings.error} onRetry={() => void settings.refetch()} /></div>;
   return <div className="page">
-    <PageHeader title={text('الإعدادات', 'Settings')} description={text('بيانات الدفع اللي بتظهر لأصحاب المطاعم، والتجربة المجانية، وأسعار الباقات.', 'Payment details shown to owners, the free trial and plan prices.')} />
+    <PageHeader title={text('الإعدادات', 'Settings')} description={text('بيانات الدفع اللي بتظهر لأصحاب المطاعم، ومتجر الستاندات، والتجربة المجانية، وأسعار الباقات.', 'Payment details shown to owners, the stand shop, the free trial and plan prices.')} />
     <PaymentSettings payment={settings.data.payment} />
+    <ShopSettingsCard />
     <div className="settings-columns">
       <TrialSettings settings={settings.data} />
       <PlanPrices plans={settings.data.plans} />

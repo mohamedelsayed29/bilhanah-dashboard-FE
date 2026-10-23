@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ClockCountdownIcon, ReceiptIcon, SealCheckIcon, XCircleIcon } from '@phosphor-icons/react';
 import { BILLING_ERROR_CODES, type BillingSummary, type OwnerPayment, type OwnerRestaurant, type RestaurantAccess } from '@bilhanah/contracts';
@@ -18,15 +18,25 @@ import { useLanguage, usePageTitle } from '../../../lib/language';
 import { methodName, monthsLabel, PaymentStatusBadge, planName } from '../../billing/labels';
 import { accessDaysLeft, AccessBadge } from '../access';
 import { queryKeys, useBillingQuery, useRestaurant } from '../queries';
-import { PaymentForm } from './PaymentForm';
+import { isPolling } from './online-return';
+import { OnlineReturnStatus, useOnlineReturn } from './OnlineReturn';
+import { PaymentForm, type PaymentFormHandle } from './PaymentForm';
 
 export function SubscriptionPage() {
   const { text } = useLanguage();
   usePageTitle('الاشتراك', 'Subscription');
-  const billing = useBillingQuery();
+  const online = useOnlineReturn();
+  const billing = useBillingQuery({ refetchInterval: online.refetchInterval });
   const restaurant = useRestaurant();
   const queryClient = useQueryClient();
   const [receipt, setReceipt] = useState<string | null>(null);
+  const form = useRef<PaymentFormHandle>(null);
+  const returnState = billing.data ? online.stateFor(billing.data) : online.paymentId ? { kind: 'checking' as const } : null;
+  const settled = returnState !== null && !isPolling(returnState);
+
+  // The answer is in: drop ?payment= and Paymob's parameters, so a reload does not check again.
+  const { cleanAddress } = online;
+  useEffect(() => { if (settled) cleanAddress(); }, [settled, cleanAddress]);
 
   // A review elsewhere (e.g. an approval) changes access; keep the shell's badge in step.
   const access = billing.data?.access;
@@ -36,13 +46,23 @@ export function SubscriptionPage() {
     }
   }, [access, restaurant.access, queryClient]);
 
-  if (billing.isPending) return <PageSkeleton blocks={3} />;
+  if (billing.isPending) {
+    return online.paymentId
+      ? <div className="page"><OnlineReturnStatus state={{ kind: 'checking' }} onCheckAgain={() => undefined} onPayAgain={() => undefined} onDismiss={online.dismiss} /><PageSkeleton blocks={2} /></div>
+      : <PageSkeleton blocks={3} />;
+  }
   if (billing.isError) return <div className="page"><ErrorPanel error={billing.error} onRetry={() => void billing.refetch()} /></div>;
   const summary = billing.data;
   return <div className="page subscription-page">
     <PageHeader title={text('الاشتراك', 'Subscription')}
-      description={text('ادفع بإنستاباي أو فودافون كاش أو تحويل بنكي، وابعت لنا بيانات التحويل. فريق بالهنا بيراجعه ويفعّل اشتراكك.',
-        'Pay by InstaPay, Vodafone Cash or bank transfer and send us the transfer details. The Bilhanah team reviews it and activates your plan.')} />
+      description={summary.onlinePayment
+        ? text('ادفع أونلاين بالكارت أو المحفظة ويتفعّل اشتراكك على طول، أو حوّل بإنستاباي أو فودافون كاش أو تحويل بنكي وفريق بالهنا يراجع التحويل.',
+          'Pay online by card or wallet and your plan is active right away, or pay by InstaPay, Vodafone Cash or bank transfer and the Bilhanah team reviews it.')
+        : text('ادفع بإنستاباي أو فودافون كاش أو تحويل بنكي، وابعت لنا بيانات التحويل. فريق بالهنا بيراجعه ويفعّل اشتراكك.',
+          'Pay by InstaPay, Vodafone Cash or bank transfer and send us the transfer details. The Bilhanah team reviews it and activates your plan.')} />
+    {returnState && <OnlineReturnStatus state={returnState} onDismiss={online.dismiss}
+      onCheckAgain={() => { online.checkAgain(); void billing.refetch(); }}
+      onPayAgain={() => form.current?.focusOnline()} />}
     <StatusCard access={summary.access} />
     {summary.pendingPayment
       ? <PendingPayment payment={summary.pendingPayment} onViewReceipt={setReceipt} />
@@ -50,7 +70,8 @@ export function SubscriptionPage() {
         ? <Alert kind="error" live={false} title={text('مينفعش تدفع والمطعم موقوف', 'Payments are paused while your restaurant is suspended')}>
             {text('تواصل مع دعم بالهنا عشان نحل المشكلة.', 'Please contact Bilhanah support to sort this out.')}
           </Alert>
-        : <PaymentForm summary={summary} />}
+        : <PaymentForm ref={form} summary={summary}
+            initial={returnState && returnState.kind !== 'checking' && returnState.payment ? { planCode: returnState.payment.planCode, months: returnState.payment.months } : undefined} />}
     <History summary={summary} onViewReceipt={setReceipt} />
     <ReceiptDialog path={receipt} onClose={() => setReceipt(null)} />
   </div>;
@@ -139,10 +160,10 @@ function History({ summary, onViewReceipt }: { summary: BillingSummary; onViewRe
   return <section className="card card-padded" aria-labelledby="history-title">
     <div className="card-header"><div>
       <h2 id="history-title">{text('سجل المدفوعات', 'Payment history')}</h2>
-      <p>{text('كل التحويلات اللي بعتها وحالتها.', 'Every transfer you have sent and what happened to it.')}</p>
+      <p>{text('كل المدفوعات اللي عملتها وحالتها.', 'Every payment you have made and what happened to it.')}</p>
     </div></div>
     {summary.payments.length === 0
-      ? <p className="muted empty-line">{text('لسه مبعتش أي تحويل.', 'You haven’t sent any payments yet.')}</p>
+      ? <p className="muted empty-line">{text('لسه مدفعتش أي حاجة.', 'You haven’t made any payments yet.')}</p>
       : <ul className="history-list">
           {summary.payments.map(payment => <li key={payment.id} className="history-row" data-testid="payment-row" data-status={payment.status}>
             <div className="history-main">
@@ -152,10 +173,12 @@ function History({ summary, onViewReceipt }: { summary: BillingSummary; onViewRe
                 {text('المدة:', 'Period:')} {formatDate(payment.period.startsAt, language)} – {formatDate(payment.period.endsAt, language)}
               </small>}
               {payment.status === 'REJECTED' && payment.rejectionReason && <p className="history-reason"><strong>{text('سبب الرفض:', 'Reason:')}</strong> {payment.rejectionReason}</p>}
+              {payment.status === 'FAILED' && <p className="history-reason">{text('Paymob مقبلش العملية، ومفيش اشتراك اتعمل.', 'Paymob declined it; no plan was added.')}</p>}
+              {payment.status === 'AWAITING_PAYMENT' && <small>{text('الدفع الأونلاين ده ما خلصش، أو لسه مستنيين تأكيد Paymob.', 'This online payment wasn’t finished, or Paymob hasn’t confirmed it yet.')}</small>}
             </div>
             <div className="history-side">
               <span className="history-amount">{formatPrice(payment.amountPiastres, language)}</span>
-              <PaymentStatusBadge status={payment.status} />
+              <PaymentStatusBadge status={payment.status} method={payment.method} />
               {payment.hasProof && <button type="button" className="text-button small" onClick={() => onViewReceipt(billingApi.proofPath(payment.id))}
                 aria-label={text(`الإيصال، تحويل ${formatDate(payment.createdAt, language)}`, `Receipt, ${formatDate(payment.createdAt, language)} payment`)}>
                 <ReceiptIcon size={16} aria-hidden="true" />{text('الإيصال', 'Receipt')}

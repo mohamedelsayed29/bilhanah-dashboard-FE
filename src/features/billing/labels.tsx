@@ -1,21 +1,14 @@
 import { CheckIcon, MinusIcon } from '@phosphor-icons/react';
 import { PLAN_FEATURES, PLAN_NAMES, type PaymentMethod, type PaymentStatus, type PlanCode, type PlanFeatures } from '@bilhanah/contracts';
 import { useLanguage } from '../../lib/language';
+import { PAYMENT_STATUS_LABELS, paymentStatusLabel } from './payment-status';
+
+export { isOnlinePayment, isReviewable, METHOD_NAMES, methodName, paymentStatusLabel } from './payment-status';
 
 type Text = (ar: string, en: string) => string;
 
 export function planName(code: PlanCode, text: Text): string {
   return text(PLAN_NAMES[code].ar, PLAN_NAMES[code].en);
-}
-
-export const METHOD_NAMES: Record<PaymentMethod, [ar: string, en: string]> = {
-  INSTAPAY: ['إنستاباي', 'InstaPay'],
-  VODAFONE_CASH: ['فودافون كاش', 'Vodafone Cash'],
-  BANK_TRANSFER: ['تحويل بنكي', 'Bank transfer'],
-};
-
-export function methodName(method: PaymentMethod, text: Text): string {
-  return text(...METHOD_NAMES[method]);
 }
 
 const FEATURES: { key: keyof PlanFeatures; ar: string; en: string }[] = [
@@ -36,20 +29,9 @@ export function PlanFeatureList({ code }: { code: PlanCode }) {
   </ul>;
 }
 
-const STATUS: Record<PaymentStatus, { ar: string; en: string; tone: string }> = {
-  PENDING: { ar: 'بيتراجع', en: 'Under review', tone: 'warning' },
-  APPROVED: { ar: 'اتقبل', en: 'Approved', tone: 'success' },
-  REJECTED: { ar: 'اترفض', en: 'Rejected', tone: 'danger' },
-  CANCELLED: { ar: 'اتسحب', en: 'Withdrawn', tone: 'muted' },
-};
-
-export function paymentStatusLabel(status: PaymentStatus, text: Text): string {
-  return text(STATUS[status].ar, STATUS[status].en);
-}
-
-export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
+export function PaymentStatusBadge({ status, method }: { status: PaymentStatus; method?: PaymentMethod }) {
   const { text } = useLanguage();
-  return <span className={`badge badge-${STATUS[status].tone}`} data-status={status}>{paymentStatusLabel(status, text)}</span>;
+  return <span className={`badge badge-${PAYMENT_STATUS_LABELS[status].tone}`} data-status={status}>{paymentStatusLabel(status, text, method)}</span>;
 }
 
 /** "3 months" / "٣ شهور" (Arabic counts take different noun forms). */

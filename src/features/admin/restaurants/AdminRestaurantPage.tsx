@@ -122,7 +122,7 @@ function RestaurantDetail({ restaurant }: { restaurant: AdminRestaurantDetail })
             </div>
             <div className="history-side">
               <span className="history-amount">{formatPrice(entry.amountPiastres, language)}</span>
-              <PaymentStatusBadge status={entry.status} />
+              <PaymentStatusBadge status={entry.status} method={entry.method} />
               <button type="button" className="text-button small" onClick={() => setPayment(entry.id)}><ReceiptIcon size={16} aria-hidden="true" />{text('التفاصيل', 'Details')}</button>
             </div>
           </li>)}</ul>}

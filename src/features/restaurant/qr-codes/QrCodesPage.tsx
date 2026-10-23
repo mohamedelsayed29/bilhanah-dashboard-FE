@@ -6,6 +6,7 @@ import { PageHeader } from '../../../components/PageHeader';
 import { useToast } from '../../../components/Toast';
 import { useLanguage, usePageTitle } from '../../../lib/language';
 import { useRestaurant } from '../queries';
+import { menuQrUrl } from './qr-url';
 
 const COLORS = [
   { id: 'black', value: '#111111', ar: 'أسود', en: 'Black' },
@@ -63,6 +64,8 @@ export function QrCodesPage() {
   };
 
   const host = restaurant.publicUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  // Scans of this code count as "QR code" in the insights; the same link goes into every download.
+  const qrUrl = menuQrUrl(restaurant.publicUrl);
   return <div className="page">
     <PageHeader title={text('كود QR', 'QR code')} description={text('الزبون يوجّه كاميرا موبايله على الكود ويفتح المنيو على طول، من غير ما ينزّل أي تطبيق.', 'Diners point their phone camera at the code and your menu opens instantly, no app needed.')} />
     <div className="qr-layout">
@@ -72,13 +75,13 @@ export function QrCodesPage() {
           <strong className="table-card-name">{restaurant.name}</strong>
           <span className="table-card-hint">{text('امسح الكود وشوف المنيو', 'Scan to see the menu')}</span>
           <div className="table-card-qr">
-            <QRCodeSVG ref={svgRef} value={restaurant.publicUrl} size={220} level="M" marginSize={2} fgColor={fg} bgColor="#ffffff"
+            <QRCodeSVG ref={svgRef} value={qrUrl} size={220} level="M" marginSize={2} fgColor={fg} bgColor="#ffffff"
               title={text(`كود QR لمنيو ${restaurant.name}`, `QR code for the ${restaurant.name} menu`)} role="img" />
           </div>
           <span className="table-card-url ltr">{host}</span>
         </div>
         {/* Drawn off-screen at print size for the PNG download. */}
-        <div hidden><QRCodeCanvas ref={canvasRef} value={restaurant.publicUrl} size={PNG_SIZE} level="M" marginSize={4} fgColor={fg} bgColor="#ffffff" /></div>
+        <div hidden><QRCodeCanvas ref={canvasRef} value={qrUrl} size={PNG_SIZE} level="M" marginSize={4} fgColor={fg} bgColor="#ffffff" /></div>
         <fieldset className="field qr-color">
           <legend className="field-label">{text('لون الكود', 'Code color')}</legend>
           <div className="segmented">
@@ -103,10 +106,11 @@ export function QrCodesPage() {
         </section>
         <section className="card card-padded" aria-labelledby="url-title">
           <div className="card-header"><div>
-            <h2 id="url-title">{text('اللينك اللي في الكود', 'The link in the code')}</h2>
-            <p>{text('نفس اللينك ده تقدر تحطه في البايو أو تبعته واتساب.', 'Use the same link in your bio or send it on WhatsApp.')}</p>
+            <h2 id="url-title">{text('لينك المنيو للمشاركة', 'Your menu link to share')}</h2>
+            <p>{text('حطه في البايو أو ابعته واتساب. الكود فيه نفس اللينك وزيادة ‎?src=qr عشان مسح الكود يتحسب لوحده في الإحصائيات.', 'Put it in your bio or send it on WhatsApp. The code holds the same link plus ?src=qr, so scans are counted separately in your insights.')}</p>
           </div></div>
           <p className="public-url ltr">{host}</p>
+          <p className="field-hint qr-url-hint">{text('اللي في الكود:', 'In the code:')} <span className="ltr" data-testid="qr-url">{qrUrl}</span></p>
           <div className="form-actions">
             <CopyButton value={restaurant.publicUrl} label={text('انسخ اللينك', 'Copy link')} />
             <a className="button button-ghost button-small" href={restaurant.publicUrl} target="_blank" rel="noreferrer"><ArrowSquareOutIcon size={17} aria-hidden="true" />{text('افتح المنيو', 'Open menu')}</a>
@@ -120,6 +124,7 @@ export function QrCodesPage() {
             <li>{text('استخدم ورق مط (مش لامع) عشان الإضاءة متعكسش عليه.', 'Use matte paper so lights don’t reflect off it.')}</li>
             <li>{text('جرّب تمسح الكود بموبايلك قبل ما تطبع كمية كبيرة.', 'Scan a test print with your phone before printing many.')}</li>
             <li>{text('الكود مش بيتغير لما تعدّل المنيو، فمش محتاج تطبع تاني.', 'The code never changes when you edit the menu, so you won’t need to reprint.')}</li>
+            <li>{text('لو طابع الكود قبل كده هيفضل شغال، بس مسحه بيتحسب «لينك» في الإحصائيات. اطبع الكود الجديد عشان يتحسب «كود QR».', 'Codes you printed earlier keep working, but their scans count as “link” in your insights. Print the new code to count them as QR scans.')}</li>
           </ul>
         </section>
       </div>

@@ -1,7 +1,8 @@
+import { lazy, Suspense } from 'react';
 import { Link } from 'react-router';
 import { QRCodeSVG } from 'qrcode.react';
 import {
-  ArrowSquareOutIcon, CheckCircleIcon, CircleIcon, ClockIcon, ForkKnifeIcon, ImageSquareIcon, LinkIcon, PaletteIcon, PencilSimpleLineIcon,
+  ArrowSquareOutIcon, ChartBarIcon, CheckCircleIcon, CreditCardIcon, CircleIcon, ClockIcon, ForkKnifeIcon, ImageSquareIcon, LinkIcon, PaletteIcon, PencilSimpleLineIcon,
   QrCodeIcon, SealCheckIcon,
 } from '@phosphor-icons/react';
 import type { OwnerMenu, OwnerRestaurant } from '@bilhanah/contracts';
@@ -13,7 +14,11 @@ import { formatDate } from '../../../lib/format';
 import { useLanguage, usePageTitle } from '../../../lib/language';
 import { useSession } from '../../../lib/session';
 import { accessDaysLeft, AccessBadge, PLAN_NAMES } from '../access';
+import { menuQrUrl } from '../qr-codes/qr-url';
 import { useMenuQuery, useRestaurant } from '../queries';
+
+// Loaded on demand, so the first bundle stays small (the overview is not lazily routed).
+const InsightsSummary = lazy(async () => ({ default: (await import('../insights/InsightsSummary')).InsightsSummary }));
 
 export function OverviewPage() {
   const { text } = useLanguage();
@@ -34,6 +39,7 @@ export function OverviewPage() {
       <LinkCard restaurant={restaurant} />
       <PlanCard restaurant={restaurant} />
     </div>
+    <Suspense fallback={<div className="card card-padded skeleton-stack" aria-hidden="true"><Skeleton width={120} height={16} /><Skeleton width={220} height={26} /></div>}><InsightsSummary /></Suspense>
     <section aria-labelledby="stats-title">
       <h2 id="stats-title" className="visually-hidden">{text('إحصائيات المنيو', 'Menu statistics')}</h2>
       {menu.data ? <MenuStats menu={menu.data} /> : <div className="stats-grid">{[0, 1, 2, 3].map(index => <div className="stat card" key={index}><Skeleton width={60} height={28} /><Skeleton width={90} height={14} /></div>)}</div>}
@@ -74,7 +80,7 @@ function LinkCard({ restaurant }: { restaurant: OwnerRestaurant }) {
       </div>
     </div>
     <Link to="/qr-codes" className="link-card-qr">
-      <QRCodeSVG value={restaurant.publicUrl} size={104} fgColor="#04352f" bgColor="#ffffff" marginSize={2} aria-hidden="true" />
+      <QRCodeSVG value={menuQrUrl(restaurant.publicUrl)} size={104} fgColor="#04352f" bgColor="#ffffff" marginSize={2} aria-hidden="true" />
       <span>{text('QR للطباعة', 'Print QR')}</span>
     </Link>
   </section>;
@@ -160,6 +166,8 @@ function QuickLinks() {
   const links = [
     { to: '/menu', icon: ForkKnifeIcon, title: text('الأصناف والأسعار', 'Items & prices'), body: text('أضف وعدّل ورتّب', 'Add, edit and reorder') },
     { to: '/qr-codes', icon: QrCodeIcon, title: text('كود QR', 'QR code'), body: text('نزّله واطبعه', 'Download and print') },
+    { to: '/insights', icon: ChartBarIcon, title: text('الإحصائيات', 'Insights'), body: text('زيارات وطلبات وأكتر الأصناف', 'Visits, orders and top dishes') },
+    { to: '/subscription', icon: CreditCardIcon, title: text('الاشتراك', 'Subscription'), body: text('ادفع أو جدّد', 'Pay or renew') },
     { to: '/settings/branding', icon: PaletteIcon, title: text('الشكل والألوان', 'Branding'), body: text('لوجو وغلاف ولون', 'Logo, cover and color') },
     { to: '/settings/hours', icon: ClockIcon, title: text('مواعيد الشغل', 'Opening hours'), body: text('أيام وساعات الفتح', 'Days and hours') },
     { to: '/settings', icon: ImageSquareIcon, title: text('بيانات المطعم', 'Restaurant profile'), body: text('تليفون وعنوان وسوشيال', 'Phone, address, social') },

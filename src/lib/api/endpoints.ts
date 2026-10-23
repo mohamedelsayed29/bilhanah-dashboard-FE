@@ -1,4 +1,13 @@
 import type {
+  AdminStandOrder,
+  OnlineCheckout,
+  PlatformStats,
+  RestaurantStats,
+  ShopSettings,
+  StandOrderStatus,
+  StatsPeriod,
+  startOnlinePaymentSchema,
+  updateStandOrderSchema,
   AdminEntitlement,
   AdminOverview,
   AdminPayment,
@@ -73,6 +82,8 @@ export const restaurantApi = {
   mine: () => request<OwnerRestaurant>('/v1/restaurants/mine'),
   update: (body: z.output<typeof updateRestaurantSchema>) => request<OwnerRestaurant>('/v1/restaurants/mine', { method: 'PATCH', body }),
   publicMenu: (subdomain: string) => request<PublicMenuResponse>(`/v1/public/restaurants/${encodeURIComponent(subdomain)}/menu`, { auth: false }),
+  /** Visits and orders per day, in the restaurant's time zone. */
+  stats: (days: StatsPeriod, signal?: AbortSignal) => request<RestaurantStats>(`/v1/restaurants/mine/stats?days=${days}`, { signal }),
 };
 
 export const menuApi = {
@@ -108,12 +119,17 @@ const id = (value: string) => encodeURIComponent(value);
 export const billingApi = {
   summary: () => request<BillingSummary>('/v1/billing'),
   submit: (body: z.output<typeof submitPaymentSchema>) => request<OwnerPayment>('/v1/billing/payments', { method: 'POST', body }),
+  /** Starts a Paymob checkout (cancelling earlier unfinished ones); send the browser to `checkoutUrl`. */
+  startOnline: (body: z.output<typeof startOnlinePaymentSchema>) => request<OnlineCheckout>('/v1/billing/online', { method: 'POST', body }),
   withdraw: (paymentId: string) => request<void>(`/v1/billing/payments/${id(paymentId)}`, { method: 'DELETE' }),
   /** Path of the receipt image (fetch it with `apiClient.requestBlob`). */
   proofPath: (paymentId: string) => `/v1/billing/payments/${id(paymentId)}/proof`,
 };
 
 export type AdminRestaurantsQuery = { query?: string; access?: AccessStatus; page?: number; pageSize?: number };
+/** `open`: not yet delivered or cancelled. */
+export type StandOrderFilter = StandOrderStatus | 'open';
+export type AdminStandOrdersQuery = { status?: StandOrderFilter; query?: string; page?: number; pageSize?: number };
 
 /** Platform administration (administrators only). */
 export const adminApi = {
@@ -137,6 +153,22 @@ export const adminApi = {
   updatePlanPrice: (code: PlanCode, priceMonthlyPiastres: number) =>
     request<AdminSettings>(`/v1/admin/plans/${code}`, { method: 'PUT', body: { priceMonthlyPiastres } }),
   audit: (page: number) => request<Paginated<AuditEntry>>(`/v1/admin/audit${query({ page })}`),
+  /** Daily platform figures in Cairo time. */
+  stats: (days: StatsPeriod, signal?: AbortSignal) => request<PlatformStats>(`/v1/admin/stats?days=${days}`, { signal }),
+  shopSettings: () => request<ShopSettings>('/v1/admin/settings/shop'),
+  updateShopSettings: (body: ShopSettings) => request<ShopSettings>('/v1/admin/settings/shop', { method: 'PUT', body }),
+  /** The stand-shop fulfilment queue, newest first. */
+  standOrders: (params: AdminStandOrdersQuery, signal?: AbortSignal) =>
+    request<Paginated<AdminStandOrder>>(`/v1/admin/stand-orders${query(params)}`, { signal }),
+  standOrder: (orderId: string) => request<AdminStandOrder>(`/v1/admin/stand-orders/${id(orderId)}`),
+  /** A note is required to cancel; allowed moves are in STAND_ORDER_TRANSITIONS. */
+  updateStandOrderStatus: (orderId: string, body: { status: StandOrderStatus; note?: string }) =>
+    request<AdminStandOrder>(`/v1/admin/stand-orders/${id(orderId)}/status`, { method: 'PATCH', body }),
+  /** The internal note, or cash collected (paymentStatus PAID). */
+  updateStandOrder: (orderId: string, body: z.input<typeof updateStandOrderSchema>) =>
+    request<AdminStandOrder>(`/v1/admin/stand-orders/${id(orderId)}`, { method: 'PATCH', body }),
+  /** Path of a line's uploaded logo (fetch it with `apiClient.requestBlob`). */
+  standLogoPath: (orderId: string, lineId: string) => `/v1/admin/stand-orders/${id(orderId)}/lines/${id(lineId)}/logo`,
 };
 
 /** The live order board, order history and status changes. */

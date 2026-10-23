@@ -10,6 +10,7 @@ import {
   ORDER_ERROR_CODES as ORDER,
   ORDER_LIMITS,
   RESTAURANT_ERROR_CODES as RESTAURANT,
+  SHOP_ERROR_CODES as SHOP,
 } from '@bilhanah/contracts';
 import { ApiError, CLIENT_ERROR_CODES as CLIENT } from './api-error';
 
@@ -44,6 +45,8 @@ const MESSAGES: Record<string, [ar: string, en: string]> = {
   [BILLING.PAYMENT_NOT_FOUND]: ['التحويل ده مش موجود.', 'That payment could not be found.'],
   [BILLING.PAYMENT_NOT_PENDING]: ['التحويل ده اتراجع خلاص.', 'This payment has already been reviewed.'],
   [BILLING.PAYMENT_METHOD_UNAVAILABLE]: ['طريقة الدفع دي مش متاحة دلوقتي. اختار طريقة تانية.', 'This payment method is not available right now. Please choose another.'],
+  [BILLING.ONLINE_PAYMENT_UNAVAILABLE]: ['الدفع الأونلاين مش متاح دلوقتي. جرّب كمان شوية، أو ادفع بتحويل.', 'Online payment is not available right now. Try again shortly, or pay by transfer.'],
+  [SHOP.STAND_ORDER_NOT_FOUND]: ['طلب الستاند ده مش موجود.', 'That stand order could not be found.'],
   [ADMIN.MFA_NOT_SET_UP]: ['التحقق بخطوتين مش متفعّل على الحساب ده. اطلب من المسؤول التقني يشغّل npm run admin:reset-mfa.', 'Two-step sign-in is not set up for this account. Ask an operator to run npm run admin:reset-mfa.'],
   [ADMIN.ALREADY_SUSPENDED]: ['المطعم ده موقوف بالفعل.', 'This restaurant is already suspended.'],
   [ADMIN.NOT_SUSPENDED]: ['المطعم ده مش موقوف.', 'This restaurant is not suspended.'],

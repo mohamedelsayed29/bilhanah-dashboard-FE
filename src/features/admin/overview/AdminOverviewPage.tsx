@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { ArrowLeftIcon, CalendarXIcon, CurrencyCircleDollarIcon, HourglassMediumIcon, SparkleIcon, StorefrontIcon } from '@phosphor-icons/react';
+import { ArrowLeftIcon, CalendarXIcon, ChartBarIcon, ClipboardTextIcon, CurrencyCircleDollarIcon, HourglassMediumIcon, PackageIcon, SparkleIcon, StorefrontIcon } from '@phosphor-icons/react';
 import type { AccessStatus, AdminOverview } from '@bilhanah/contracts';
 import { ErrorPanel } from '../../../components/ErrorBoundary';
 import { PageHeader } from '../../../components/PageHeader';
@@ -25,6 +25,7 @@ export function AdminOverviewPage() {
       description={text('حالة المطاعم والاشتراكات على بالهنا النهارده.', 'Restaurants and subscriptions on Bilhanah today.')} />
     <Kpis overview={overview.data} />
     <StatusBreakdown overview={overview.data} />
+    <MoreLinks />
   </div>;
 }
 
@@ -32,12 +33,18 @@ function Kpis({ overview }: { overview: AdminOverview }) {
   const { text, number, language } = useLanguage();
   return <section aria-labelledby="kpi-title">
     <h2 id="kpi-title" className="visually-hidden">{text('المؤشرات', 'Key figures')}</h2>
-    <div className="kpi-grid">
+    <div className="kpi-grid kpi-grid-even">
       <Link to="/admin/payments" className={`kpi card ${overview.pendingPayments ? 'kpi-attention' : ''}`} data-testid="kpi-pending">
         <span className="kpi-icon" aria-hidden="true"><HourglassMediumIcon size={22} /></span>
         <strong>{number(overview.pendingPayments)}</strong>
         <span>{text('تحويلات مستنية المراجعة', 'Payments waiting for review')}</span>
         <small className="kpi-link">{text('افتح قائمة المراجعة', 'Open the review queue')}<ArrowLeftIcon size={14} className="directional" aria-hidden="true" /></small>
+      </Link>
+      <Link to="/admin/stand-orders?status=NEW" className={`kpi card ${overview.newStandOrders ? 'kpi-attention' : ''}`} data-testid="kpi-stand-orders">
+        <span className="kpi-icon" aria-hidden="true"><PackageIcon size={22} /></span>
+        <strong>{number(overview.newStandOrders)}</strong>
+        <span>{text('طلبات ستاندات جديدة', 'New stand orders')}</span>
+        <small className="kpi-link">{text('افتح طلبات الستاندات', 'Open stand orders')}<ArrowLeftIcon size={14} className="directional" aria-hidden="true" /></small>
       </Link>
       <div className="kpi card" data-testid="kpi-mrr">
         <span className="kpi-icon" aria-hidden="true"><CurrencyCircleDollarIcon size={22} /></span>
@@ -85,6 +92,24 @@ function StatusBreakdown({ overview }: { overview: AdminOverview }) {
           <small>{text(`${number(Math.round((overview.restaurants[status] / total) * 100))}٪`, `${Math.round((overview.restaurants[status] / total) * 100)}%`)}</small>
         </Link>
       </li>)}
+    </ul>
+  </section>;
+}
+
+/** Pages that are not in the phone tab bar. */
+function MoreLinks() {
+  const { text } = useLanguage();
+  const links = [
+    { to: '/admin/stats', icon: ChartBarIcon, title: text('التقارير', 'Reports'), body: text('زيارات وطلبات وإيرادات يوم بيوم', 'Visits, orders and revenue day by day') },
+    { to: '/admin/audit', icon: ClipboardTextIcon, title: text('سجل المراجعة', 'Audit log'), body: text('كل تغيير عمله الفريق', 'Every change the team made') },
+  ];
+  return <section className="card card-padded" aria-labelledby="more-title">
+    <div className="card-header"><h2 id="more-title">{text('صفحات تانية', 'More')}</h2></div>
+    <ul className="quick-links quick-links-row">
+      {links.map(link => <li key={link.to}><Link to={link.to}>
+        <span className="quick-icon" aria-hidden="true"><link.icon size={20} /></span>
+        <span><strong>{link.title}</strong><small>{link.body}</small></span>
+      </Link></li>)}
     </ul>
   </section>;
 }

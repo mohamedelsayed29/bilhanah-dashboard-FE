@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { ArrowSquareOutIcon, CreditCardIcon, ForkKnifeIcon, GearSixIcon, HouseIcon, QrCodeIcon, ReceiptIcon, SignOutIcon, TableIcon } from '@phosphor-icons/react';
+import { ArrowSquareOutIcon, ChartBarIcon, CreditCardIcon, ForkKnifeIcon, GearSixIcon, HouseIcon, QrCodeIcon, ReceiptIcon, SignOutIcon, TableIcon } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
 import type { OwnerRestaurant } from '@bilhanah/contracts';
 import { Brand } from '../components/Brand';
@@ -11,13 +11,14 @@ import { useLanguage } from '../lib/language';
 import { useSession } from '../lib/session';
 import { useRouteFocus } from '../lib/use-route-focus';
 
-/** `phone`: also in the bottom tab bar (five fit at 390 px; the QR code and subscription are linked from the overview). */
+/** `phone`: also in the bottom tab bar (five fit at 390 px; insights, the QR code and subscription are linked from the overview). */
 type NavItem = { to: string; end?: boolean; icon: Icon; ar: string; en: string; phone?: boolean; orders?: boolean };
 const NAV: NavItem[] = [
   { to: '/', end: true, icon: HouseIcon, ar: 'الرئيسية', en: 'Overview', phone: true },
   { to: '/orders', icon: ReceiptIcon, ar: 'الطلبات', en: 'Orders', phone: true, orders: true },
   { to: '/menu', icon: ForkKnifeIcon, ar: 'المنيو', en: 'Menu', phone: true },
   { to: '/tables', icon: TableIcon, ar: 'الطاولات', en: 'Tables', phone: true },
+  { to: '/insights', icon: ChartBarIcon, ar: 'الإحصائيات', en: 'Insights' },
   { to: '/qr-codes', icon: QrCodeIcon, ar: 'كود QR', en: 'QR code' },
   { to: '/subscription', icon: CreditCardIcon, ar: 'الاشتراك', en: 'Subscription' },
   { to: '/settings', icon: GearSixIcon, ar: 'الإعدادات', en: 'Settings', phone: true },

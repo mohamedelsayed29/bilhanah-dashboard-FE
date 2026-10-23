@@ -31,6 +31,27 @@ export async function emailLink(request: APIRequestContext, to: string, path: 'v
   return link!;
 }
 
+/**
+ * Every link of this kind emailed to `to` since `after`, newest first, once `count` have arrived.
+ * Emails leave a queue several at a time, so they can arrive in a different order than they were sent.
+ */
+export async function emailLinks(request: APIRequestContext, to: string, path: 'verify-email' | 'reset-password', after: number, count: number): Promise<string[]> {
+  const pattern = new RegExp(`https?://\\S+/${path}#token=[\\w-]+`);
+  let links: string[] = [];
+  await expect.poll(async () => {
+    const search = await request.get(`${MAILPIT_URL}/api/v1/search`, { params: { query: `to:"${to}"` } });
+    const { messages } = (await search.json()) as { messages: { ID: string; Created: string }[] };
+    links = [];
+    for (const message of messages.filter(entry => new Date(entry.Created).getTime() >= after)) {
+      const detail = (await (await request.get(`${MAILPIT_URL}/api/v1/message/${message.ID}`)).json()) as { Text: string };
+      const match = pattern.exec(detail.Text);
+      if (match) links.push(match[0]);
+    }
+    return links.length >= count;
+  }, { timeout: 30_000, intervals: [500, 1000, 2000] }).toBe(true);
+  return links;
+}
+
 /** Fails on serious or critical axe violations, listing them. */
 export async function expectAccessible(page: Page, label: string) {
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
