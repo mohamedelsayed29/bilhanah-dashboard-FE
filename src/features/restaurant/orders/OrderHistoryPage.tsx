@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { ClockCounterClockwiseIcon } from '@phosphor-icons/react';
+import { CompactMeta } from '../../../components/CompactMeta';
 import { ErrorPanel } from '../../../components/ErrorBoundary';
 import { PageHeader } from '../../../components/PageHeader';
 import { Pagination } from '../../../components/Pagination';
@@ -55,13 +56,16 @@ export function OrderHistoryPage() {
           <tbody>
             {history.data.items.map(order => <tr key={order.id} data-testid={`history-${order.number}`}>
               <td className="cell-primary"><span className="history-number"><OrderNo number={order.number} /></span></td>
-              <td data-label={text('التاريخ', 'Date')}>{formatDate(order.placedAt, language, { dateStyle: 'medium' })}<small>{formatDate(order.placedAt, language, { timeStyle: 'short' })}</small></td>
-              <td data-label={text('النوع', 'Type')}>{orderTypeName(order.type, text)}{order.type === 'DINE_IN' && order.tableLabel && <small>{order.tableLabel}</small>}</td>
-              <td data-label={text('الزبون', 'Customer')}>{order.customerName}</td>
-              <td data-label={text('الحالة', 'Status')}><OrderStatusBadge status={order.status} /></td>
+              <td data-label={text('التاريخ', 'Date')} className="cell-nowrap">{formatDate(order.placedAt, language, { dateStyle: 'medium' })}<small>{formatDate(order.placedAt, language, { timeStyle: 'short' })}</small></td>
+              <td data-label={text('النوع', 'Type')}>{orderTypeName(order.type, text)}{order.type === 'DINE_IN' && order.tableLabel && <small><bdi>{order.tableLabel}</bdi></small>}</td>
+              <td data-label={text('الزبون', 'Customer')}><bdi>{order.customerName}</bdi></td>
+              <td data-label={text('الحالة', 'Status')} className="cell-end"><OrderStatusBadge status={order.status} /></td>
               <td data-label={text('الإجمالي', 'Total')} className="cell-amount">{formatPrice(order.subtotalPiastres, language)}</td>
-              <td className="cell-action">
-                <button type="button" className="button button-secondary button-small" onClick={() => setViewing(order.id)}
+              <CompactMeta parts={[formatDate(order.placedAt, language, { dateStyle: 'medium', timeStyle: 'short' }),
+                order.type === 'DINE_IN' && order.tableLabel ? <bdi>{order.tableLabel}</bdi> : orderTypeName(order.type, text),
+                <bdi>{order.customerName}</bdi>, formatPrice(order.subtotalPiastres, language)]} />
+              <td className="cell-action cell-action-inline">
+                <button type="button" className="button button-secondary button-small row-link" onClick={() => setViewing(order.id)}
                   aria-label={text(`تفاصيل طلب #${number(order.number)}`, `Details of order #${order.number}`)}>{text('التفاصيل', 'Details')}</button>
               </td>
             </tr>)}

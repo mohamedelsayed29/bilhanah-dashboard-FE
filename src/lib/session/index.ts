@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { SessionStore, type SessionState } from './session-store';
 
-export { SessionStore } from './session-store';
+export { mayHaveSession, SessionStore, shouldSkipRefresh } from './session-store';
 export type { SessionState } from './session-store';
 
 export const sessionStore = new SessionStore();

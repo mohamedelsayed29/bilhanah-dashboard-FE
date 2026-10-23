@@ -74,7 +74,7 @@ const orNull = (value: string) => value.trim() || null;
 
 /** Create or edit an item: names, descriptions, photo, price or sizes, availability and category. */
 export function ItemEditor({ item, categoryId, categories, onClose }: { item?: OwnerMenuItem; categoryId: string; categories: OwnerMenuCategory[]; onClose: () => void }) {
-  const { text, language } = useLanguage();
+  const { text, language, number } = useLanguage();
   const queryClient = useQueryClient();
   const toast = useToast();
   const { deleteItem } = useMenuMutations();
@@ -167,17 +167,17 @@ export function ItemEditor({ item, categoryId, categories, onClose }: { item?: O
                     </div>
                     <ul>
                       {sizes.fields.map((field, index) => <li key={field.id} className="size-row">
-                        <Field label={<span className="size-label">{text(`اسم الحجم ${index + 1}`, `Size ${index + 1} name`)}</span>} error={errors.sizes?.[index]?.nameAr}>
+                        <Field label={<span className="size-label">{text(`اسم الحجم ${number(index + 1)}`, `Size ${index + 1} name`)}</span>} error={errors.sizes?.[index]?.nameAr}>
                           <input className="input" dir="rtl" lang="ar" placeholder={text('صغير', 'صغير')} {...register(`sizes.${index}.nameAr`)} />
                         </Field>
-                        <Field label={<span className="size-label">{text(`الاسم بالإنجليزي ${index + 1}`, `Size ${index + 1} English name`)}</span>} error={errors.sizes?.[index]?.nameEn}>
+                        <Field label={<span className="size-label">{text(`الاسم بالإنجليزي ${number(index + 1)}`, `Size ${index + 1} English name`)}</span>} error={errors.sizes?.[index]?.nameEn}>
                           <input className="input" dir="ltr" lang="en" placeholder="Small" {...register(`sizes.${index}.nameEn`)} />
                         </Field>
-                        <Field label={<span className="size-label">{text(`سعر الحجم ${index + 1}`, `Size ${index + 1} price`)}</span>} error={errors.sizes?.[index]?.price}>
+                        <Field label={<span className="size-label">{text(`سعر الحجم ${number(index + 1)}`, `Size ${index + 1} price`)}</span>} error={errors.sizes?.[index]?.price}>
                           <input className="input" dir="ltr" inputMode="decimal" placeholder="0" {...register(`sizes.${index}.price`)} />
                         </Field>
                         <button type="button" className="icon-button icon-button-danger size-remove" onClick={() => sizes.remove(index)} disabled={sizes.fields.length <= 2}
-                          aria-label={text(`امسح الحجم ${index + 1}`, `Remove size ${index + 1}`)}><TrashIcon size={18} /></button>
+                          aria-label={text(`امسح الحجم ${number(index + 1)}`, `Remove size ${index + 1}`)}><TrashIcon size={18} /></button>
                       </li>)}
                     </ul>
                     {sizesListError && <p className="field-error" role="alert">{text('أضف حجمين على الأقل، أو اختار سعر واحد.', 'Add at least two sizes, or switch to a single price.')}</p>}

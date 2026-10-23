@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { useQueryClient } from '@tanstack/react-query';
-import { CheckIcon, GlobeIcon, StorefrontIcon } from '@phosphor-icons/react';
+import { CheckIcon, GlobeIcon } from '@phosphor-icons/react';
 import { createRestaurantSchema, RESTAURANT_ERROR_CODES, SUBDOMAIN_MAX_LENGTH } from '@bilhanah/contracts';
 import { Alert } from '../../components/Alert';
 import { Button } from '../../components/Button';
@@ -26,7 +26,7 @@ export function suggestSubdomain(name: string): string {
 }
 
 export function OnboardingPage() {
-  const { text, language } = useLanguage();
+  const { text, number, language } = useLanguage();
   usePageTitle('بيانات مطعمك', 'Your restaurant');
   const session = useSession();
   const navigate = useNavigate();
@@ -82,16 +82,15 @@ export function OnboardingPage() {
   return <section className="onboarding">
     <ol className="steps" aria-label={text('خطوات البداية', 'Getting started')}>
       <li className="done"><span><CheckIcon size={14} weight="bold" aria-hidden="true" /></span>{text('الحساب', 'Account')}</li>
-      <li className="current" aria-current="step"><span>2</span>{text('بيانات المطعم', 'Restaurant details')}</li>
-      <li><span>3</span>{text('المنيو', 'Menu')}</li>
+      <li className="current" aria-current="step"><span>{number(2)}</span>{text('بيانات المطعم', 'Restaurant details')}</li>
+      <li><span>{number(3)}</span>{text('المنيو', 'Menu')}</li>
     </ol>
     <header className="auth-card-header">
-      <span className="auth-icon" aria-hidden="true"><StorefrontIcon size={30} /></span>
       <h1 tabIndex={-1} data-page-title>{text('عرّفنا على مطعمك', 'Tell us about your restaurant')}</h1>
       <p>{text('البيانات دي بتظهر لزباينك على المنيو. تقدر تعدّلها بعدين من الإعدادات، ما عدا العنوان.', 'Diners see these details on your menu. You can edit them later in Settings, except the address.')}</p>
     </header>
     {error !== null && <Alert kind="error">{errorMessage(error, text)}</Alert>}
-    <form className="card card-padded form onboarding-form" onSubmit={onSubmit} noValidate>
+    <form className="form onboarding-form" onSubmit={onSubmit} noValidate>
       <div className="form-grid">
         <Field className="field-wide" label={text('اسم المطعم', 'Restaurant name')} error={errors.name} required>
           <input className="input" autoComplete="organization" {...nameField} />

@@ -40,12 +40,12 @@ export function AccountSettings() {
   const session = useSession();
   const user = session.status === 'authenticated' ? session.user : null;
   return <div className="settings-grid">
-    <div className="form">
+    <div className="settings-main">
       <ChangePassword />
       <Sessions />
     </div>
-    <aside className="card card-padded" aria-labelledby="profile-title">
-      <h2 id="profile-title" className="section-title">{text('حسابك', 'Your account')}</h2>
+    <aside className="settings-aside" aria-labelledby="profile-title">
+      <h2 id="profile-title">{text('حسابك', 'Your account')}</h2>
       <dl className="details">
         <div><dt>{text('الاسم', 'Name')}</dt><dd>{user?.fullName}</dd></div>
         <div><dt>{text('الإيميل', 'Email')}</dt><dd className="ltr">{user?.email}</dd></div>
@@ -102,11 +102,8 @@ function ChangePassword() {
       }
     }
   });
-  return <section className="card card-padded" aria-labelledby="password-title">
-    <div className="card-header"><div>
-      <h2 id="password-title">{text('تغيير كلمة السر', 'Change password')}</h2>
-      <p>{text('بعد التغيير هنخرّج أي جهاز تاني من حسابك.', 'After the change, every other device is signed out.')}</p>
-    </div></div>
+  return <section className="section" aria-labelledby="password-title">
+        <div className="section-head"><div><h2 id="password-title">{text('تغيير كلمة السر', 'Change password')}</h2><p>{text('بعد التغيير هنخرّج أي جهاز تاني من حسابك.', 'After the change, every other device is signed out.')}</p></div></div>
     <form className="form" onSubmit={onSubmit} noValidate>
       {error !== null && <Alert kind="error">{errorMessage(error, text)}</Alert>}
       <Field label={text('كلمة السر الحالية', 'Current password')} error={errors.currentPassword} required>
@@ -128,18 +125,30 @@ function ChangePassword() {
 function Sessions() {
   const { text } = useLanguage();
   const sessions = useSessionsQuery();
-  return <section className="card card-padded" aria-labelledby="sessions-title">
-    <div className="card-header"><div>
-      <h2 id="sessions-title">{text('الأجهزة المسجّل دخولها', 'Signed-in devices')}</h2>
-      <p>{text('لو شايف جهاز مش بتاعك، خرّجه وغيّر كلمة السر.', 'If you don’t recognise a device, sign it out and change your password.')}</p>
-    </div></div>
+  return <section className="section" aria-labelledby="sessions-title">
+        <div className="section-head"><div><h2 id="sessions-title">{text('الأجهزة المسجّل دخولها', 'Signed-in devices')}</h2><p>{text('لو شايف جهاز مش بتاعك، خرّجه وغيّر كلمة السر.', 'If you don’t recognise a device, sign it out and change your password.')}</p></div></div>
     {sessions.isPending && <div className="skeleton-stack"><Skeleton height={56} /><Skeleton height={56} /></div>}
     {sessions.isError && <ErrorPanel error={sessions.error} onRetry={() => void sessions.refetch()} />}
-    {sessions.data && <ul className="session-list">
-      {[...sessions.data].sort((a, b) => Number(b.current) - Number(a.current)).map(entry => <SessionRow key={entry.id} session={entry} />)}
-    </ul>}
+    {sessions.data && <SessionList sessions={sessions.data} />}
   </section>;
 }
+
+/** This device first, then the most recently used; long lists start folded. */
+function SessionList({ sessions }: { sessions: AuthSession[] }) {
+  const { text, count } = useLanguage();
+  const [all, setAll] = useState(false);
+  const sorted = [...sessions].sort((a, b) => Number(b.current) - Number(a.current)
+    || (b.lastUsedAt ?? b.createdAt).localeCompare(a.lastUsedAt ?? a.createdAt));
+  const shown = all ? sorted : sorted.slice(0, FOLDED_SESSIONS);
+  return <>
+    <ul className="session-list">{shown.map(entry => <SessionRow key={entry.id} session={entry} />)}</ul>
+    {sorted.length > FOLDED_SESSIONS && <button type="button" className="text-button" aria-expanded={all} onClick={() => setAll(value => !value)}>
+      {all ? text('اعرض أقل', 'Show fewer') : text(`اعرض كل الأجهزة (${count(sorted.length, [{ one: 'جهاز واحد', two: 'جهازين', few: '{n} أجهزة', many: '{n} جهاز' }, { one: '{n} device', other: '{n} devices' }])})`, `Show all devices (${sorted.length})`)}
+    </button>}
+  </>;
+}
+
+const FOLDED_SESSIONS = 5;
 
 function SessionRow({ session }: { session: AuthSession }) {
   const { text, language } = useLanguage();

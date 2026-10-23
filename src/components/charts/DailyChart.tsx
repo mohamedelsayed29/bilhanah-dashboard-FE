@@ -124,7 +124,7 @@ export function DailyChart<Day extends { date: string }>({ days, series, label }
               return <g key={tick}>
                 <line className={tick === 0 ? 'chart-baseline' : 'chart-grid'} x1={plotStart} x2={plotStart + plotWidth} y1={y} y2={y} />
                 <text className="chart-axis" x={rtl ? plotWidth + 6 : GUTTER - 6} y={y} dy="0.35em" style={{ textAnchor: rtl ? 'start' : 'end' }} direction="ltr">
-                  {tick === 0 ? '0' : axisFormat(tick)}
+                  {tick === 0 ? (rtl ? '٠' : '0') : axisFormat(tick)}
                 </text>
               </g>;
             })}

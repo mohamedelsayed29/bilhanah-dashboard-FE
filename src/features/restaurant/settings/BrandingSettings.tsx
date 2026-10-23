@@ -37,10 +37,10 @@ export function BrandingSettings() {
   };
 
   return <div className="branding-layout">
-    <form className="form" noValidate onSubmit={event => { event.preventDefault(); submit(); }}>
+    <form className="settings-main" noValidate onSubmit={event => { event.preventDefault(); submit(); }}>
       {save.isError && <Alert kind="error">{errorMessage(save.error, text)}</Alert>}
-      <section className="card card-padded" aria-labelledby="images-title">
-        <div className="card-header"><div><h2 id="images-title">{text('اللوجو وصورة الغلاف', 'Logo and cover photo')}</h2><p>{text('اللوجو بيظهر جنب اسم المطعم، والغلاف في أول المنيو.', 'Your logo appears next to the restaurant name; the cover sits at the top of the menu.')}</p></div></div>
+      <section className="section" aria-labelledby="images-title">
+        <div className="section-head"><div><h2 id="images-title">{text('اللوجو وصورة الغلاف', 'Logo and cover photo')}</h2><p>{text('اللوجو بيظهر جنب اسم المطعم، والغلاف في أول المنيو.', 'Your logo appears next to the restaurant name; the cover sits at the top of the menu.')}</p></div></div>
         <div className="branding-uploads">
           <ImageUpload kind="LOGO" value={logo} onChange={setLogo} aspect="1 / 1" label={text('اللوجو', 'Logo')} hint={text('مربع، ٤٠٠ بكسل أو أكبر.', 'Square, 400 px or larger.')}
             onBusyChange={busy => setUploading(current => ({ ...current, logo: busy }))} />
@@ -48,8 +48,8 @@ export function BrandingSettings() {
             onBusyChange={busy => setUploading(current => ({ ...current, cover: busy }))} />
         </div>
       </section>
-      <section className="card card-padded" aria-labelledby="color-title">
-        <div className="card-header"><div><h2 id="color-title">{text('لون المطعم', 'Brand color')}</h2><p>{text('بيتلوّن بيه الأزرار والأقسام في المنيو.', 'Used for buttons and highlights on your menu.')}</p></div></div>
+      <section className="section" aria-labelledby="color-title">
+        <div className="section-head"><div><h2 id="color-title">{text('لون المطعم', 'Brand color')}</h2><p>{text('بيتلوّن بيه الأزرار والأقسام في المنيو.', 'Used for buttons and highlights on your menu.')}</p></div></div>
         <div className="color-row">
           <label className="color-picker" style={{ background: accent }}>
             <span className="visually-hidden">{text('اختار لون', 'Pick a color')}</span>
@@ -76,8 +76,8 @@ export function BrandingSettings() {
       </div>
     </form>
 
-    <aside className="preview-panel" aria-label={text('معاينة مباشرة', 'Live preview')}>
-      <span className="eyebrow">{text('معاينة مباشرة', 'Live preview')}</span>
+    <aside className="preview-panel" aria-labelledby="preview-title">
+      <h2 id="preview-title">{text('الزبون هيشوف كده', 'What diners see')}</h2>
       <div className="phone-preview" style={{ ['--accent' as string]: accent, ['--on-accent' as string]: onAccent }}>
         <div className="phone-cover">{cover ? <img src={cover.url} alt="" /> : <span className="phone-cover-empty" />}</div>
         <div className="phone-head">

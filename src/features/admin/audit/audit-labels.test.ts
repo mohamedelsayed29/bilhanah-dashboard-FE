@@ -25,7 +25,7 @@ describe('auditDetails', () => {
     expect(auditDetails({ action: 'payment.reject', metadata: { restaurantId: 'r1', reason: 'No transfer arrived' } }, en, 'en')).toEqual(['Reason: No transfer arrived']);
     expect(auditDetails({ action: 'restaurant.suspend', metadata: { reason: 'Fraud' } }, ar, 'ar')).toEqual(['السبب: Fraud']);
     expect(auditDetails({ action: 'restaurant.unsuspend', metadata: null }, en, 'en')).toEqual([]);
-    expect(auditDetails({ action: 'plan.price', metadata: { from: 20000, to: 25050 } }, en, 'en')).toEqual(['EGP 200 → EGP 250.5']);
+    expect(auditDetails({ action: 'plan.price', metadata: { from: 20000, to: 25050 } }, en, 'en')).toEqual(['EGP\u00a0200 → EGP\u00a0250.5']);
     expect(auditDetails({ action: 'settings.trial', metadata: { enabled: false, durationDays: 14, planCode: 'ORDERS' } }, en, 'en'))
       .toEqual(['Trial: off', 'Length: 14 days', 'Plan: Menu & Orders']);
   });

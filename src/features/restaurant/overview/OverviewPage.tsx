@@ -1,10 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Link } from 'react-router';
 import { QRCodeSVG } from 'qrcode.react';
-import {
-  ArrowSquareOutIcon, ChartBarIcon, CheckCircleIcon, CreditCardIcon, CircleIcon, ClockIcon, ForkKnifeIcon, ImageSquareIcon, LinkIcon, PaletteIcon, PencilSimpleLineIcon,
-  QrCodeIcon, SealCheckIcon,
-} from '@phosphor-icons/react';
+import { ArrowLeftIcon, ArrowSquareOutIcon, CheckCircleIcon, CircleIcon, PencilSimpleLineIcon, ReceiptIcon } from '@phosphor-icons/react';
 import type { OwnerMenu, OwnerRestaurant } from '@bilhanah/contracts';
 import { Alert } from '../../../components/Alert';
 import { CopyButton } from '../../../components/CopyButton';
@@ -12,50 +9,66 @@ import { PageHeader } from '../../../components/PageHeader';
 import { Skeleton } from '../../../components/Skeleton';
 import { formatDate } from '../../../lib/format';
 import { useLanguage, usePageTitle } from '../../../lib/language';
-import { useSession } from '../../../lib/session';
-import { accessDaysLeft, AccessBadge, PLAN_NAMES } from '../access';
+import { accessDaysLeft, accessStatusName, PLAN_NAMES } from '../access';
+import { useOrdersLive } from '../orders/live';
 import { menuQrUrl } from '../qr-codes/qr-url';
 import { useMenuQuery, useRestaurant } from '../queries';
 
 // Loaded on demand, so the first bundle stays small (the overview is not lazily routed).
 const InsightsSummary = lazy(async () => ({ default: (await import('../insights/InsightsSummary')).InsightsSummary }));
 
+/** The restaurant at a glance: what needs doing now, this week's numbers, the menu link and the plan. */
 export function OverviewPage() {
   const { text } = useLanguage();
   usePageTitle('الرئيسية', 'Overview');
   const restaurant = useRestaurant();
-  const session = useSession();
   const menu = useMenuQuery();
-  const firstName = session.status === 'authenticated' ? session.user.fullName.split(' ')[0] : '';
-  return <div className="page">
-    <PageHeader eyebrow={text(`أهلًا يا ${firstName} 👋`, `Welcome, ${firstName} 👋`)} title={restaurant.name}
-      description={text('ده ملخص مطعمك على بالهنا.', 'Here is your restaurant at a glance.')}
+  return <div className="page overview">
+    <PageHeader title={<bdi>{restaurant.name}</bdi>}
       actions={<>
         <a className="button button-secondary" href={restaurant.publicUrl} target="_blank" rel="noreferrer"><ArrowSquareOutIcon size={18} aria-hidden="true" />{text('معاينة المنيو', 'Preview menu')}</a>
         <Link className="button button-primary" to="/menu"><PencilSimpleLineIcon size={18} aria-hidden="true" />{text('عدّل المنيو', 'Edit menu')}</Link>
       </>} />
+    <WaitingOrders restaurant={restaurant} />
     <AccessNotice restaurant={restaurant} />
-    <div className="overview-grid">
-      <LinkCard restaurant={restaurant} />
-      <PlanCard restaurant={restaurant} />
-    </div>
-    <Suspense fallback={<div className="card card-padded skeleton-stack" aria-hidden="true"><Skeleton width={120} height={16} /><Skeleton width={220} height={26} /></div>}><InsightsSummary /></Suspense>
-    <section aria-labelledby="stats-title">
-      <h2 id="stats-title" className="visually-hidden">{text('إحصائيات المنيو', 'Menu statistics')}</h2>
-      {menu.data ? <MenuStats menu={menu.data} /> : <div className="stats-grid">{[0, 1, 2, 3].map(index => <div className="stat card" key={index}><Skeleton width={60} height={28} /><Skeleton width={90} height={14} /></div>)}</div>}
-    </section>
-    <div className="overview-grid">
-      {menu.data && <Checklist restaurant={restaurant} menu={menu.data} />}
-      <QuickLinks />
+    <div className="overview-layout">
+      <div className="overview-main">
+        <section className="card figures" aria-labelledby="figures-title">
+          <h2 id="figures-title" className="visually-hidden">{text('الأرقام', 'Figures')}</h2>
+          <Suspense fallback={<div className="figures-group" aria-hidden="true"><Skeleton width={120} height={16} /><Skeleton width={220} height={30} /></div>}><InsightsSummary /></Suspense>
+          {menu.data ? <MenuFigures menu={menu.data} /> : <div className="figures-group" aria-hidden="true"><Skeleton width={80} height={16} /><Skeleton width={260} height={30} /></div>}
+        </section>
+        {menu.data && <Checklist restaurant={restaurant} menu={menu.data} />}
+      </div>
+      <div className="overview-side">
+        <MenuLink restaurant={restaurant} />
+        <Plan restaurant={restaurant} />
+      </div>
     </div>
   </div>;
+}
+
+/** New orders nobody has accepted yet: the most urgent thing on the page. */
+function WaitingOrders({ restaurant }: { restaurant: OwnerRestaurant }) {
+  const { text, count } = useLanguage();
+  const { newCount } = useOrdersLive();
+  if (!restaurant.ordering.included || newCount <= 0) return null;
+  return <Link to="/orders" className="overview-orders" data-testid="overview-new-orders">
+    <ReceiptIcon size={22} weight="bold" aria-hidden="true" />
+    <span>
+      <strong>{count(newCount, [{ one: 'طلب جديد مستني', two: 'طلبين جداد مستنيين', few: '{n} طلبات جديدة مستنية', many: '{n} طلب جديد مستني' }, { one: '{n} order waiting', other: '{n} orders waiting' }])}</strong>
+      <small>{text('اقبلها من لوحة الطلبات', 'Accept them on the order board')}</small>
+    </span>
+    <ArrowLeftIcon size={18} className="directional" aria-hidden="true" />
+  </Link>;
 }
 
 function AccessNotice({ restaurant }: { restaurant: OwnerRestaurant }) {
   const { text } = useLanguage();
   if (restaurant.access.status === 'INACTIVE') {
-    return <Alert kind="warning" live={false} title={text('المنيو العام متوقف مؤقتًا', 'Your public menu is paused')}>
-      {text('اشتراكك مش فعّال دلوقتي، فالزباين بيشوفوا إن المنيو "مش متاح مؤقتًا". تقدر تكمّل تعديل المنيو عادي، وكل حاجة هترجع تظهر أول ما الاشتراك يتفعّل.',
+    return <Alert kind="warning" live={false} title={text('المنيو العام متوقف مؤقتًا', 'Your public menu is paused')}
+      actions={<Link className="link-action" to="/subscription">{text('ادفع واشترك', 'Pay and subscribe')}</Link>}>
+      {text('اشتراكك مش فعّال، فالزباين بيشوفوا إن المنيو "مش متاح مؤقتًا". تقدر تكمّل تعديل المنيو عادي، وكل حاجة هترجع تظهر أول ما الاشتراك يتفعّل.',
         'Your subscription isn’t active, so diners see the menu as “temporarily unavailable”. You can keep editing; everything goes live again as soon as your subscription is active.')}
     </Alert>;
   }
@@ -65,47 +78,6 @@ function AccessNotice({ restaurant }: { restaurant: OwnerRestaurant }) {
     </Alert>;
   }
   return null;
-}
-
-function LinkCard({ restaurant }: { restaurant: OwnerRestaurant }) {
-  const { text } = useLanguage();
-  return <section className="card card-padded link-card" aria-labelledby="link-title">
-    <div className="link-card-body">
-      <span className="eyebrow"><LinkIcon size={16} aria-hidden="true" />{text('لينك المنيو', 'Menu link')}</span>
-      <h2 id="link-title" className="section-title">{text('شارك المنيو مع زباينك', 'Share your menu with diners')}</h2>
-      <a className="public-url ltr" href={restaurant.publicUrl} target="_blank" rel="noreferrer">{restaurant.publicUrl.replace(/^https?:\/\//, '')}</a>
-      <div className="form-actions">
-        <CopyButton value={restaurant.publicUrl} label={text('انسخ اللينك', 'Copy link')} />
-        <a className="button button-ghost button-small" href={restaurant.publicUrl} target="_blank" rel="noreferrer"><ArrowSquareOutIcon size={17} aria-hidden="true" />{text('افتح', 'Open')}</a>
-      </div>
-    </div>
-    <Link to="/qr-codes" className="link-card-qr">
-      <QRCodeSVG value={menuQrUrl(restaurant.publicUrl)} size={104} fgColor="#04352f" bgColor="#ffffff" marginSize={2} aria-hidden="true" />
-      <span>{text('QR للطباعة', 'Print QR')}</span>
-    </Link>
-  </section>;
-}
-
-function PlanCard({ restaurant }: { restaurant: OwnerRestaurant }) {
-  const { text, number, language } = useLanguage();
-  const { access } = restaurant;
-  const days = accessDaysLeft(access);
-  const end = access.status === 'TRIAL' ? access.trialEndsAt : access.currentPeriodEndsAt;
-  const total = access.trialEndsAt ? Math.max(1, Math.round((new Date(access.trialEndsAt).getTime() - new Date(restaurant.createdAt).getTime()) / 86_400_000)) : 30;
-  return <section className="card card-padded plan-card" aria-labelledby="plan-title">
-    <span className="eyebrow"><SealCheckIcon size={16} aria-hidden="true" />{text('الاشتراك', 'Subscription')}</span>
-    <div className="plan-card-head">
-      <h2 id="plan-title" className="section-title">{access.planCode ? text(PLAN_NAMES[access.planCode][0], PLAN_NAMES[access.planCode][1]) : text('من غير باقة', 'No plan')}</h2>
-      <AccessBadge access={access} />
-    </div>
-    {access.status === 'TRIAL' && days !== null && <>
-      <p className="plan-days"><strong>{number(days)}</strong> {text(days === 1 ? 'يوم فاضل في التجربة' : 'يوم فاضلين في التجربة', days === 1 ? 'day left in your trial' : 'days left in your trial')}</p>
-      <div className="meter" role="meter" aria-valuemin={0} aria-valuemax={total} aria-valuenow={days} aria-label={text('الأيام المتبقية', 'Days remaining')}><span style={{ width: `${Math.min(100, (days / total) * 100)}%` }} /></div>
-    </>}
-    {end && <p className="muted plan-end">{access.status === 'TRIAL' ? text('التجربة بتنتهي يوم', 'Trial ends on') : text('الاشتراك ساري لحد', 'Active until')} {formatDate(end, language, { dateStyle: 'long' })}</p>}
-    {access.status === 'INACTIVE' && <p className="muted">{text('التعديل متاح، والمنيو هيرجع يظهر أول ما تشترك.', 'Editing is available; your menu goes live again once you subscribe.')}</p>}
-    <p className="plan-footnote"><Link className="link" to="/subscription">{access.status === 'PAID' ? text('جدّد اشتراكك', 'Renew your subscription') : text('ادفع واشترك', 'Pay and subscribe')}</Link> · {text('إنستاباي أو فودافون كاش أو تحويل بنكي', 'InstaPay, Vodafone Cash or bank transfer')}</p>
-  </section>;
 }
 
 export function menuStats(menu: OwnerMenu) {
@@ -119,24 +91,30 @@ export function menuStats(menu: OwnerMenu) {
   };
 }
 
-function MenuStats({ menu }: { menu: OwnerMenu }) {
+function MenuFigures({ menu }: { menu: OwnerMenu }) {
   const { text, number } = useLanguage();
   const stats = menuStats(menu);
-  const tiles = [
-    { value: stats.categories, label: text('قسم', 'Categories'), tone: '' },
-    { value: stats.items, label: text('صنف', 'Items'), tone: '' },
-    { value: stats.soldOut, label: text('خلصان', 'Sold out'), tone: stats.soldOut ? 'stat-warning' : '' },
-    { value: stats.hidden, label: text('مخفي', 'Hidden'), tone: '' },
+  const figures = [
+    { key: 'categories', value: stats.categories, label: text('الأقسام', 'Categories') },
+    { key: 'items', value: stats.items, label: text('الأصناف', 'Items') },
+    { key: 'sold-out', value: stats.soldOut, label: text('خلصان', 'Sold out'), warn: stats.soldOut > 0 },
+    { key: 'hidden', value: stats.hidden, label: text('مخفي', 'Hidden') },
   ];
-  return <div className="stats-grid">
-    {tiles.map(tile => <Link to="/menu" className={`stat card ${tile.tone}`} key={tile.label} data-testid={`stat-${tile.label}`}>
-      <strong>{number(tile.value)}</strong><span>{tile.label}</span>
-    </Link>)}
+  return <div className="figures-group">
+    <div className="figures-head">
+      <h3>{text('المنيو', 'Menu')}</h3>
+      <Link className="link-action" to="/menu">{text('افتح المنيو', 'Open the menu')}<ArrowLeftIcon size={14} className="directional" aria-hidden="true" /></Link>
+    </div>
+    <dl className="figure-list">
+      {figures.map(figure => <div key={figure.key} className={figure.warn ? 'is-warning' : ''} data-testid={`stat-${figure.key}`}>
+        <dt>{figure.label}</dt><dd>{number(figure.value)}</dd>
+      </div>)}
+    </dl>
   </div>;
 }
 
 function Checklist({ restaurant, menu }: { restaurant: OwnerRestaurant; menu: OwnerMenu }) {
-  const { text } = useLanguage();
+  const { text, count, number } = useLanguage();
   const stats = menuStats(menu);
   const steps = [
     { done: stats.categories > 0, to: '/menu', label: text('أضف أول قسم في المنيو', 'Add your first menu category') },
@@ -147,38 +125,56 @@ function Checklist({ restaurant, menu }: { restaurant: OwnerRestaurant; menu: Ow
   ];
   const remaining = steps.filter(step => !step.done).length;
   if (remaining === 0) return null;
-  return <section className="card card-padded" aria-labelledby="checklist-title">
-    <div className="card-header"><div>
+  return <section className="section" aria-labelledby="checklist-title">
+    <div className="section-head">
       <h2 id="checklist-title">{text('جهّز منيو مطعمك', 'Get your menu ready')}</h2>
-      <p>{text(`فاضل ${remaining} خطوات بسيطة.`, `${remaining} quick step${remaining === 1 ? '' : 's'} left.`)}</p>
-    </div></div>
+      <p>{text(`فاضل ${count(remaining, 'step')}`, `${count(remaining, 'step')} left`)}</p>
+    </div>
     <ul className="checklist">
-      {steps.map(step => <li key={step.label} className={step.done ? 'done' : ''}>
-        {step.done ? <CheckCircleIcon size={22} weight="fill" aria-hidden="true" /> : <CircleIcon size={22} aria-hidden="true" />}
-        {step.done ? <span>{step.label}<span className="visually-hidden"> ({text('تم', 'done')})</span></span> : <Link to={step.to} className="link">{step.label}</Link>}
+      {steps.filter(step => !step.done).map(step => <li key={step.label}>
+        <Link className="checklist-row" to={step.to}><CircleIcon size={20} aria-hidden="true" /><span>{step.label}</span><ArrowLeftIcon size={16} className="directional" aria-hidden="true" /></Link>
       </li>)}
     </ul>
+    {remaining < steps.length && <p className="checklist-done"><CheckCircleIcon size={18} weight="fill" aria-hidden="true" />{text(`خلّصت ${number(steps.length - remaining)} من ${number(steps.length)}`, `${steps.length - remaining} of ${steps.length} done`)}</p>}
   </section>;
 }
 
-function QuickLinks() {
+function MenuLink({ restaurant }: { restaurant: OwnerRestaurant }) {
   const { text } = useLanguage();
-  const links = [
-    { to: '/menu', icon: ForkKnifeIcon, title: text('الأصناف والأسعار', 'Items & prices'), body: text('أضف وعدّل ورتّب', 'Add, edit and reorder') },
-    { to: '/qr-codes', icon: QrCodeIcon, title: text('كود QR', 'QR code'), body: text('نزّله واطبعه', 'Download and print') },
-    { to: '/insights', icon: ChartBarIcon, title: text('الإحصائيات', 'Insights'), body: text('زيارات وطلبات وأكتر الأصناف', 'Visits, orders and top dishes') },
-    { to: '/subscription', icon: CreditCardIcon, title: text('الاشتراك', 'Subscription'), body: text('ادفع أو جدّد', 'Pay or renew') },
-    { to: '/settings/branding', icon: PaletteIcon, title: text('الشكل والألوان', 'Branding'), body: text('لوجو وغلاف ولون', 'Logo, cover and color') },
-    { to: '/settings/hours', icon: ClockIcon, title: text('مواعيد الشغل', 'Opening hours'), body: text('أيام وساعات الفتح', 'Days and hours') },
-    { to: '/settings', icon: ImageSquareIcon, title: text('بيانات المطعم', 'Restaurant profile'), body: text('تليفون وعنوان وسوشيال', 'Phone, address, social') },
-  ];
-  return <section className="card card-padded" aria-labelledby="quick-title">
-    <div className="card-header"><h2 id="quick-title">{text('اختصارات', 'Quick links')}</h2></div>
-    <ul className="quick-links">
-      {links.map(link => <li key={link.to}><Link to={link.to}>
-        <span className="quick-icon" aria-hidden="true"><link.icon size={20} /></span>
-        <span><strong>{link.title}</strong><small>{link.body}</small></span>
-      </Link></li>)}
-    </ul>
+  return <section className="section" aria-labelledby="link-title">
+    <div className="section-head"><h2 id="link-title">{text('لينك المنيو', 'Menu link')}</h2></div>
+    <div className="link-body">
+      <div className="link-text">
+        <a className="public-url ltr" href={restaurant.publicUrl} target="_blank" rel="noreferrer">{restaurant.publicUrl.replace(/^https?:\/\//, '')}</a>
+        <p className="muted">{text('ابعته واتساب أو حطه في البايو.', 'Send it on WhatsApp or put it in your bio.')}</p>
+        <div className="form-actions">
+          <CopyButton value={restaurant.publicUrl} label={text('انسخ اللينك', 'Copy link')} />
+          <Link className="button button-ghost button-small" to="/qr-codes">{text('كود QR للطباعة', 'Printable QR code')}</Link>
+        </div>
+      </div>
+      <Link to="/qr-codes" className="link-qr" tabIndex={-1} aria-hidden="true">
+        <QRCodeSVG value={menuQrUrl(restaurant.publicUrl)} size={88} fgColor="#04352f" bgColor="#ffffff" marginSize={2} />
+      </Link>
+    </div>
+  </section>;
+}
+
+function Plan({ restaurant }: { restaurant: OwnerRestaurant }) {
+  const { text, count, language } = useLanguage();
+  const { access } = restaurant;
+  const days = accessDaysLeft(access);
+  const end = access.status === 'TRIAL' ? access.trialEndsAt : access.currentPeriodEndsAt;
+  return <section className="section plan-card" aria-labelledby="plan-title">
+    <div className="section-head">
+      <h2 id="plan-title">{text('الاشتراك', 'Subscription')}</h2>
+      <span className={`plan-status access-${access.status.toLowerCase()}`}>{accessStatusName(access.status, text)}</span>
+    </div>
+    <p className="plan-name">{access.planCode ? text(PLAN_NAMES[access.planCode][0], PLAN_NAMES[access.planCode][1]) : text('من غير باقة', 'No plan')}</p>
+    {days !== null && access.status !== 'INACTIVE' && <p className="plan-days">
+      <strong>{count(days, 'day')}</strong> {text(days === 1 ? 'فاضل' : 'فاضلين', 'left')}
+    </p>}
+    {end && access.status !== 'INACTIVE' && <p className="muted">{access.status === 'TRIAL' ? text('التجربة بتنتهي يوم', 'Trial ends on') : text('الاشتراك ساري لحد', 'Active until')} {formatDate(end, language, { dateStyle: 'long' })}</p>}
+    {access.status === 'INACTIVE' && <p className="muted">{text('التعديل متاح، والمنيو هيرجع يظهر أول ما تشترك.', 'Editing is available; your menu goes live again once you subscribe.')}</p>}
+    <Link className="link-action" to="/subscription">{access.status === 'PAID' ? text('جدّد اشتراكك', 'Renew your subscription') : text('ادفع واشترك', 'Pay and subscribe')}<ArrowLeftIcon size={14} className="directional" aria-hidden="true" /></Link>
   </section>;
 }

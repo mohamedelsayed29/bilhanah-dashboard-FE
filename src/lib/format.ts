@@ -28,7 +28,7 @@ export function piastresToInput(piastres: number): string {
 /** 4550 → "٤٥٫٥ ج.م" / "EGP 45.5". */
 export function formatPrice(piastres: number, language: Language): string {
   const amount = new Intl.NumberFormat(locale(language), { maximumFractionDigits: 2 }).format(piastres / 100);
-  return language === 'ar' ? `${amount} ج.م` : `EGP ${amount}`;
+  return language === 'ar' ? `${amount}\u00a0ج.م` : `EGP\u00a0${amount}`;
 }
 
 export function formatDate(iso: string, language: Language, options: Intl.DateTimeFormatOptions = { dateStyle: 'medium' }): string {
@@ -59,5 +59,5 @@ export function formatCompact(value: number, language: Language): string {
 /** An amount in piastres, compact, for chart axes ("EGP 1.2K"). */
 export function formatCompactPrice(piastres: number, language: Language): string {
   const amount = formatCompact(piastres / 100, language);
-  return language === 'ar' ? `${amount} ج.م` : `EGP ${amount}`;
+  return language === 'ar' ? `${amount}\u00a0ج.م` : `EGP\u00a0${amount}`;
 }

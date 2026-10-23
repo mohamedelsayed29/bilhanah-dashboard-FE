@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ClockCountdownIcon, ReceiptIcon, SealCheckIcon, XCircleIcon } from '@phosphor-icons/react';
+import { ReceiptIcon, XCircleIcon } from '@phosphor-icons/react';
 import { BILLING_ERROR_CODES, type BillingSummary, type OwnerPayment, type OwnerRestaurant, type RestaurantAccess } from '@bilhanah/contracts';
 import { Alert } from '../../../components/Alert';
 import { Button } from '../../../components/Button';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { ErrorPanel } from '../../../components/ErrorBoundary';
 import { PageHeader } from '../../../components/PageHeader';
+import { Section } from '../../../components/Section';
 import { ReceiptDialog } from '../../../components/ProtectedImage';
 import { PageSkeleton } from '../../../components/Skeleton';
 import { useToast } from '../../../components/Toast';
@@ -16,7 +17,7 @@ import { errorMessage } from '../../../lib/api/error-messages';
 import { formatDate, formatPrice } from '../../../lib/format';
 import { useLanguage, usePageTitle } from '../../../lib/language';
 import { methodName, monthsLabel, PaymentStatusBadge, planName } from '../../billing/labels';
-import { accessDaysLeft, AccessBadge } from '../access';
+import { accessDaysLeft, accessStatusName } from '../access';
 import { queryKeys, useBillingQuery, useRestaurant } from '../queries';
 import { isPolling } from './online-return';
 import { OnlineReturnStatus, useOnlineReturn } from './OnlineReturn';
@@ -78,20 +79,19 @@ export function SubscriptionPage() {
 }
 
 function StatusCard({ access }: { access: RestaurantAccess }) {
-  const { text, number, language } = useLanguage();
+  const { text, count, language } = useLanguage();
   const days = accessDaysLeft(access);
   const end = access.status === 'TRIAL' ? access.trialEndsAt : access.status === 'PAID' ? access.currentPeriodEndsAt : null;
-  return <section className="card card-padded status-card" aria-labelledby="status-title" data-testid="subscription-status">
-    <div className="status-card-main">
-      <span className="eyebrow"><SealCheckIcon size={16} aria-hidden="true" />{text('اشتراكك الحالي', 'Your current plan')}</span>
-      <div className="plan-card-head">
-        <h2 id="status-title" className="section-title">{access.planCode ? planName(access.planCode, text) : text('من غير باقة', 'No plan')}</h2>
-        <AccessBadge access={access} />
+  return <Section id="status-title" title={text('اشتراكك الحالي', 'Your current plan')} actions={<span className={`plan-status access-${access.status.toLowerCase()}`}>{accessStatusName(access.status, text)}</span>}
+    data-testid="subscription-status">
+    <div className="status-panel">
+      <div className="status-panel-main">
+        <p className="status-plan">{access.planCode ? planName(access.planCode, text) : text('من غير باقة', 'No plan')}</p>
+        {end && <p className="muted">{access.status === 'TRIAL' ? text('التجربة المجانية بتنتهي يوم', 'Your free trial ends on') : text('الاشتراك ساري لحد', 'Active until')} <strong className="status-date">{formatDate(end, language, { dateStyle: 'long' })}</strong></p>}
+        {access.status === 'TRIAL' && <p className="muted">{text('تقدر تدفع دلوقتي؛ المدة المدفوعة بتبدأ بعد ما التجربة تخلص، فمش هتخسر ولا يوم.', 'You can pay now: the paid period starts when your trial ends, so you keep every trial day.')}</p>}
       </div>
-      {end && <p className="muted">{access.status === 'TRIAL' ? text('التجربة المجانية بتنتهي يوم', 'Your free trial ends on') : text('الاشتراك ساري لحد', 'Active until')} <strong className="status-date">{formatDate(end, language, { dateStyle: 'long' })}</strong></p>}
-      {access.status === 'TRIAL' && <p className="muted small">{text('تقدر تدفع دلوقتي؛ المدة المدفوعة بتبدأ بعد ما التجربة تخلص، فمش هتخسر ولا يوم.', 'You can pay now: the paid period starts when your trial ends, so you keep every trial day.')}</p>}
+      {days !== null && <p className="status-days"><strong>{count(days, 'day')}</strong>{text(days === 1 ? 'فاضل' : 'فاضلين', 'left')}</p>}
     </div>
-    {days !== null && <div className="status-days" aria-hidden="true"><strong>{number(days)}</strong><span>{text(days === 1 ? 'يوم فاضل' : 'يوم فاضلين', days === 1 ? 'day left' : 'days left')}</span></div>}
     {access.status === 'INACTIVE' && <Alert kind="warning" live={false} title={text('المنيو العام متوقف مؤقتًا', 'Your public menu is paused')}>
       {text('اشتراكك مش فعّال، فالزباين بيشوفوا إن المنيو "مش متاح مؤقتًا". كل بياناتك محفوظة وتقدر تكمّل تعديل المنيو، وأول ما الدفع يتراجع المنيو يرجع يظهر على طول.',
         'Your subscription isn’t active, so diners see the menu as “temporarily unavailable”. All your data is kept and you can keep editing; the menu goes live again as soon as your payment is approved.')}
@@ -99,7 +99,7 @@ function StatusCard({ access }: { access: RestaurantAccess }) {
     {access.status === 'SUSPENDED' && <Alert kind="error" live={false} title={text('المطعم موقوف', 'Your restaurant is suspended')}>
       {text('المنيو العام مش ظاهر والتعديل متوقف، وبياناتك محفوظة. تواصل مع دعم بالهنا.', 'The public menu is hidden and editing is paused; your data is kept. Please contact Bilhanah support.')}
     </Alert>}
-  </section>;
+  </Section>;
 }
 
 /** Facts of a payment as a description list. */
@@ -134,12 +134,11 @@ function PendingPayment({ payment, onViewReceipt }: { payment: OwnerPayment; onV
       return queryClient.invalidateQueries({ queryKey: queryKeys.billing });
     },
   });
-  return <section className="card card-padded pending-card" aria-labelledby="pending-title" data-testid="pending-payment">
+  return <section className="pending-card" aria-labelledby="pending-title" data-testid="pending-payment">
     <div className="pending-head">
-      <span className="pending-icon" aria-hidden="true"><ClockCountdownIcon size={26} weight="duotone" /></span>
       <div>
-        <h2 id="pending-title" className="section-title">{text('تحويلك بيتراجع', 'Your payment is under review')}</h2>
-        <p className="muted">{text('فريق بالهنا بيراجع التحويل، وهيوصلك إيميل أول ما يتقبل أو لو في مشكلة. لو عايز تغيّر حاجة، اسحبه وابعت تاني.',
+        <h2 id="pending-title">{text('تحويلك بيتراجع', 'Your payment is under review')}</h2>
+        <p>{text('فريق بالهنا بيراجع التحويل، وهيوصلك إيميل أول ما يتقبل أو لو في مشكلة. لو عايز تغيّر حاجة، اسحبه وابعت تاني.',
           'The Bilhanah team is checking your transfer; you will get an email once it is approved or if something is wrong. To change anything, withdraw it and send it again.')}</p>
       </div>
       <PaymentStatusBadge status="PENDING" />
@@ -157,11 +156,7 @@ function PendingPayment({ payment, onViewReceipt }: { payment: OwnerPayment; onV
 
 function History({ summary, onViewReceipt }: { summary: BillingSummary; onViewReceipt: (path: string) => void }) {
   const { text, number, language } = useLanguage();
-  return <section className="card card-padded" aria-labelledby="history-title">
-    <div className="card-header"><div>
-      <h2 id="history-title">{text('سجل المدفوعات', 'Payment history')}</h2>
-      <p>{text('كل المدفوعات اللي عملتها وحالتها.', 'Every payment you have made and what happened to it.')}</p>
-    </div></div>
+  return <Section id="history-title" title={text('سجل المدفوعات', 'Payment history')}>
     {summary.payments.length === 0
       ? <p className="muted empty-line">{text('لسه مدفعتش أي حاجة.', 'You haven’t made any payments yet.')}</p>
       : <ul className="history-list">
@@ -186,5 +181,5 @@ function History({ summary, onViewReceipt }: { summary: BillingSummary; onViewRe
             </div>
           </li>)}
         </ul>}
-  </section>;
+  </Section>;
 }

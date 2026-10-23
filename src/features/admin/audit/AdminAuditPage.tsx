@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { ClipboardTextIcon } from '@phosphor-icons/react';
 import type { AuditEntry } from '@bilhanah/contracts';
+import { CompactMeta } from '../../../components/CompactMeta';
 import { ErrorPanel } from '../../../components/ErrorBoundary';
 import { PageHeader } from '../../../components/PageHeader';
 import { Pagination } from '../../../components/Pagination';
@@ -43,10 +44,11 @@ export function AdminAuditPage() {
             {audit.data.items.map(entry => {
               const details = auditDetails(entry, text, language);
               return <tr key={entry.id} data-testid="audit-row" data-action={entry.action}>
-                <td data-label={text('الوقت', 'Time')} className="cell-nowrap">{formatDate(entry.createdAt, language, { dateStyle: 'medium' })}<small>{formatDate(entry.createdAt, language, { timeStyle: 'short' })}</small></td>
-                <td data-label={text('مين', 'Who')}>{entry.actor ? <>{entry.actor.name}<small className="ltr">{entry.actor.email}</small></> : <span className="muted">{text('النظام', 'System')}</span>}</td>
-                <td data-label={text('العملية', 'Action')}><span className={`badge ${auditTone(entry.action) === 'default' ? '' : `badge-${auditTone(entry.action)}`}`}>{auditActionLabel(entry.action, text)}</span></td>
+                <td data-label={text('الوقت', 'Time')} className="cell-end cell-nowrap">{formatDate(entry.createdAt, language, { dateStyle: 'medium' })}<small>{formatDate(entry.createdAt, language, { timeStyle: 'short' })}</small></td>
+                <td data-label={text('مين', 'Who')}>{entry.actor ? <>{entry.actor.name}<small className="ltr cell-wrap-anywhere">{entry.actor.email}</small></> : <span className="muted">{text('النظام', 'System')}</span>}</td>
+                <td data-label={text('العملية', 'Action')} className="cell-primary"><span className={`badge ${auditTone(entry.action) === 'default' ? '' : `badge-${auditTone(entry.action)}`}`}>{auditActionLabel(entry.action, text)}</span></td>
                 <td data-label={text('على', 'Target')}><Target entry={entry} /></td>
+                <CompactMeta parts={[entry.actor ? entry.actor.name : text('النظام', 'System'), <Target entry={entry} />]} />
                 <td data-label={text('التفاصيل', 'Details')} className="cell-wide">
                   <div className="cell-details">
                     {details.length ? details.map(line => <span key={line} className="detail-line">{line}</span>) : <span className="muted">—</span>}

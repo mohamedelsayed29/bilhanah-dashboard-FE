@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
 import { QRCodeCanvas, QRCodeSVG } from 'qrcode.react';
-import { ArrowSquareOutIcon, DownloadSimpleIcon, FileSvgIcon, LightbulbIcon } from '@phosphor-icons/react';
+import { ArrowSquareOutIcon, DownloadSimpleIcon, FileSvgIcon } from '@phosphor-icons/react';
 import { CopyButton } from '../../../components/CopyButton';
 import { PageHeader } from '../../../components/PageHeader';
+import { Section } from '../../../components/Section';
 import { useToast } from '../../../components/Toast';
 import { useLanguage, usePageTitle } from '../../../lib/language';
 import { useRestaurant } from '../queries';
@@ -69,10 +70,10 @@ export function QrCodesPage() {
   return <div className="page">
     <PageHeader title={text('كود QR', 'QR code')} description={text('الزبون يوجّه كاميرا موبايله على الكود ويفتح المنيو على طول، من غير ما ينزّل أي تطبيق.', 'Diners point their phone camera at the code and your menu opens instantly, no app needed.')} />
     <div className="qr-layout">
-      <section className="card card-padded qr-card" aria-labelledby="qr-title">
+      <section className="qr-preview" aria-labelledby="qr-title">
         <h2 id="qr-title" className="visually-hidden">{text('الكود بتاعك', 'Your code')}</h2>
         <div className="table-card" style={{ ['--qr-accent' as string]: restaurant.brandColor ?? '#075e54' }}>
-          <strong className="table-card-name">{restaurant.name}</strong>
+          <strong className="table-card-name"><bdi>{restaurant.name}</bdi></strong>
           <span className="table-card-hint">{text('امسح الكود وشوف المنيو', 'Scan to see the menu')}</span>
           <div className="table-card-qr">
             <QRCodeSVG ref={svgRef} value={qrUrl} size={220} level="M" marginSize={2} fgColor={fg} bgColor="#ffffff"
@@ -94,30 +95,23 @@ export function QrCodesPage() {
       </section>
 
       <div className="qr-side">
-        <section className="card card-padded" aria-labelledby="download-title">
-          <div className="card-header"><div>
-            <h2 id="download-title">{text('نزّل الكود', 'Download')}</h2>
-            <p>{text('PNG للطباعة السريعة والسوشيال، وSVG للمطابع عشان يفضل حاد في أي مقاس.', 'PNG for quick printing and social media; SVG for print shops, sharp at any size.')}</p>
-          </div></div>
+        <Section id="download-title" title={text('نزّل الكود', 'Download')}
+          description={text('PNG للطباعة السريعة والسوشيال، وSVG للمطابع عشان يفضل حاد في أي مقاس.', 'PNG for quick printing and social media; SVG for print shops, sharp at any size.')}>
           <div className="download-buttons">
             <button type="button" className="button button-primary" onClick={downloadPng}><DownloadSimpleIcon size={18} aria-hidden="true" />{text('صورة PNG (١٠٢٤ بكسل)', 'PNG image (1024 px)')}</button>
             <button type="button" className="button button-secondary" onClick={downloadSvg}><FileSvgIcon size={18} aria-hidden="true" />{text('ملف SVG للطباعة', 'SVG for print')}</button>
           </div>
-        </section>
-        <section className="card card-padded" aria-labelledby="url-title">
-          <div className="card-header"><div>
-            <h2 id="url-title">{text('لينك المنيو للمشاركة', 'Your menu link to share')}</h2>
-            <p>{text('حطه في البايو أو ابعته واتساب. الكود فيه نفس اللينك وزيادة ‎?src=qr عشان مسح الكود يتحسب لوحده في الإحصائيات.', 'Put it in your bio or send it on WhatsApp. The code holds the same link plus ?src=qr, so scans are counted separately in your insights.')}</p>
-          </div></div>
+        </Section>
+        <Section id="url-title" title={text('لينك المنيو', 'Your menu link')}
+          description={text('حطه في البايو أو ابعته واتساب.', 'Put it in your bio or send it on WhatsApp.')}>
           <p className="public-url ltr">{host}</p>
-          <p className="field-hint qr-url-hint">{text('اللي في الكود:', 'In the code:')} <span className="ltr" data-testid="qr-url">{qrUrl}</span></p>
+          <p className="field-hint qr-url-hint">{text('الكود فيه نفس اللينك وزيادة ‎?src=qr عشان مسح الكود يتحسب لوحده في الإحصائيات:', 'The code holds the same link plus ?src=qr, so scans are counted separately in your insights:')} <span className="ltr" data-testid="qr-url">{qrUrl}</span></p>
           <div className="form-actions">
             <CopyButton value={restaurant.publicUrl} label={text('انسخ اللينك', 'Copy link')} />
             <a className="button button-ghost button-small" href={restaurant.publicUrl} target="_blank" rel="noreferrer"><ArrowSquareOutIcon size={17} aria-hidden="true" />{text('افتح المنيو', 'Open menu')}</a>
           </div>
-        </section>
-        <section className="card card-padded tips-card" aria-labelledby="tips-title">
-          <div className="card-header"><h2 id="tips-title"><LightbulbIcon size={20} aria-hidden="true" /> {text('نصايح للطباعة', 'Printing tips')}</h2></div>
+        </Section>
+        <Section id="tips-title" title={text('قبل ما تطبع', 'Before you print')}>
           <ul className="tips">
             <li>{text('خلّي الكود ٣ سم على الأقل، و٥ سم أحسن على الترابيزة.', 'Print the code at least 3 cm wide; 5 cm is better on tables.')}</li>
             <li>{text('سيب مساحة بيضا حوالين الكود، ومتحطش عليه لوجو أو كلام.', 'Keep a white margin around the code and don’t print over it.')}</li>
@@ -126,7 +120,7 @@ export function QrCodesPage() {
             <li>{text('الكود مش بيتغير لما تعدّل المنيو، فمش محتاج تطبع تاني.', 'The code never changes when you edit the menu, so you won’t need to reprint.')}</li>
             <li>{text('لو طابع الكود قبل كده هيفضل شغال، بس مسحه بيتحسب «لينك» في الإحصائيات. اطبع الكود الجديد عشان يتحسب «كود QR».', 'Codes you printed earlier keep working, but their scans count as “link” in your insights. Print the new code to count them as QR scans.')}</li>
           </ul>
-        </section>
+        </Section>
       </div>
     </div>
   </div>;

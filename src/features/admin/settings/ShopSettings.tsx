@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { PackageIcon } from '@phosphor-icons/react';
 import type { ShopSettings } from '@bilhanah/contracts';
 import { Alert } from '../../../components/Alert';
 import { Button } from '../../../components/Button';
@@ -19,11 +18,8 @@ import { fromShopForm, onlineHidden, toShopForm, type ShopForm, type ShopProblem
 export function ShopSettingsCard() {
   const { text } = useLanguage();
   const settings = useShopSettingsQuery();
-  return <section className="card card-padded" aria-labelledby="shop-settings-title" data-testid="shop-settings">
-    <div className="card-header"><div>
-      <h2 id="shop-settings-title"><PackageIcon size={20} aria-hidden="true" className="heading-icon" /> {text('متجر الستاندات', 'Stand shop')}</h2>
-      <p>{text('رسوم التوصيل وطرق الدفع اللي بتظهر في صفحة طلب الستاندات على الموقع.', 'The delivery fee and ways to pay offered at the website’s stand checkout.')}</p>
-    </div></div>
+  return <section className="section" aria-labelledby="shop-settings-title" data-testid="shop-settings">
+    <div className="section-head"><div><h2 id="shop-settings-title">{text('متجر الستاندات', 'Stand shop')}</h2><p>{text('رسوم التوصيل وطرق الدفع اللي بتظهر في صفحة طلب الستاندات على الموقع.', 'The delivery fee and ways to pay offered at the website’s stand checkout.')}</p></div></div>
     {settings.isPending && <div className="skeleton-stack" role="status" aria-label={text('جاري التحميل', 'Loading')}><Skeleton height={46} /><Skeleton height={44} /><Skeleton height={44} /></div>}
     {settings.isError && <ErrorPanel error={settings.error} onRetry={() => void settings.refetch()} />}
     {settings.data && <ShopSettingsForm key={JSON.stringify(settings.data)} settings={settings.data} />}

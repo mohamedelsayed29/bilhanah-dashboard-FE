@@ -27,7 +27,7 @@ export function SuspendDialog(props: Props) {
 }
 
 function SuspendForm({ restaurant, onClose }: Props) {
-  const { text } = useLanguage();
+  const { text, number } = useLanguage();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [error, setError] = useState<unknown>(null);
@@ -56,7 +56,7 @@ function SuspendForm({ restaurant, onClose }: Props) {
         <li>{text('المنيو العام هيقفل فورًا، والزباين هيشوفوا إنه "مش متاح مؤقتًا".', 'The public menu goes offline at once; diners see it as “temporarily unavailable”.')}</li>
         <li>{text('صاحب المطعم مش هيقدر يعدّل أو يدفع لحد ما ترجّعه. البيانات والاشتراك محفوظين.', 'The owner cannot edit or pay until you unsuspend it. Data and periods are kept.')}</li>
       </ul>
-      <Field label={text('السبب', 'Reason')} error={errors.reason} required hint={text(`بيتسجل في سجل المراجعة · ${length}/300`, `Recorded in the audit log · ${length}/300`)}>
+      <Field label={text('السبب', 'Reason')} error={errors.reason} required hint={text(`بيتسجل في سجل المراجعة · ${number(length)}/${number(300)}`, `Recorded in the audit log · ${length}/300`)}>
         <textarea className="textarea" rows={3} maxLength={300} data-autofocus {...register('reason')} />
       </Field>
     </div>

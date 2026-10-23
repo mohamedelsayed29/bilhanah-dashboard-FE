@@ -59,7 +59,7 @@ function RestaurantDetail({ restaurant }: { restaurant: AdminRestaurantDetail })
   const end = access.status === 'TRIAL' ? access.trialEndsAt : access.currentPeriodEndsAt;
   return <div className="page">
     <BackLink />
-    <PageHeader title={restaurant.name}
+    <PageHeader title={<bdi>{restaurant.name}</bdi>}
       description={<a className="link ltr" href={restaurant.publicUrl} target="_blank" rel="noreferrer">{restaurant.publicUrl.replace(/^https?:\/\//, '')}<ArrowSquareOutIcon size={15} aria-hidden="true" className="inline-icon" /></a>}
       actions={<>
         {suspended
@@ -72,8 +72,8 @@ function RestaurantDetail({ restaurant }: { restaurant: AdminRestaurantDetail })
     </Alert>}
 
     <div className="detail-grid">
-      <section className="card card-padded" aria-labelledby="info-title">
-        <div className="card-header"><h2 id="info-title">{text('البيانات', 'Details')}</h2></div>
+      <section className="section" aria-labelledby="info-title">
+        <div className="section-head"><div><h2 id="info-title">{text('البيانات', 'Details')}</h2></div></div>
         <dl className="facts">
           <div><dt>{text('صاحب المطعم', 'Owner')}</dt><dd>{restaurant.ownerName}{restaurant.ownerStatus === 'SUSPENDED' && <> <span className="badge badge-danger">{text('الحساب موقوف', 'Account suspended')}</span></>}</dd></div>
           <div><dt>{text('الإيميل', 'Email')}</dt><dd><a className="link ltr" href={`mailto:${restaurant.ownerEmail}`}>{restaurant.ownerEmail}</a></dd></div>
@@ -85,33 +85,27 @@ function RestaurantDetail({ restaurant }: { restaurant: AdminRestaurantDetail })
           <div><dt>{text('اتسجل يوم', 'Joined')}</dt><dd>{formatDate(restaurant.createdAt, language, { dateStyle: 'long' })}</dd></div>
         </dl>
       </section>
-      <section className="card card-padded access-panel" aria-labelledby="access-title">
-        <div className="card-header"><h2 id="access-title">{text('الاشتراك', 'Access')}</h2><AccessBadge access={access} /></div>
+      <section className="section access-panel" aria-labelledby="access-title">
+        <div className="section-head"><div><h2 id="access-title">{text('الاشتراك', 'Access')}</h2></div><AccessBadge access={access} /></div>
         <p className="access-plan">{access.planCode ? planName(access.planCode, text) : text('من غير باقة', 'No plan')}</p>
         {end && access.status !== 'INACTIVE' && <p className="muted">{access.status === 'TRIAL' ? text('التجربة بتنتهي', 'Trial ends') : text('ساري لحد', 'Active until')} <strong>{formatDate(end, language, { dateStyle: 'long' })}</strong></p>}
-        <div className="mini-stats">
-          <div><strong>{number(restaurant.menu.categories)}</strong><span>{text('قسم', 'Categories')}</span></div>
-          <div><strong>{number(restaurant.menu.items)}</strong><span>{text('صنف', 'Items')}</span></div>
-          <div><strong>{number(restaurant.payments.length)}</strong><span>{text('تحويل', 'Payments')}</span></div>
-        </div>
+        <dl className="mini-stats">
+          <div><dt>{text('الأقسام', 'Categories')}</dt><dd>{number(restaurant.menu.categories)}</dd></div>
+          <div><dt>{text('الأصناف', 'Items')}</dt><dd>{number(restaurant.menu.items)}</dd></div>
+          <div><dt>{text('التحويلات', 'Payments')}</dt><dd>{number(restaurant.payments.length)}</dd></div>
+        </dl>
       </section>
     </div>
 
-    <section className="card card-padded" aria-labelledby="periods-title">
-      <div className="card-header"><div>
-        <h2 id="periods-title">{text('فترات الاشتراك', 'Entitlements')}</h2>
-        <p>{text('التجربة والمدد المدفوعة، الأحدث الأول.', 'Trial and paid periods, newest first.')}</p>
-      </div></div>
+    <section className="section" aria-labelledby="periods-title">
+      <div className="section-head"><div><h2 id="periods-title">{text('فترات الاشتراك', 'Entitlements')}</h2><p>{text('التجربة والمدد المدفوعة، الأحدث الأول.', 'Trial and paid periods, newest first.')}</p></div></div>
       {restaurant.entitlements.length === 0
         ? <p className="muted empty-line">{text('مفيش فترات على المطعم ده.', 'This restaurant has no periods.')}</p>
         : <ol className="timeline">{restaurant.entitlements.map(entitlement => <EntitlementItem key={entitlement.id} entitlement={entitlement} onOpenPayment={setPayment} />)}</ol>}
     </section>
 
-    <section className="card card-padded" aria-labelledby="restaurant-payments-title">
-      <div className="card-header"><div>
-        <h2 id="restaurant-payments-title">{text('التحويلات', 'Payments')}</h2>
-        <p>{text('آخر ٥٠ تحويل من المطعم ده.', 'The latest 50 payments from this restaurant.')}</p>
-      </div></div>
+    <section className="section" aria-labelledby="restaurant-payments-title">
+      <div className="section-head"><div><h2 id="restaurant-payments-title">{text('التحويلات', 'Payments')}</h2><p>{text('آخر ٥٠ تحويل من المطعم ده.', 'The latest 50 payments from this restaurant.')}</p></div></div>
       {restaurant.payments.length === 0
         ? <p className="muted empty-line">{text('المطعم ده مبعتش تحويلات.', 'No payments from this restaurant yet.')}</p>
         : <ul className="history-list">{restaurant.payments.map(entry => <li key={entry.id} className="history-row" data-testid="restaurant-payment-row">
@@ -147,8 +141,8 @@ function EntitlementItem({ entitlement, onOpenPayment }: { entitlement: AdminEnt
     <span className="timeline-dot" aria-hidden="true" />
     <div className="timeline-body">
       <div className="timeline-head">
-        <span className={`badge ${entitlement.kind === 'TRIAL' ? 'badge-guava' : 'badge-success'}`}>{entitlement.kind === 'TRIAL' ? text('تجربة', 'Trial') : text('مدفوع', 'Paid')}</span>
         <strong>{planName(entitlement.planCode, text)}</strong>
+        <span className="timeline-kind">{entitlement.kind === 'TRIAL' ? text('تجربة', 'Trial') : text('مدفوع', 'Paid')}</span>
         {state === 'current' && <span className="badge">{text('شغّالة دلوقتي', 'Current')}</span>}
         {state === 'upcoming' && <span className="badge badge-muted">{text('جاية', 'Upcoming')}</span>}
       </div>

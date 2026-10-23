@@ -80,11 +80,8 @@ function PaymentSettings({ payment }: { payment: PaymentInstructions }) {
       if (!applyServerIssues(caught, setFieldError, PAYMENT_FIELDS)) setError(caught);
     }
   });
-  return <form className="card card-padded form" onSubmit={onSubmit} noValidate aria-labelledby="payment-settings-title">
-    <div className="card-header"><div>
-      <h2 id="payment-settings-title">{text('بيانات الدفع', 'Payment details')}</h2>
-      <p>{text('أصحاب المطاعم بيحوّلوا على البيانات دي من صفحة الاشتراك.', 'Owners transfer to these details from their subscription page.')}</p>
-    </div></div>
+  return <form className="section form" onSubmit={onSubmit} noValidate aria-labelledby="payment-settings-title">
+    <div className="section-head"><div><h2 id="payment-settings-title">{text('بيانات الدفع', 'Payment details')}</h2><p>{text('أصحاب المطاعم بيحوّلوا على البيانات دي من صفحة الاشتراك.', 'Owners transfer to these details from their subscription page.')}</p></div></div>
     <Alert kind="info" live={false}>{text('سيب خانات أي طريقة فاضية عشان تختفي من عند أصحاب المطاعم. التحويل البنكي بيظهر لما اسم البنك ورقم الحساب يكونوا مكتوبين.',
       'Leave a method’s fields empty to hide it from owners. Bank transfer is offered once the bank name and account number are filled in.')}</Alert>
     {error !== null && <Alert kind="error">{errorMessage(error, text)}</Alert>}
@@ -143,11 +140,8 @@ function TrialSettings({ settings }: { settings: AdminSettings }) {
     mutationFn: () => adminApi.updateTrialSettings({ enabled, durationDays: parsedDays, planCode: plan }),
     onSuccess: result => saved(result, text('اتحفظت إعدادات التجربة', 'Trial settings saved')),
   });
-  return <form className="card card-padded form" aria-labelledby="trial-title" noValidate onSubmit={event => { event.preventDefault(); if (daysValid) save.mutate(); }}>
-    <div className="card-header"><div>
-      <h2 id="trial-title">{text('التجربة المجانية', 'Free trial')}</h2>
-      <p>{text('بتتطبق على المطاعم الجديدة بس؛ التجارب الشغالة مش بتتغير.', 'Applies to new restaurants only; running trials are not changed.')}</p>
-    </div></div>
+  return <form className="section form" aria-labelledby="trial-title" noValidate onSubmit={event => { event.preventDefault(); if (daysValid) save.mutate(); }}>
+    <div className="section-head"><div><h2 id="trial-title">{text('التجربة المجانية', 'Free trial')}</h2><p>{text('بتتطبق على المطاعم الجديدة بس؛ التجارب الشغالة مش بتتغير.', 'Applies to new restaurants only; running trials are not changed.')}</p></div></div>
     {save.isError && <Alert kind="error">{errorMessage(save.error, text)}</Alert>}
     <Switch checked={enabled} onChange={setEnabled} label={text('تجربة مجانية للمطاعم الجديدة', 'Free trial for new restaurants')}
       description={enabled ? undefined : text('المطاعم الجديدة هتبدأ من غير اشتراك لحد ما تدفع.', 'New restaurants start without access until they pay.')} />
@@ -169,11 +163,8 @@ function TrialSettings({ settings }: { settings: AdminSettings }) {
 
 function PlanPrices({ plans }: { plans: AdminSettings['plans'] }) {
   const { text } = useLanguage();
-  return <section className="card card-padded" aria-labelledby="prices-title">
-    <div className="card-header"><div>
-      <h2 id="prices-title">{text('أسعار الباقات', 'Plan prices')}</h2>
-      <p>{text('بالجنيه في الشهر. التحويلات اللي مستنية المراجعة والمدد المدفوعة بتفضل بسعرها القديم.', 'EGP per month. Payments waiting for review and paid periods keep their amount.')}</p>
-    </div></div>
+  return <section className="section" aria-labelledby="prices-title">
+    <div className="section-head"><div><h2 id="prices-title">{text('أسعار الباقات', 'Plan prices')}</h2><p>{text('بالجنيه في الشهر. التحويلات اللي مستنية المراجعة والمدد المدفوعة بتفضل بسعرها القديم.', 'EGP per month. Payments waiting for review and paid periods keep their amount.')}</p></div></div>
     <ul className="price-list">{plans.map(plan => <PlanPriceRow key={plan.code} code={plan.code} price={plan.priceMonthlyPiastres} />)}</ul>
   </section>;
 }

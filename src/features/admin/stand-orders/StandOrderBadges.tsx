@@ -8,12 +8,12 @@ export function StandStatusBadge({ status }: { status: StandOrderStatus }) {
   return <span className={`badge ${tone === 'default' ? '' : `badge-${tone}`}`} data-status={status}>{standStatusName(status, text)}</span>;
 }
 
-/** "Cash on delivery · Unpaid" */
+/** "Cash on delivery · Unpaid", as text: the order's status is its one badge. */
 export function StandPaymentBadge({ order }: { order: Pick<AdminStandOrder, 'paymentMethod' | 'paymentStatus'> }) {
   const { text } = useLanguage();
   return <span className="stand-payment">
     <span>{text(...PAYMENT_METHOD_NAMES[order.paymentMethod])}</span>
-    <span className={`badge ${order.paymentStatus === 'PAID' ? 'badge-success' : 'badge-warning'}`} data-payment-status={order.paymentStatus}>
+    <span className={`stand-payment-state ${order.paymentStatus === 'PAID' ? 'is-paid' : 'is-unpaid'}`} data-payment-status={order.paymentStatus}>
       {text(...PAYMENT_STATUS_NAMES[order.paymentStatus])}
     </span>
   </span>;

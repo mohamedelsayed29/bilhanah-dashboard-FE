@@ -42,10 +42,10 @@ export function ProfileSettings() {
     }
   });
   return <div className="settings-grid">
-    <form className="form" onSubmit={onSubmit} noValidate>
+    <form className="settings-main" onSubmit={onSubmit} noValidate>
       {save.isError && <Alert kind="error">{errorMessage(save.error, text)}</Alert>}
-      <section className="card card-padded" aria-labelledby="details-title">
-        <div className="card-header"><div><h2 id="details-title">{text('بيانات المطعم', 'Restaurant details')}</h2><p>{text('بتظهر للزباين في صفحة المنيو.', 'Shown to diners on your menu page.')}</p></div></div>
+      <section className="section" aria-labelledby="details-title">
+        <div className="section-head"><div><h2 id="details-title">{text('بيانات المطعم', 'Restaurant details')}</h2><p>{text('بتظهر للزباين في صفحة المنيو.', 'Shown to diners on your menu page.')}</p></div></div>
         <div className="form-grid">
           <Field className="field-wide" label={text('اسم المطعم', 'Restaurant name')} error={errors.name} required><input className="input" {...register('name')} /></Field>
           <Field label={text('اسم المسؤول', 'Contact person')} error={errors.contactName} required><input className="input" autoComplete="name" {...register('contactName')} /></Field>
@@ -61,8 +61,8 @@ export function ProfileSettings() {
           </fieldset>
         </div>
       </section>
-      <section className="card card-padded" aria-labelledby="social-title">
-        <div className="card-header"><div><h2 id="social-title">{text('واتساب والسوشيال ميديا', 'WhatsApp and social links')}</h2><p>{text('اختياري. بيظهروا كأزرار في المنيو.', 'Optional. They appear as buttons on your menu.')}</p></div></div>
+      <section className="section" aria-labelledby="social-title">
+        <div className="section-head"><div><h2 id="social-title">{text('واتساب والسوشيال ميديا', 'WhatsApp and social links')}</h2><p>{text('اختياري. بيظهروا كأزرار في المنيو.', 'Optional. They appear as buttons on your menu.')}</p></div></div>
         <div className="form-grid">
           <Field label={text('رقم واتساب', 'WhatsApp number')} error={errors.whatsappNumber} optional><input className="input" type="tel" inputMode="tel" dir="ltr" placeholder="01xxxxxxxxx" {...register('whatsappNumber', { setValueAs: emptyToNull })} /></Field>
           <Field label={text('الموقع الإلكتروني', 'Website')} error={errors.websiteUrl} optional><input className="input" type="url" inputMode="url" dir="ltr" placeholder="https://" {...register('websiteUrl')} /></Field>
@@ -76,11 +76,10 @@ export function ProfileSettings() {
         <Button type="submit" loading={isSubmitting} disabled={!isDirty}>{text('احفظ التغييرات', 'Save changes')}</Button>
       </div>
     </form>
-    <aside className="card card-padded address-card" aria-labelledby="address-title">
-      <span className="eyebrow"><LockSimpleIcon size={16} aria-hidden="true" />{text('ثابت', 'Permanent')}</span>
-      <h2 id="address-title" className="section-title">{text('عنوان المنيو', 'Menu address')}</h2>
+    <aside className="settings-aside address-card" aria-labelledby="address-title">
+      <h2 id="address-title">{text('عنوان المنيو', 'Menu address')}</h2>
       <p className="public-url ltr">{restaurant.subdomain}</p>
-      <p className="muted small">{text('العنوان ده ثابت ومينفعش يتغير، عشان الأكواد المطبوعة تفضل شغالة.', 'This address is permanent so printed QR codes keep working.')}</p>
+      <p className="muted"><LockSimpleIcon size={14} aria-hidden="true" className="inline-icon" /> {text('العنوان ده ثابت ومينفعش يتغير، عشان الأكواد المطبوعة تفضل شغالة.', 'This address is permanent so printed QR codes keep working.')}</p>
       <p className="ltr small public-url-full">{restaurant.publicUrl}</p>
       <CopyButton value={restaurant.publicUrl} label={text('انسخ اللينك', 'Copy link')} />
     </aside>

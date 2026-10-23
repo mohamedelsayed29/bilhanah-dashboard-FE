@@ -18,7 +18,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 /** One QR card per active table, laid out for A4; the app chrome is hidden when printing. */
 export function TablesPrintPage() {
-  const { text, number } = useLanguage();
+  const { text, number, count } = useLanguage();
   usePageTitle('اطبع أكواد الطاولات', 'Print table QR codes');
   const restaurant = useRestaurant();
   const tables = useTablesQuery();
@@ -31,13 +31,13 @@ export function TablesPrintPage() {
   const accent = restaurant.brandColor ?? '#075e54';
 
   return <div className="page print-page">
-    <div className="print-hide">
+    <div className="print-hide back-row">
       <Link to="/tables" className="back-link"><ArrowRightIcon size={16} className="directional" aria-hidden="true" />{text('الطاولات', 'Tables')}</Link>
     </div>
     <div className="print-hide">
       <PageHeader title={text('اطبع أكواد الطاولات', 'Print table QR codes')}
         description={active.length > 0
-          ? text(`${number(active.length)} كارت للطاولات الشغالة، ${number(PER_SHEET)} في كل ورقة A4. قص على الخط المنقط.`, `${active.length} card${active.length === 1 ? '' : 's'} for your active tables, ${PER_SHEET} per A4 sheet. Cut along the dotted lines.`)
+          ? text(`${count(active.length, 'card')} للطاولات الشغالة، ${number(PER_SHEET)} في كل ورقة A4. قص على الخط المنقط.`, `${count(active.length, 'card')} for your active tables, ${PER_SHEET} per A4 sheet. Cut along the dotted lines.`)
           : undefined}
         actions={active.length > 0 ? <Button onClick={() => window.print()} icon={<PrinterIcon size={18} aria-hidden="true" />}>{text('اطبع', 'Print')}</Button> : undefined} />
     </div>
@@ -53,9 +53,9 @@ export function TablesPrintPage() {
           {sheet.map(table => <article className="print-card" key={table.id} style={{ ['--qr-accent' as string]: accent }} data-testid="print-card">
             <div className="print-card-brand">
               {logo ? <img src={logo} alt="" /> : <span className="print-card-initial" aria-hidden="true">{restaurant.name.trim().charAt(0)}</span>}
-              <span>{restaurant.name}</span>
+              <span><bdi>{restaurant.name}</bdi></span>
             </div>
-            <strong className="print-card-table">{table.label}</strong>
+            <strong className="print-card-table"><bdi>{table.label}</bdi></strong>
             <QRCodeSVG className="print-card-qr" value={table.qrUrl} size={200} level="M" marginSize={2} fgColor="#111111" bgColor="#ffffff"
               title={text(`كود QR لـ${table.label}`, `QR code for ${table.label}`)} role="img" />
             <p className="print-card-scan">

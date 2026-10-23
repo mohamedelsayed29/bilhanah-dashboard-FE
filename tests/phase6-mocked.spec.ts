@@ -167,7 +167,7 @@ test.describe('online subscription payment', () => {
     await expect(page.getByTestId('online-total')).toHaveText(arPrice(210_000));
     await expect(page.getByRole('heading', { name: 'أو حوّل المبلغ بنفسك' })).toBeVisible();
     await expectAccessible(page, 'subscription with online payment');
-    await page.getByRole('button', { name: 'ادفع أونلاين (كارت أو محفظة)' }).click();
+    await page.getByRole('button', { name: /^ادفع .+ أونلاين$/ }).click();
     await expect(page).toHaveURL(/accept\.paymob\.com\/unifiedcheckout/);
     expect(api.callsTo('POST', '/v1/billing/online')[0]!.body).toEqual({ planCode: 'ADVANCED', months: 3 });
   });

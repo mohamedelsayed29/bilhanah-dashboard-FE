@@ -27,7 +27,7 @@ const SUGGESTIONS = [
 ];
 
 export function MenuPage() {
-  const { text, number } = useLanguage();
+  const { text, count } = useLanguage();
   usePageTitle('المنيو', 'Menu');
   const restaurant = useRestaurant();
   const menu = useMenuQuery();
@@ -43,7 +43,7 @@ export function MenuPage() {
   return <div className="page">
     <PageHeader title={text('المنيو', 'Menu')}
       description={categories.length
-        ? text(`${number(categories.length)} قسم · ${number(itemCount)} صنف. اسحب من المقبض عشان ترتّب، ودوس على أي صنف عشان تعدّله.`, `${categories.length} categories · ${itemCount} items. Drag a handle to reorder; tap any item to edit it.`)
+        ? text(`${count(categories.length, 'category')} و${count(itemCount, 'item')}. اسحب من المقبض عشان ترتّب، ودوس على أي صنف عشان تعدّله.`, `${count(categories.length, 'category')}, ${count(itemCount, 'item')}. Drag a handle to reorder; tap an item to edit it.`)
         : text('ابدأ بأقسام المنيو، وبعدين أضف الأصناف والأسعار.', 'Start with your menu sections, then add dishes and prices.')}
       actions={<>
         <a className="button button-secondary" href={restaurant.publicUrl} target="_blank" rel="noreferrer"><ArrowSquareOutIcon size={18} aria-hidden="true" />{text('معاينة', 'Preview')}</a>
@@ -51,7 +51,7 @@ export function MenuPage() {
       </>} />
     <AccessNoticeCompact access={restaurant.access} />
     {categories.length === 0
-      ? <section className="card empty-state">
+      ? <section className="card empty-state menu-empty">
           <span className="empty-state-icon" aria-hidden="true"><BowlFoodIcon size={32} /></span>
           <h2>{text('المنيو لسه فاضي', 'Your menu is empty')}</h2>
           <p>{text('أضف أول قسم، زي "مشويات" أو "مشروبات". تقدر تختار واحد من دول:', 'Add your first category, like “Grills” or “Drinks”. Pick one to start:')}</p>
@@ -70,8 +70,8 @@ export function MenuPage() {
               onEditItem={item => setEditing({ kind: 'item', item, categoryId: category.id })} />)}
           </ol>
         </SortableList>}
-    {categories.length > 0 && <button type="button" className="add-category-tile" onClick={() => setEditing({ kind: 'category' })}>
-      <PlusIcon size={20} weight="bold" aria-hidden="true" />{text('أضف قسم جديد', 'Add another category')}
+    {categories.length > 0 && <button type="button" className="button button-secondary add-category" onClick={() => setEditing({ kind: 'category' })}>
+      <PlusIcon size={18} weight="bold" aria-hidden="true" />{text('أضف قسم تاني', 'Add another category')}
     </button>}
     {editing?.kind === 'category' && <CategoryDialog category={editing.category} initialName={editing.initialName} onClose={() => setEditing(null)} />}
     {editing?.kind === 'item' && <ItemEditor item={editing.item} categoryId={editing.categoryId} categories={categories} onClose={() => setEditing(null)} />}

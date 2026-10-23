@@ -10,7 +10,7 @@ import { DragHandle, SortableList, useSortableRow } from './Sortable';
 type Props = { category: OwnerMenuCategory; onRename: () => void; onAddItem: () => void; onEditItem: (item: OwnerMenuItem) => void };
 
 export function CategoryCard({ category, onRename, onAddItem, onEditItem }: Props) {
-  const { text, number, language } = useLanguage();
+  const { text, count, language } = useLanguage();
   const { setNodeRef, style, isDragging, handle } = useSortableRow(category.id);
   const { reorderItems, setCategoryVisibility, deleteCategory } = useMenuMutations();
   const [confirming, setConfirming] = useState(false);
@@ -22,10 +22,10 @@ export function CategoryCard({ category, onRename, onAddItem, onEditItem }: Prop
     <header className="category-header">
       <DragHandle handle={handle} label={text(`رتّب قسم ${primary}`, `Reorder category ${primary}`)} />
       <div className="category-title">
-        <h2 id={headingId}>{primary}</h2>
+        <h2 id={headingId}><bdi>{primary}</bdi></h2>
         <div className="category-meta">
           {secondary && <span lang={language === 'en' ? 'ar' : 'en'}>{secondary}</span>}
-          <span>{text(`${number(category.items.length)} صنف`, `${category.items.length} item${category.items.length === 1 ? '' : 's'}`)}</span>
+          <span>{count(category.items.length, 'item')}</span>
           {!category.isVisible && <span className="badge badge-muted"><EyeSlashIcon size={13} aria-hidden="true" />{text('مخفي', 'Hidden')}</span>}
         </div>
       </div>
@@ -45,11 +45,11 @@ export function CategoryCard({ category, onRename, onAddItem, onEditItem }: Prop
       </ol>
     </SortableList>}
     <div className="category-footer">
-      <button type="button" className="add-item" onClick={onAddItem}><PlusIcon size={18} weight="bold" aria-hidden="true" />{text(`أضف صنف في ${primary}`, `Add item to ${primary}`)}</button>
+      <button type="button" className="add-item" onClick={onAddItem}><PlusIcon size={17} weight="bold" aria-hidden="true" />{text(`أضف صنف في ${primary}`, `Add item to ${primary}`)}</button>
     </div>
     <ConfirmDialog open={confirming} title={text('تمسح القسم ده؟', 'Delete this category?')}
       description={category.items.length
-        ? text(`قسم "${category.nameAr}" و${number(category.items.length)} صنف جواه هيتمسحوا نهائيًا. لو عايز توقفه مؤقتًا، اخفيه بدل ما تمسحه.`, `“${primary}” and its ${category.items.length} item${category.items.length === 1 ? '' : 's'} will be deleted permanently. To pause it instead, hide it.`)
+        ? text(`قسم "${category.nameAr}" و${count(category.items.length, 'item')} جواه هيتمسحوا نهائيًا. لو عايز توقفه مؤقتًا، اخفيه بدل ما تمسحه.`, `“${primary}” and its ${count(category.items.length, 'item')} will be deleted permanently. To pause it instead, hide it.`)
         : text(`قسم "${category.nameAr}" هيتمسح نهائيًا.`, `“${primary}” will be deleted permanently.`)}
       confirmLabel={text('امسح القسم', 'Delete category')} busy={deleteCategory.isPending}
       onCancel={() => setConfirming(false)}

@@ -31,7 +31,7 @@ type Props = {
  * creates the WebP renditions. Type and size are checked before anything is sent.
  */
 export function ImageUpload({ kind, value, onChange, label, hint, aspect = '4 / 3', onBusyChange, localPreview = false, fit = 'cover', emptyLabel }: Props) {
-  const { text } = useLanguage();
+  const { text, number } = useLanguage();
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>({ state: 'idle' });
@@ -96,7 +96,7 @@ export function ImageUpload({ kind, value, onChange, label, hint, aspect = '4 / 
           </button>}
       {busy && <div className="image-upload-overlay" role="status" aria-live="polite">
         <span className="spinner" aria-hidden="true" />
-        <span>{status.state === 'processing' ? text('بنجهز الصورة…', 'Processing…') : text(`بيترفع ${percent}٪`, `Uploading ${percent}%`)}</span>
+        <span>{status.state === 'processing' ? text('بنجهز الصورة…', 'Processing…') : text(`بيترفع ${number((percent ?? 0) / 100, { style: 'percent' })}`, `Uploading ${percent}%`)}</span>
         {percent !== null && <span className="image-upload-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label={text('تقدم الرفع', 'Upload progress')}><span style={{ width: `${percent}%` }} /></span>}
       </div>}
     </div>

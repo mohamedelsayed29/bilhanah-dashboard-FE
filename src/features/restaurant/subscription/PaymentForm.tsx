@@ -2,7 +2,7 @@ import { useImperativeHandle, useRef, useState } from 'react';
 import type { Ref } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { BankIcon, CalendarCheckIcon, CreditCardIcon, DeviceMobileIcon, LightningIcon, LockSimpleIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react';
+import { BankIcon, CreditCardIcon, DeviceMobileIcon, LightningIcon, LockSimpleIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
 import {
   BILLING_ERROR_CODES, type BillingMonths, type BillingSummary, type ImageSet, type ManualPaymentMethod, type PaymentInstructions, type PlanCode, submitPaymentSchema,
@@ -92,14 +92,14 @@ export function PaymentForm({ summary, initial, ref }: Props) {
     }
   });
 
-  return <form className="pay-flow" onSubmit={onSubmit} noValidate aria-labelledby="pay-title">
+  return <form className="card pay-flow" onSubmit={onSubmit} noValidate aria-labelledby="pay-title">
     <h2 id="pay-title" className="visually-hidden">{text('ادفع أو جدّد', 'Pay or renew')}</h2>
 
-    <section className="card card-padded" aria-labelledby="step-plan">
-      <div className="card-header"><div>
+    <section className="pay-step" aria-labelledby="step-plan">
+      <header>
         <h3 id="step-plan" className="step-title"><span className="step-number" aria-hidden="true">{number(1)}</span>{text('اختار الباقة', 'Choose a plan')}</h3>
         <p>{text('الأسعار بالشهر. تقدر تغيّر الباقة في أي تجديد.', 'Prices are per month. You can switch plans at any renewal.')}</p>
-      </div></div>
+      </header>
       <Controller control={control} name="planCode" render={({ field }) => <div className="plan-options" role="radiogroup" aria-labelledby="step-plan">
         {summary.plans.map(option => {
           const current = summary.access.planCode === option.code && (summary.access.status === 'PAID' || summary.access.status === 'TRIAL');
@@ -108,7 +108,7 @@ export function PaymentForm({ summary, initial, ref }: Props) {
               aria-label={text(`${planName(option.code, text)}، ${formatPrice(option.priceMonthlyPiastres, language)} في الشهر`, `${planName(option.code, text)}, ${formatPrice(option.priceMonthlyPiastres, language)} a month`)} />
             <span className="plan-option-head">
               <strong>{planName(option.code, text)}</strong>
-              {current && <span className="badge badge-muted">{summary.access.status === 'TRIAL' ? text('باقة التجربة', 'Trial plan') : text('باقتك', 'Current')}</span>}
+              {current && <span className="plan-option-current">{summary.access.status === 'TRIAL' ? text('باقة التجربة', 'Trial plan') : text('باقتك', 'Current')}</span>}
             </span>
             <span className="plan-option-price"><strong>{formatPrice(option.priceMonthlyPiastres, language)}</strong> <small>{text('/ شهر', '/ month')}</small></span>
             <PlanFeatureList code={option.code} />
@@ -117,11 +117,11 @@ export function PaymentForm({ summary, initial, ref }: Props) {
       </div>} />
     </section>
 
-    <section className="card card-padded" aria-labelledby="step-months">
-      <div className="card-header"><div>
+    <section className="pay-step" aria-labelledby="step-months">
+      <header>
         <h3 id="step-months" className="step-title"><span className="step-number" aria-hidden="true">{number(2)}</span>{text('اختار المدة', 'Choose how long')}</h3>
         <p>{text('بتدفع مرة واحدة للمدة كلها، ومفيش تجديد تلقائي.', 'You pay once for the whole period. Nothing renews automatically.')}</p>
-      </div></div>
+      </header>
       <Controller control={control} name="months" render={({ field }) => <div className="segmented months-options" role="radiogroup" aria-labelledby="step-months">
         {summary.months.map(option => <label key={option}>
           <input type="radio" name={field.name} value={option} checked={field.value === option} onChange={() => field.onChange(option)} onBlur={field.onBlur} />
@@ -129,16 +129,15 @@ export function PaymentForm({ summary, initial, ref }: Props) {
         </label>)}
       </div>} />
       <div className="order-summary" aria-live="polite" data-testid="order-summary">
-        <div className="order-total">
+        <p className="order-total-line">
           <span>{text('الإجمالي', 'Total')}</span>
           <strong data-testid="order-total">{formatPrice(total, language)}</strong>
           {plan && <small>{formatPrice(plan.priceMonthlyPiastres, language)} × {monthsLabel(months, text, number)}</small>}
-        </div>
+        </p>
         <div className="order-period">
-          <CalendarCheckIcon size={22} aria-hidden="true" />
           <p>
             {text('اشتراكك الجديد هيبدأ من', 'Your new period would run from')} <strong>{formatDate(period.startsAt.toISOString(), language, { dateStyle: 'long' })}</strong> {text('لحد', 'to')} <strong>{formatDate(period.endsAt.toISOString(), language, { dateStyle: 'long' })}</strong>.
-            {later && <span className="order-note"> {summary.access.status === 'TRIAL'
+            {later && <span className="period-note"> {summary.access.status === 'TRIAL'
               ? text('بيبدأ بعد ما التجربة تخلص، فأيام التجربة الباقية محفوظة.', 'It starts after your trial, so your remaining trial days are kept.')
               : text('بيبدأ بعد ما اشتراكك الحالي يخلص.', 'It starts when your current period ends.')}</span>}
           </p>
@@ -153,11 +152,11 @@ export function PaymentForm({ summary, initial, ref }: Props) {
           {text('لسه بنجهز طرق الدفع. تواصل معانا وهنساعدك تشترك.', 'We are still setting up payment methods. Please contact us and we will help you subscribe.')}
         </Alert>
       : <>
-          <section className="card card-padded" aria-labelledby="step-method">
-            <div className="card-header"><div>
+          <section className="pay-step" aria-labelledby="step-method">
+            <header>
               <h3 id="step-method" className="step-title"><span className="step-number" aria-hidden="true">{number(transferStep)}</span>{summary.onlinePayment ? text('أو حوّل المبلغ بنفسك', 'Or send a transfer') : text('حوّل المبلغ', 'Send the money')}</h3>
               <p>{text('اختار طريقة الدفع، وحوّل المبلغ بالظبط على البيانات دي.', 'Pick a method and transfer the exact amount to these details.')}</p>
-            </div></div>
+            </header>
             <div className="method-layout">
               <Controller control={control} name="method" render={({ field }) => <div className="method-options" role="radiogroup" aria-labelledby="step-method">
                 {summary.availableMethods.map(option => {
@@ -173,11 +172,11 @@ export function PaymentForm({ summary, initial, ref }: Props) {
             </div>
           </section>
 
-          <section className="card card-padded" aria-labelledby="step-details">
-            <div className="card-header"><div>
+          <section className="pay-step" aria-labelledby="step-details">
+            <header>
               <h3 id="step-details" className="step-title"><span className="step-number" aria-hidden="true">{number(transferStep + 1)}</span>{text('ابعت بيانات التحويل', 'Send the transfer details')}</h3>
               <p>{text('بنطابقها مع التحويل اللي وصلنا.', 'We match them against the transfer we receive.')}</p>
-            </div></div>
+            </header>
             <div className="details-layout">
               <div className="form">
                 {error !== null && <Alert kind="error">{errorMessage(error, text)}</Alert>}
@@ -257,27 +256,20 @@ function OnlinePayment({ planCode, months, total, buttonRef }: { planCode: PlanC
       }
     },
   });
-  return <section className="card card-padded online-pay" aria-labelledby="step-online" data-testid="online-payment">
-    <div className="card-header"><div>
+  return <section className="pay-step online-pay" aria-labelledby="step-online" data-testid="online-payment">
+    <header>
       <h3 id="step-online" className="step-title"><span className="step-number" aria-hidden="true">{number(3)}</span>{text('ادفع أونلاين', 'Pay online')}</h3>
       <p>{text('أسرع طريقة: بتدفع بالكارت (فيزا، ماستركارد، ميزة) أو بالمحفظة على صفحة Paymob الآمنة، واشتراكك بيتفعّل أول ما الدفع يتأكد.',
         'The quickest way: pay by card (Visa, Mastercard, Meeza) or mobile wallet on Paymob’s secure page, and your plan is active as soon as the payment is confirmed.')}</p>
-    </div></div>
+    </header>
     {start.isError && <Alert kind="error">{errorMessage(start.error, text)}</Alert>}
     <div className="online-pay-row">
-      <div className="online-pay-amount">
-        <span>{text('هتدفع', 'You pay')}</span>
-        <strong data-testid="online-total">{formatPrice(total, language)}</strong>
-        <small>{planName(planCode, text)} · {monthsLabel(months, text, number)}</small>
-      </div>
-      <div className="online-pay-action">
-        <Button ref={buttonRef} loading={start.isPending || leaving} onClick={() => start.mutate()} icon={<CreditCardIcon size={19} aria-hidden="true" />} data-testid="pay-online">
-          {text('ادفع أونلاين (كارت أو محفظة)', 'Pay online (card or wallet)')}
-        </Button>
-        <small className="online-pay-secure"><LockSimpleIcon size={14} aria-hidden="true" />{leaving
-          ? <span role="status">{text('بنفتح صفحة الدفع…', 'Opening the payment page…')}</span>
-          : text('بنحوّلك لصفحة Paymob وبعد الدفع بترجع هنا.', 'You go to Paymob’s page and come back here after paying.')}</small>
-      </div>
+      <Button ref={buttonRef} loading={start.isPending || leaving} onClick={() => start.mutate()} icon={<CreditCardIcon size={19} aria-hidden="true" />} data-testid="pay-online">
+        {text('ادفع', 'Pay')} <span data-testid="online-total">{formatPrice(total, language)}</span> {text('أونلاين', 'online')}
+      </Button>
+      <small className="online-pay-secure"><LockSimpleIcon size={14} aria-hidden="true" />{leaving
+        ? <span role="status">{text('بنفتح صفحة الدفع…', 'Opening the payment page…')}</span>
+        : text(`${planName(planCode, text)} · ${monthsLabel(months, text, number)}. بنحوّلك لصفحة Paymob وبعد الدفع بترجع هنا.`, `${planName(planCode, text)}, ${monthsLabel(months, text, number)}. You go to Paymob’s page and come back here after paying.`)}</small>
     </div>
   </section>;
 }

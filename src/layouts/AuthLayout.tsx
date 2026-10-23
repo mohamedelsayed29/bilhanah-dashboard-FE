@@ -8,7 +8,7 @@ import { useRouteFocus } from '../lib/use-route-focus';
 
 /** Sign-in, registration, email links and onboarding: brand panel beside a focused form. `admin` is the team's sign-in. */
 export function AuthLayout({ wide = false, variant = 'owner' }: { wide?: boolean; variant?: 'owner' | 'admin' }) {
-  const { text } = useLanguage();
+  const { text, number } = useLanguage();
   const { pathname } = useLocation();
   useRouteFocus();
   const admin = variant === 'admin';
@@ -45,7 +45,7 @@ export function AuthLayout({ wide = false, variant = 'owner' }: { wide?: boolean
         <ErrorBoundary resetKey={pathname}><Outlet /></ErrorBoundary>
       </main>
       <footer className="auth-footer">
-        <span>© {new Date().getFullYear()} {text('بالهنا', 'Bilhanah')}</span>
+        <span>© {number(new Date().getFullYear(), { useGrouping: false })} {text('بالهنا', 'Bilhanah')}</span>
         <a href="https://bilhanah.com" className="link-muted">{text('الموقع الرئيسي', 'Website')}</a>
       </footer>
     </div>

@@ -135,10 +135,10 @@ test('builds the menu: categories, an item with a photo, sizes, sold out and reo
   // Item with sizes.
   await itemDialog.getByLabel('الاسم بالعربي').fill('شيش طاووق');
   await itemDialog.getByRole('radio', { name: 'أكتر من حجم' }).check();
-  await itemDialog.getByLabel('اسم الحجم 1').fill('نص');
-  await itemDialog.getByLabel('سعر الحجم 1').fill('90');
-  await itemDialog.getByLabel('اسم الحجم 2').fill('كامل');
-  await itemDialog.getByLabel('سعر الحجم 2').fill('170');
+  await itemDialog.getByLabel('اسم الحجم ١').fill('نص');
+  await itemDialog.getByLabel('سعر الحجم ١').fill('90');
+  await itemDialog.getByLabel('اسم الحجم ٢').fill('كامل');
+  await itemDialog.getByLabel('سعر الحجم ٢').fill('170');
   await itemDialog.getByRole('button', { name: 'أضف الصنف' }).click();
   await expect(itemDialog).toBeHidden();
 
@@ -197,8 +197,8 @@ test('builds the menu: categories, an item with a photo, sizes, sold out and reo
 test('edits an item and hides a category', async () => {
   await page.getByRole('button', { name: 'عدّل شيش طاووق' }).first().click();
   const editor = page.getByRole('dialog', { name: 'تعديل الصنف' });
-  await expect(editor.getByLabel('سعر الحجم 2')).toHaveValue('170');
-  await editor.getByLabel('سعر الحجم 2').fill('175');
+  await expect(editor.getByLabel('سعر الحجم ٢')).toHaveValue('170');
+  await editor.getByLabel('سعر الحجم ٢').fill('175');
   await editor.getByRole('button', { name: 'احفظ التغييرات' }).click();
   await expect(editor).toBeHidden();
   await expect(page.getByText('من ٩٠ ج.م')).toBeVisible();
@@ -238,7 +238,7 @@ test('saves the brand color and opening hours', async () => {
   await page.getByTestId('day-sat').getByLabel('لحد').nth(1).fill('23:00');
   await page.getByRole('button', { name: 'احفظ المواعيد' }).click();
   await expect(page.getByText('اكتب وقت فتح وقفل مختلفين.')).toBeVisible();
-  await page.getByRole('button', { name: 'امسح فترة 2 يوم السبت' }).click();
+  await page.getByRole('button', { name: 'امسح فترة ٢ يوم السبت' }).click();
   await expectAccessible(page, 'settings: hours');
   await screenshot(page, 'hours-ar-desktop');
   // The branding save's toast may still be showing, so wait for this save itself.

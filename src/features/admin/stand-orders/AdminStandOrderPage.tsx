@@ -58,7 +58,7 @@ function useConflictRefresh(order: AdminStandOrder) {
 }
 
 function StandOrderDetail({ order }: { order: AdminStandOrder }) {
-  const { text, number, language } = useLanguage();
+  const { text, count, language } = useLanguage();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [target, setTarget] = useState<StandOrderStatus | null>(null);
@@ -74,10 +74,9 @@ function StandOrderDetail({ order }: { order: AdminStandOrder }) {
   });
   return <div className="page stand-order-page" data-testid="stand-order-detail">
     <BackLink />
-    <PageHeader eyebrow={text(`اتطلب ${formatDate(order.createdAt, language, { dateStyle: 'long', timeStyle: 'short' })}`, `Placed ${formatDate(order.createdAt, language, { dateStyle: 'long', timeStyle: 'short' })}`)}
-      title={<span className="stand-title"><span className="ltr">{order.reference}</span> <StandStatusBadge status={order.status} /></span>}
-      description={text(`${number(standCount(order))} ستاند في ${number(order.lines.length)} تصميم · ${formatPrice(order.totalPiastres, language)}`,
-        `${standCount(order)} stand${standCount(order) === 1 ? '' : 's'} in ${order.lines.length} design${order.lines.length === 1 ? '' : 's'} · ${formatPrice(order.totalPiastres, language)}`)}
+    <PageHeader title={<span className="stand-title"><span className="ltr">{order.reference}</span> <StandStatusBadge status={order.status} /></span>}
+      description={text(`${count(standCount(order), 'stand')} في ${count(order.lines.length, 'design')} · ${formatPrice(order.totalPiastres, language)} · اتطلب ${formatDate(order.createdAt, language, { dateStyle: 'long', timeStyle: 'short' })}`,
+        `${count(standCount(order), 'stand')} in ${count(order.lines.length, 'design')} · ${formatPrice(order.totalPiastres, language)} · placed ${formatDate(order.createdAt, language, { dateStyle: 'long', timeStyle: 'short' })}`)}
       actions={moves.length > 0 ? <div className="stand-actions" role="group" aria-label={text('غيّر الحالة', 'Change status')}>
         {moves.map(next => <Button key={next} variant={next === 'CANCELLED' ? 'danger-outline' : 'primary'} data-testid={`move-${next}`}
           icon={next === 'CANCELLED' ? <XCircleIcon size={18} aria-hidden="true" /> : <CheckCircleIcon size={18} aria-hidden="true" />}
@@ -94,22 +93,19 @@ function StandOrderDetail({ order }: { order: AdminStandOrder }) {
 
     <div className="detail-grid">
       <div className="stand-main">
-        <section className="card card-padded" aria-labelledby="lines-title">
-          <div className="card-header"><div>
-            <h2 id="lines-title">{text('التصميمات', 'Designs')}</h2>
-            <p>{text('كل تصميم بالشكل والألوان والكلام اللي هيتطبع عليه.', 'Each design with its shape, colours and printed text.')}</p>
-          </div></div>
+        <section className="section" aria-labelledby="lines-title">
+          <div className="section-head"><div><h2 id="lines-title">{text('التصميمات', 'Designs')}</h2><p>{text('كل تصميم بالشكل والألوان والكلام اللي هيتطبع عليه.', 'Each design with its shape, colours and printed text.')}</p></div></div>
           <ol className="stand-lines">{order.lines.map((line, index) => <LineCard key={line.id} order={order} line={line} index={index} />)}</ol>
         </section>
         <Totals order={order} />
       </div>
       <div className="stand-side">
         <Customer order={order} />
-        <section className="card card-padded" aria-labelledby="payment-title">
-          <div className="card-header"><h2 id="payment-title">{text('الدفع', 'Payment')}</h2></div>
+        <section className="section" aria-labelledby="payment-title">
+          <div className="section-head"><div><h2 id="payment-title">{text('الدفع', 'Payment')}</h2></div></div>
           <dl className="facts facts-compact">
             <div><dt>{text('الطريقة', 'Method')}</dt><dd>{text(...PAYMENT_METHOD_NAMES[order.paymentMethod])}</dd></div>
-            <div><dt>{text('الحالة', 'Status')}</dt><dd><span className={`badge ${order.paymentStatus === 'PAID' ? 'badge-success' : 'badge-warning'}`} data-testid="stand-payment-status">{text(...PAYMENT_STATUS_NAMES[order.paymentStatus])}</span></dd></div>
+            <div><dt>{text('الحالة', 'Status')}</dt><dd><span className={`stand-payment-state ${order.paymentStatus === 'PAID' ? 'is-paid' : 'is-unpaid'}`} data-testid="stand-payment-status">{text(...PAYMENT_STATUS_NAMES[order.paymentStatus])}</span></dd></div>
             {order.paidAt && <div><dt>{text('اتدفع يوم', 'Paid on')}</dt><dd>{formatDate(order.paidAt, language, { dateStyle: 'medium', timeStyle: 'short' })}</dd></div>}
           </dl>
           {canCollectCash(order) && <div className="form-actions stand-collect">
@@ -133,8 +129,8 @@ function StandOrderDetail({ order }: { order: AdminStandOrder }) {
 
 function Customer({ order }: { order: AdminStandOrder }) {
   const { text } = useLanguage();
-  return <section className="card card-padded" aria-labelledby="customer-title">
-    <div className="card-header"><h2 id="customer-title">{text('العميل', 'Customer')}</h2></div>
+  return <section className="section" aria-labelledby="customer-title">
+    <div className="section-head"><div><h2 id="customer-title">{text('العميل', 'Customer')}</h2></div></div>
     <dl className="facts facts-compact">
       <div><dt>{text('الاسم', 'Name')}</dt><dd>{order.customerName}</dd></div>
       <div><dt>{text('الموبايل', 'Phone')}</dt><dd><a className="link ltr contact-link" href={`tel:${order.phone}`} data-testid="customer-phone"><PhoneIcon size={16} aria-hidden="true" />{order.phone}</a></dd></div>
@@ -168,7 +164,7 @@ function LineCard({ order, line, index }: { order: AdminStandOrder; line: StandO
       </div>
       <dl className="facts stand-facts">
         <div><dt>{text('الشكل', 'Shape')}</dt><dd>{text(...SHAPES[line.shape])}</dd></div>
-        <div><dt>{text('التصميم', 'Design')}</dt><dd>{text(...DESIGNS[line.design].label)}{colors.custom && <> · <span className="badge badge-guava">{text('ألوان مخصوصة', 'Custom colours')}</span></>}</dd></div>
+        <div><dt>{text('التصميم', 'Design')}</dt><dd>{text(...DESIGNS[line.design].label)}{colors.custom && <> · {text('ألوان مخصوصة', 'custom colours')}</>}</dd></div>
         <div className="fact-wide"><dt>{text('الألوان', 'Colours')}</dt><dd className="stand-swatches">
           <Swatch color={colors.background} label={text('الخلفية', 'Background')} />
           <Swatch color={colors.ink} label={text('الكتابة', 'Ink')} />
@@ -220,8 +216,8 @@ function LineLogo({ order, line, index }: { order: AdminStandOrder; line: StandO
 
 function Totals({ order }: { order: AdminStandOrder }) {
   const { text, language } = useLanguage();
-  return <section className="card card-padded" aria-labelledby="totals-title">
-    <div className="card-header"><h2 id="totals-title">{text('الحساب', 'Totals')}</h2></div>
+  return <section className="section" aria-labelledby="totals-title">
+    <div className="section-head"><div><h2 id="totals-title">{text('الحساب', 'Totals')}</h2></div></div>
     <dl className="totals">
       <div><dt>{text('الستاندات', 'Stands')}</dt><dd>{formatPrice(order.subtotalPiastres, language)}</dd></div>
       <div><dt>{text('التوصيل', 'Delivery')}</dt><dd>{order.deliveryFeePiastres === null
@@ -234,7 +230,7 @@ function Totals({ order }: { order: AdminStandOrder }) {
 }
 
 function AdminNote({ order }: { order: AdminStandOrder }) {
-  const { text } = useLanguage();
+  const { text, number } = useLanguage();
   const toast = useToast();
   const queryClient = useQueryClient();
   const saved = order.adminNote ?? '';
@@ -251,13 +247,10 @@ function AdminNote({ order }: { order: AdminStandOrder }) {
     },
   });
   const dirty = note.trim() !== saved.trim();
-  return <form className="card card-padded form" aria-labelledby="note-title" noValidate onSubmit={event => { event.preventDefault(); if (dirty) save.mutate(); }}>
-    <div className="card-header"><div>
-      <h2 id="note-title">{text('ملاحظة داخلية', 'Internal note')}</h2>
-      <p>{text('للفريق بس؛ العميل مش بيشوفها.', 'For the team only; never shown to the customer.')}</p>
-    </div></div>
+  return <form className="section form" aria-labelledby="note-title" noValidate onSubmit={event => { event.preventDefault(); if (dirty) save.mutate(); }}>
+    <div className="section-head"><div><h2 id="note-title">{text('ملاحظة داخلية', 'Internal note')}</h2><p>{text('للفريق بس؛ العميل مش بيشوفها.', 'For the team only; never shown to the customer.')}</p></div></div>
     {save.isError && <Alert kind="error">{errorMessage(save.error, text)}</Alert>}
-    <Field label={text('الملاحظة', 'Note')} optional hint={text(`${note.trim().length}/1000`, `${note.trim().length}/1000`)}>
+    <Field label={text('الملاحظة', 'Note')} optional hint={text(`${number(note.trim().length)}/${number(1000, { useGrouping: false })}`, `${note.trim().length}/1000`)}>
       <textarea className="textarea" rows={3} maxLength={1000} value={note} onChange={event => setNote(event.target.value)}
         placeholder={text('مثلًا: العميل عايز التسليم بعد الساعة ٥.', 'e.g. The customer wants delivery after 5 pm.')} />
     </Field>
@@ -271,8 +264,8 @@ function AdminNote({ order }: { order: AdminStandOrder }) {
 function History({ order }: { order: AdminStandOrder }) {
   const { text, language } = useLanguage();
   const last = order.statusHistory.length - 1;
-  return <section className="card card-padded" aria-labelledby="history-title">
-    <div className="card-header"><h2 id="history-title">{text('سجل الحالة', 'Status history')}</h2></div>
+  return <section className="section" aria-labelledby="history-title">
+    <div className="section-head"><div><h2 id="history-title">{text('سجل الحالة', 'Status history')}</h2></div></div>
     {order.statusHistory.length === 0
       ? <p className="muted empty-line">{text('مفيش تغييرات لسه.', 'No changes yet.')}</p>
       : <ol className="timeline" data-testid="stand-history">{order.statusHistory.map((entry, index) => <li key={`${entry.at}-${index}`} className={`timeline-item ${index === last ? 'is-current' : 'is-past'}`}>
@@ -288,7 +281,7 @@ function History({ order }: { order: AdminStandOrder }) {
 
 /** Moving the order on (optional note) or cancelling it (reason required); both are recorded in its history. */
 function StatusDialog({ order, target, onClose }: { order: AdminStandOrder; target: StandOrderStatus; onClose: () => void }) {
-  const { text } = useLanguage();
+  const { text, number } = useLanguage();
   const toast = useToast();
   const queryClient = useQueryClient();
   const onConflict = useConflictRefresh(order);
@@ -317,7 +310,7 @@ function StatusDialog({ order, target, onClose }: { order: AdminStandOrder; targ
       <p className="muted">{statusHint(target, text)}</p>
       <Field label={required ? text('سبب الإلغاء', 'Reason for cancelling') : text('ملاحظة', 'Note')} required={required} optional={!required}
         error={touched && missing ? { message: text('اكتب سبب الإلغاء.', 'Say why the order is cancelled.') } : undefined}
-        hint={text(`بتظهر في سجل الطلب · ${note.trim().length}/300`, `Shown in the order’s history · ${note.trim().length}/300`)}>
+        hint={text(`بتظهر في سجل الطلب · ${number(note.trim().length)}/${number(300)}`, `Shown in the order’s history · ${note.trim().length}/300`)}>
         <textarea className="textarea" rows={3} maxLength={300} value={note} onChange={event => setNote(event.target.value)} onBlur={() => setTouched(true)} data-autofocus
           placeholder={required ? text('مثلًا: العميل لغى في التليفون.', 'e.g. The customer cancelled by phone.') : ''} />
       </Field>

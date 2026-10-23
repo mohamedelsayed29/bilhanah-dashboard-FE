@@ -1,4 +1,4 @@
-import { CameraIcon, EyeSlashIcon, PencilSimpleIcon } from '@phosphor-icons/react';
+import { CameraIcon, EyeSlashIcon } from '@phosphor-icons/react';
 import type { OwnerMenuItem } from '@bilhanah/contracts';
 import { formatPrice } from '../../../lib/format';
 import { useLanguage } from '../../../lib/language';
@@ -6,7 +6,7 @@ import { useMenuMutations } from './menu-mutations';
 import { DragHandle, useSortableRow } from './Sortable';
 
 export function ItemRow({ item, onEdit }: { item: OwnerMenuItem; onEdit: () => void }) {
-  const { text, language, number } = useLanguage();
+  const { text, language, count } = useLanguage();
   const { setNodeRef, style, isDragging, handle } = useSortableRow(item.id);
   const { setAvailability } = useMenuMutations();
   const name = language === 'en' && item.nameEn ? item.nameEn : item.nameAr;
@@ -24,11 +24,11 @@ export function ItemRow({ item, onEdit }: { item: OwnerMenuItem; onEdit: () => v
         {thumb ? <img src={thumb.url} srcSet={item.image!.sources.map(source => `${source.url} ${source.width}w`).join(', ')} sizes="64px" alt="" loading="lazy" /> : <CameraIcon size={22} />}
       </span>
       <span className="item-text">
-        <strong>{name}</strong>
-        {description && <small>{description}</small>}
+        <strong><bdi>{name}</bdi></strong>
+        {description && <small><bdi>{description}</bdi></small>}
         <span className="item-tags">
           <span className="item-price">{price}</span>
-          {prices.length > 1 && <span className="badge badge-muted">{text(`${number(prices.length)} أحجام`, `${prices.length} sizes`)}</span>}
+          {prices.length > 1 && <span>{count(prices.length, 'size')}</span>}
           {!item.isVisible && <span className="badge badge-muted"><EyeSlashIcon size={13} aria-hidden="true" />{text('مخفي', 'Hidden')}</span>}
         </span>
       </span>
@@ -39,6 +39,5 @@ export function ItemRow({ item, onEdit }: { item: OwnerMenuItem; onEdit: () => v
       <span className="availability-dot" aria-hidden="true" />
       <span aria-hidden="true">{item.isAvailable ? text('متاح', 'Available') : text('خلصان', 'Sold out')}</span>
     </button>
-    <button type="button" className="icon-button item-edit" onClick={onEdit} aria-hidden="true" tabIndex={-1}><PencilSimpleIcon size={19} aria-hidden="true" /></button>
   </li>;
 }

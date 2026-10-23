@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { CheckCircleIcon, MagnifyingGlassIcon } from '@phosphor-icons/react';
 import type { PaymentStatus } from '@bilhanah/contracts';
+import { CompactMeta } from '../../../components/CompactMeta';
 import { ErrorPanel } from '../../../components/ErrorBoundary';
 import { PageHeader } from '../../../components/PageHeader';
 import { Pagination } from '../../../components/Pagination';
@@ -73,16 +74,19 @@ export function AdminPaymentsPage() {
           <tbody>
             {payments.data.items.map(payment => <tr key={payment.id} data-testid="payment-queue-row">
               <td data-label={text('المطعم', 'Restaurant')} className="cell-primary">
-                <Link className="table-link" to={`/admin/restaurants/${payment.restaurant.id}`}>{payment.restaurant.name}</Link>
+                <Link className="table-link" to={`/admin/restaurants/${payment.restaurant.id}`}><bdi>{payment.restaurant.name}</bdi></Link>
                 <small className="ltr">{payment.restaurant.subdomain}</small>
               </td>
               <td data-label={text('الباقة', 'Plan')}>{planName(payment.planCode, text)}<small>{monthsLabel(payment.months, text, number)}</small></td>
-              <td data-label={text('المبلغ', 'Amount')} className="cell-amount">{formatPrice(payment.amountPiastres, language)}</td>
+              <td data-label={text('المبلغ', 'Amount')} className="cell-end cell-amount">{formatPrice(payment.amountPiastres, language)}</td>
               <td data-label={text('الطريقة', 'Method')}>{methodName(payment.method, text)}</td>
               <td data-label={text('رقم العملية', 'Reference')}><span className="ltr cell-mono">{payment.reference}</span></td>
               <td data-label={text('المحوّل', 'Payer')}>{payment.payerName ?? <span className="muted">—</span>}</td>
-              <td data-label={text('اتبعت', 'Submitted')}>{formatDate(payment.createdAt, language, { dateStyle: 'medium' })}<small>{formatDate(payment.createdAt, language, { timeStyle: 'short' })}</small></td>
+              <td data-label={text('اتبعت', 'Submitted')} className="cell-nowrap">{formatDate(payment.createdAt, language, { dateStyle: 'medium' })}<small>{formatDate(payment.createdAt, language, { timeStyle: 'short' })}</small></td>
               {tab !== 'PENDING' && <td data-label={text('الحالة', 'Status')}><PaymentStatusBadge status={payment.status} method={payment.method} /></td>}
+              <CompactMeta parts={[`${planName(payment.planCode, text)}${text('، ', ', ')}${monthsLabel(payment.months, text, number)}`, methodName(payment.method, text),
+                formatDate(payment.createdAt, language, { dateStyle: 'medium', timeStyle: 'short' }),
+                tab !== 'PENDING' && <PaymentStatusBadge status={payment.status} method={payment.method} />]} />
               <td className="cell-action">
                 <button type="button" className={`button button-small ${isReviewable(payment) ? 'button-primary' : 'button-secondary'}`} onClick={() => update({ view: payment.id })}
                   aria-label={isReviewable(payment) ? text(`راجع تحويل ${payment.restaurant.name}`, `Review the payment from ${payment.restaurant.name}`) : text(`التفاصيل، دفع ${payment.restaurant.name}`, `Details of the payment from ${payment.restaurant.name}`)}>

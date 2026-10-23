@@ -59,7 +59,7 @@ export function OnlineReturnStatus({ state, onCheckAgain, onPayAgain, onDismiss 
   let content;
   switch (state.kind) {
     case 'checking':
-      content = <div className="card card-padded return-checking" data-testid="online-return-checking">
+      content = <div className="return-checking" data-testid="online-return-checking">
         <span className="spinner" aria-hidden="true" />
         <div>
           <strong>{text('بنأكد الدفع…', 'Confirming your payment…')}</strong>

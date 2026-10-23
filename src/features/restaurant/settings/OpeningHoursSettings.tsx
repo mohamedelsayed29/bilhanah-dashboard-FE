@@ -29,7 +29,7 @@ function defaultHours(): OpeningHours {
 }
 
 export function OpeningHoursSettings() {
-  const { text } = useLanguage();
+  const { text, number } = useLanguage();
   usePageTitle('مواعيد الشغل', 'Opening hours');
   const restaurant = useRestaurant();
   const save = useSaveRestaurant();
@@ -45,18 +45,15 @@ export function OpeningHoursSettings() {
     save.mutate({ openingHours: hours });
   };
 
-  return <form className="form" noValidate onSubmit={event => { event.preventDefault(); submit(); }}>
+  return <form className="settings-main hours-form" noValidate onSubmit={event => { event.preventDefault(); submit(); }}>
     {save.isError && <Alert kind="error">{errorMessage(save.error, text)}</Alert>}
-    <section className="card card-padded" aria-labelledby="hours-title">
-      <div className="card-header"><div>
-        <h2 id="hours-title">{text('مواعيد الشغل', 'Opening hours')}</h2>
-        <p>{text('الزبون بيشوف إذا كنت فاتح دلوقتي حسب المواعيد دي وبتوقيت مطعمك.', 'Diners see whether you are open now, based on these hours in your restaurant’s time zone.')}</p>
-      </div></div>
+    <section className="section" aria-labelledby="hours-title">
+        <div className="section-head"><div><h2 id="hours-title">{text('مواعيد الشغل', 'Opening hours')}</h2><p>{text('الزبون بيشوف إذا كنت فاتح دلوقتي حسب المواعيد دي وبتوقيت مطعمك.', 'Diners see whether you are open now, based on these hours in your restaurant’s time zone.')}</p></div></div>
       <Switch checked={hours !== null} onChange={on => setHours(on ? restaurant.openingHours ?? defaultHours() : null)}
         label={text('اعرض مواعيد الشغل في المنيو', 'Show opening hours on the menu')}
         description={hours ? text('حدد لكل يوم لحد ٣ فترات.', 'Set up to three time ranges per day.') : text('المواعيد مش ظاهرة للزباين.', 'Opening hours are hidden from diners.')} />
     </section>
-    {hours && <section className="card hours-card" aria-label={text('أيام الأسبوع', 'Days of the week')}>
+    {hours && <section className="section hours-week" aria-label={text('أيام الأسبوع', 'Days of the week')}>
       <div className="hours-toolbar">
         <Button variant="ghost" small icon={<CopyIcon size={16} aria-hidden="true" />} onClick={() => setHours(current => current && Object.fromEntries(WEEKDAYS.map(day => [day, current.sat.map(range => ({ ...range }))])) as OpeningHours)}>
           {text('طبّق مواعيد السبت على كل الأيام', 'Copy Saturday to every day')}
@@ -79,7 +76,7 @@ export function OpeningHoursSettings() {
               {ranges.map((range, index) => {
                 const overnight = range.closes < range.opens;
                 const bad = showErrors && invalid.has(`${day}.${index}`);
-                return <div className="hours-range" key={index} role="group" aria-label={text(`${dayName}، الفترة ${index + 1}`, `${dayName}, range ${index + 1}`)}>
+                return <div className="hours-range" key={index} role="group" aria-label={text(`${dayName}، الفترة ${number(index + 1)}`, `${dayName}, range ${index + 1}`)}>
                   <label className="time-field"><span>{text('من', 'Opens')}</span>
                     <input type="time" className="input" value={range.opens} aria-invalid={bad || undefined} required
                       onChange={event => updateDay(day, ranges.map((entry, i) => (i === index ? { ...entry, opens: event.target.value } : entry)))} />
@@ -88,9 +85,9 @@ export function OpeningHoursSettings() {
                     <input type="time" className="input" value={range.closes} aria-invalid={bad || undefined} required
                       onChange={event => updateDay(day, ranges.map((entry, i) => (i === index ? { ...entry, closes: event.target.value } : entry)))} />
                   </label>
-                  {overnight && <span className="badge badge-muted overnight"><MoonStarsIcon size={13} aria-hidden="true" />{text('لليوم اللي بعده', 'Next day')}</span>}
+                  {overnight && <span className="overnight"><MoonStarsIcon size={13} aria-hidden="true" />{text('لليوم اللي بعده', 'Next day')}</span>}
                   <button type="button" className="icon-button icon-button-danger" onClick={() => updateDay(day, ranges.filter((_, i) => i !== index))}
-                    aria-label={text(`امسح فترة ${index + 1} يوم ${dayName}`, `Remove range ${index + 1} on ${dayName}`)}><TrashIcon size={18} /></button>
+                    aria-label={text(`امسح فترة ${number(index + 1)} يوم ${dayName}`, `Remove range ${index + 1} on ${dayName}`)}><TrashIcon size={18} /></button>
                   {bad && <p className="field-error range-error" role="alert">{text('اكتب وقت فتح وقفل مختلفين.', 'Enter different opening and closing times.')}</p>}
                 </div>;
               })}
@@ -101,7 +98,7 @@ export function OpeningHoursSettings() {
           </li>;
         })}
       </ul>
-      <p className="hours-note muted">{text('لو وقت القفل قبل وقت الفتح (زي ٦ م لحد ٢ ص)، يبقى بتقفل بعد نص الليل.', 'A closing time earlier than the opening time (e.g. 6 PM to 2 AM) means you close after midnight.')}</p>
+      <p className="field-hint">{text('لو وقت القفل قبل وقت الفتح (زي ٦ م لحد ٢ ص)، يبقى بتقفل بعد نص الليل.', 'A closing time earlier than the opening time (e.g. 6 PM to 2 AM) means you close after midnight.')}</p>
     </section>}
     <div className={`sticky-actions ${dirty ? 'is-dirty' : ''}`}>
       {dirty && <span className="muted">{text('في تغييرات مش محفوظة', 'You have unsaved changes')}</span>}

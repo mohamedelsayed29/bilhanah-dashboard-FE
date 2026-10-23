@@ -48,7 +48,7 @@ export function LoginPage() {
   };
 
   const unverified = isApiError(error, AUTH_ERROR_CODES.EMAIL_NOT_VERIFIED);
-  return <AuthCard title={text('أهلًا بيك تاني', 'Welcome back')} description={text('سجّل دخولك عشان تدير منيو مطعمك.', 'Sign in to manage your restaurant menu.')}>
+  return <AuthCard title={text('ادخل على مطعمك', 'Sign in to your restaurant')}>
     {notice?.expired && !error && <Alert kind="info">{text('انتهت جلستك. سجّل دخولك تاني.', 'Your session has ended. Please sign in again.')}</Alert>}
     {notice?.signedOut && !error && <Alert kind="success">{text('خرجت من حسابك.', 'You have signed out.')}</Alert>}
     {notice?.passwordReset && !error && <Alert kind="success">{text('اتغيرت كلمة السر. سجّل دخولك بالكلمة الجديدة.', 'Your password was changed. Sign in with the new one.')}</Alert>}

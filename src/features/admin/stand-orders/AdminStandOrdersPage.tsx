@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { MagnifyingGlassIcon, PackageIcon, XIcon } from '@phosphor-icons/react';
+import { CompactMeta } from '../../../components/CompactMeta';
 import { ErrorPanel } from '../../../components/ErrorBoundary';
 import { PageHeader } from '../../../components/PageHeader';
 import { Pagination } from '../../../components/Pagination';
@@ -17,7 +18,7 @@ const PAGE_SIZE = 25;
 
 /** The stand-shop fulfilment queue: open orders by default, newest first, searchable. */
 export function AdminStandOrdersPage() {
-  const { text, number, language } = useLanguage();
+  const { text, number, count, language } = useLanguage();
   usePageTitle('طلبات الستاندات', 'Stand orders');
   const [params, update] = useListParams();
   const filter = filterParam(params.get('status'));
@@ -75,17 +76,18 @@ export function AdminStandOrdersPage() {
           <tbody>
             {orders.data.items.map(order => <tr key={order.id} data-testid="stand-order-row" data-status={order.status}>
               <td data-label={text('الطلب', 'Order')} className="cell-primary">
-                <Link className="table-link ltr" to={`/admin/stand-orders/${order.id}`}>{order.reference}</Link>
+                <Link className="table-link row-link ltr" to={`/admin/stand-orders/${order.id}`}>{order.reference}</Link>
                 <small>{formatDate(order.createdAt, language, { dateStyle: 'medium', timeStyle: 'short' })}</small>
               </td>
-              <td data-label={text('العميل', 'Customer')}>{order.customerName}<small>{order.city} · <span className="ltr">{order.phone}</span></small></td>
-              <td data-label={text('الستاندات', 'Stands')} className="cell-nowrap">{number(standCount(order))}
-                <small>{text(`${number(order.lines.length)} تصميم`, `${order.lines.length} design${order.lines.length === 1 ? '' : 's'}`)}</small></td>
+              <td data-label={text('العميل', 'Customer')}><bdi>{order.customerName}</bdi><small>{order.city} · <span className="ltr">{order.phone}</span></small></td>
+              <td data-label={text('الستاندات', 'Stands')} className="cell-nowrap">{count(standCount(order), 'stand')}
+                <small>{count(order.lines.length, 'design')}</small></td>
               <td data-label={text('الإجمالي', 'Total')} className="cell-amount">{formatPrice(order.totalPiastres, language)}
                 {order.deliveryFeePiastres === null && <small>{text('+ التوصيل بالتليفون', '+ delivery by phone')}</small>}</td>
               <td data-label={text('الدفع', 'Payment')}><StandPaymentBadge order={order} /></td>
-              <td data-label={text('الحالة', 'Status')}><StandStatusBadge status={order.status} /></td>
-              <td className="cell-action">
+              <td data-label={text('الحالة', 'Status')} className="cell-end"><StandStatusBadge status={order.status} /></td>
+              <CompactMeta parts={[<bdi>{order.customerName}</bdi>, order.city, `${count(standCount(order), 'stand')}${text('، ', ', ')}${formatPrice(order.totalPiastres, language)}`, <StandPaymentBadge order={order} />]} />
+              <td className="cell-action desktop-only">
                 <Link className={`button button-small ${order.status === 'NEW' ? 'button-primary' : 'button-secondary'}`} to={`/admin/stand-orders/${order.id}`}
                   aria-label={order.status === 'NEW' ? text(`تابع الطلب ${order.reference}`, `Handle order ${order.reference}`) : text(`التفاصيل، طلب ${order.reference}`, `Details, order ${order.reference}`)}>
                   {order.status === 'NEW' ? text('تابع الطلب', 'Handle') : text('التفاصيل', 'Details')}

@@ -56,7 +56,7 @@ const PREFIXES = [['طاولة', 'Table'], ['ترابيزة', 'T-'], ['تراس'
 
 /** Adds "{prefix} {from}" … "{prefix} {to}" at once; names that already exist are skipped by the API. */
 export function AddRangeDialog({ open, onClose, existing }: { open: boolean; onClose: () => void; existing: number }) {
-  const { text, number } = useLanguage();
+  const { text, count: counted } = useLanguage();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [prefix, setPrefix] = useState('');
@@ -73,7 +73,7 @@ export function AddRangeDialog({ open, onClose, existing }: { open: boolean; onC
     onSuccess: tables => {
       const added = tables.length - existing;
       queryClient.setQueryData(queryKeys.tables, tables);
-      toast.success(added > 0 ? text(`ضفنا ${number(added)} طاولة`, `${added} table${added === 1 ? '' : 's'} added`) : text('كل الطاولات دي موجودة بالفعل', 'All these tables already exist'));
+      toast.success(added > 0 ? text(`ضفنا ${counted(added, 'table')}`, `${counted(added, 'table')} added`) : text('كل الطاولات دي موجودة بالفعل', 'All these tables already exist'));
       onClose();
     },
   });
@@ -83,7 +83,7 @@ export function AddRangeDialog({ open, onClose, existing }: { open: boolean; onC
   const fromError = !Number.isInteger(start) || start < 1 || start > 999 ? text('رقم من ١ لـ ٩٩٩.', 'A number from 1 to 999.') : null;
   const toError = !Number.isInteger(end) || end < 1 || end > 999 ? text('رقم من ١ لـ ٩٩٩.', 'A number from 1 to 999.')
     : !fromError && end < start ? text('لازم يكون أكبر من أو يساوي رقم البداية.', 'Must be at least the first number.')
-      : !fromError && count > ORDER_LIMITS.bulkTables ? text(`لحد ${number(ORDER_LIMITS.bulkTables)} طاولة في المرة.`, `Up to ${ORDER_LIMITS.bulkTables} tables at a time.`) : null;
+      : !fromError && count > ORDER_LIMITS.bulkTables ? text(`لحد ${counted(ORDER_LIMITS.bulkTables, 'table')} في المرة.`, `Up to ${counted(ORDER_LIMITS.bulkTables, 'table')} at a time.`) : null;
   const valid = !fromError && !toError;
   const comma = text('، ', ', ');
   const preview = valid
@@ -94,7 +94,7 @@ export function AddRangeDialog({ open, onClose, existing }: { open: boolean; onC
   return <Dialog open={open} onClose={onClose} busy={create.isPending} onSubmit={submit} title={text('ضيف طاولات مرة واحدة', 'Add several tables')}
     footer={<>
       <Button variant="secondary" onClick={onClose} disabled={create.isPending}>{text('إلغاء', 'Cancel')}</Button>
-      <Button type="submit" loading={create.isPending} disabled={!valid}>{valid ? text(`ضيف ${number(count)} طاولة`, `Add ${count} table${count === 1 ? '' : 's'}`) : text('ضيف', 'Add')}</Button>
+      <Button type="submit" loading={create.isPending} disabled={!valid}>{valid ? text(`ضيف ${counted(count, 'table')}`, `Add ${counted(count, 'table')}`) : text('ضيف', 'Add')}</Button>
     </>}>
     <div className="form">
       {create.isError && <Alert kind="error">{errorMessage(create.error, text)}</Alert>}
@@ -116,9 +116,8 @@ export function AddRangeDialog({ open, onClose, existing }: { open: boolean; onC
         </Field>
       </div>
       {preview && <div className="range-preview" aria-live="polite" data-testid="range-preview">
-        <span className="eyebrow">{text('معاينة', 'Preview')}</span>
         <strong>{preview}</strong>
-        <small className="muted">{text(`${number(count)} طاولة. الأسماء الموجودة بالفعل مش هتتكرر.`, `${count} table${count === 1 ? '' : 's'}. Names that already exist are skipped.`)}</small>
+        <small className="muted">{text(`${counted(count, 'table')}. الأسماء الموجودة بالفعل مش هتتكرر.`, `${counted(count, 'table')}. Names that already exist are skipped.`)}</small>
       </div>}
     </div>
   </Dialog>;

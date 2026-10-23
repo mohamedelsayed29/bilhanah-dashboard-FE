@@ -35,7 +35,7 @@ export function OrderDetailDialog({ orderId, onClose }: { orderId: string | null
       <section aria-labelledby="detail-items" className="order-detail-items">
         <h3 id="detail-items">{text('الأصناف', 'Items')}</h3>
         <OrderLines order={data} prices />
-        <div className="order-subtotal"><span>{text('الإجمالي', 'Subtotal')}</span><strong>{formatPrice(data.subtotalPiastres, language)}</strong></div>
+        <p className="order-total"><span>{text('الإجمالي', 'Subtotal')}</span><strong>{formatPrice(data.subtotalPiastres, language)}</strong></p>
       </section>
     </div>}
   </Dialog>;

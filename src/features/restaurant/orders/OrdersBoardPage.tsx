@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router';
-import {
-  CheckCircleIcon, ClockCounterClockwiseIcon, CookingPotIcon, KanbanIcon, LockIcon, PowerIcon, ReceiptIcon, SpeakerHighIcon, SpeakerSlashIcon,
-} from '@phosphor-icons/react';
+import { LockIcon, PowerIcon, SpeakerHighIcon, SpeakerSlashIcon } from '@phosphor-icons/react';
 import type { OrderStatus, OwnerOrder } from '@bilhanah/contracts';
 import { Alert } from '../../../components/Alert';
 import { Button } from '../../../components/Button';
@@ -19,18 +17,18 @@ import { useOrdersPause, useOrderStatus } from './mutations';
 import { OrderCard, useNow } from './OrderCard';
 import { ReasonDialog } from './ReasonDialog';
 
-const COLUMN_TEXT: Record<Column, { ar: string; en: string; emptyAr: string; emptyEn: string; icon: typeof ReceiptIcon }> = {
-  new: { ar: 'جديد', en: 'New', emptyAr: 'مفيش طلبات جديدة. أول ما زبون يطلب هيظهر هنا وهتسمع تنبيه.', emptyEn: 'No new orders. When a diner orders, it appears here with a sound.', icon: ReceiptIcon },
-  progress: { ar: 'بيتحضّر', en: 'In progress', emptyAr: 'الطلبات اللي قبلتها هتظهر هنا لحد ما تجهز.', emptyEn: 'Orders you accept stay here until they are ready.', icon: CookingPotIcon },
-  ready: { ar: 'جاهز', en: 'Ready', emptyAr: 'الطلبات الجاهزة للتسليم هتظهر هنا.', emptyEn: 'Orders ready to hand over appear here.', icon: CheckCircleIcon },
+const COLUMN_TEXT: Record<Column, { ar: string; en: string; emptyAr: string; emptyEn: string }> = {
+  new: { ar: 'جديد', en: 'New', emptyAr: 'مفيش طلبات جديدة. أول ما زبون يطلب هيظهر هنا وهتسمع تنبيه.', emptyEn: 'No new orders. When a diner orders, it appears here with a sound.' },
+  progress: { ar: 'بيتحضّر', en: 'In progress', emptyAr: 'الطلبات اللي قبلتها هتفضل هنا لحد ما تجهز.', emptyEn: 'Orders you accept stay here until they are ready.' },
+  ready: { ar: 'جاهز', en: 'Ready', emptyAr: 'الطلبات الجاهزة للتسليم هتظهر هنا.', emptyEn: 'Orders ready to hand over appear here.' },
 };
 
 /** Live board / history switch shared by both order pages. */
 export function OrdersTabs() {
   const { text } = useLanguage();
   return <nav className="tabs" aria-label={text('أقسام الطلبات', 'Order sections')}>
-    <NavLink to="/orders" end className="tab"><KanbanIcon size={18} aria-hidden="true" />{text('اللوحة المباشرة', 'Live board')}</NavLink>
-    <NavLink to="/orders/history" className="tab"><ClockCounterClockwiseIcon size={18} aria-hidden="true" />{text('الطلبات السابقة', 'History')}</NavLink>
+    <NavLink to="/orders" end className="tab">{text('اللوحة المباشرة', 'Live board')}</NavLink>
+    <NavLink to="/orders/history" className="tab">{text('الطلبات السابقة', 'History')}</NavLink>
   </nav>;
 }
 
@@ -44,7 +42,7 @@ export function ConnectionPill({ state }: { state: ConnectionState }) {
 }
 
 export function OrdersBoardPage() {
-  const { text, number } = useLanguage();
+  const { text, number, count } = useLanguage();
   usePageTitle('الطلبات', 'Orders');
   const restaurant = useRestaurant();
   const { ordering } = restaurant;
@@ -76,7 +74,6 @@ export function OrdersBoardPage() {
   };
 
   const header = <PageHeader title={text('الطلبات', 'Orders')}
-    description={text('الطلبات الجديدة بتوصل هنا على طول من غير ما تحدّث الصفحة.', 'New orders arrive here instantly, no need to refresh.')}
     actions={ordering.included && ordering.enabled ? <ConnectionPill state={live.connection} /> : undefined} />;
 
   if (!ordering.included) {
@@ -107,20 +104,22 @@ export function OrdersBoardPage() {
       <Link className="button button-primary" to="/settings/ordering">{text('إعدادات الطلبات', 'Ordering settings')}</Link>
     </section>}
 
-    {ordering.enabled && <div className="board-toolbar card">
+    {ordering.enabled && <div className="board-toolbar">
       <Switch className="board-pause" checked={!ordering.paused} disabled={pause.isPending} onChange={accepting => pause.mutate(!accepting)}
         label={ordering.paused ? text('الطلبات واقفة مؤقتًا', 'Orders paused') : text('بنستقبل طلبات', 'Taking orders')}
         description={ordering.paused ? text('الزباين شايفين إنك مش بتستقبل طلبات دلوقتي.', 'Diners see that you are not taking orders right now.') : text('وقّفها مؤقتًا لو المطبخ زحمة.', 'Pause for a while if the kitchen is busy.')} />
-      <button type="button" className={`sound-toggle ${live.sound.on ? 'is-on' : ''}`} aria-pressed={live.sound.on} onClick={() => live.sound.setOn(!live.sound.on)}>
-        {live.sound.on ? <SpeakerHighIcon size={20} weight="bold" aria-hidden="true" /> : <SpeakerSlashIcon size={20} weight="bold" aria-hidden="true" />}
-        <span className="sound-label">{text('صوت الطلبات الجديدة', 'New-order sound')}</span>
-      </button>
+      <div className="board-sound">
+        {soundPrompt && <p className="sound-locked" role="status">
+          <span>{text('الصوت مقفول لحد ما تلمس الصفحة', 'Sound is off until you tap the page')}</span>
+          <Button small onClick={() => void live.sound.unlock()} icon={<SpeakerHighIcon size={17} aria-hidden="true" />}>{text('شغّل الصوت', 'Enable sound')}</Button>
+        </p>}
+        <button type="button" className={`sound-toggle ${live.sound.on ? 'is-on' : ''}`} aria-pressed={live.sound.on} onClick={() => live.sound.setOn(!live.sound.on)}
+          title={text('صوت الطلبات الجديدة', 'New-order sound')}>
+          {live.sound.on ? <SpeakerHighIcon size={20} weight="bold" aria-hidden="true" /> : <SpeakerSlashIcon size={20} weight="bold" aria-hidden="true" />}
+          <span className="sound-label">{text('صوت الطلبات الجديدة', 'New-order sound')}</span>
+        </button>
+      </div>
     </div>}
-
-    {soundPrompt && <Alert kind="info" title={text('الصوت مقفول لحد ما تلمس الصفحة', 'Sound is off until you tap the page')}
-      actions={<Button small onClick={() => void live.sound.unlock()} icon={<SpeakerHighIcon size={17} aria-hidden="true" />}>{text('شغّل الصوت', 'Enable sound')}</Button>}>
-      {text('المتصفح بيمنع الصوت لحد ما تضغط على أي حاجة. اضغط هنا عشان تسمع تنبيه الطلبات الجديدة.', 'Browsers block sound until you interact with the page. Tap here to hear new orders.')}
-    </Alert>}
 
     {ordering.enabled && ordering.paused && <Alert kind="warning" title={text('استقبال الطلبات واقف مؤقتًا', 'New orders are paused')}
       actions={<Button small variant="secondary" loading={pause.isPending} onClick={() => pause.mutate(false)}>{text('ارجع استقبل طلبات', 'Resume orders')}</Button>}>
@@ -129,7 +128,7 @@ export function OrdersBoardPage() {
 
     {board.isError && <ErrorPanel error={board.error} onRetry={() => void board.refetch()} />}
     {board.isPending && <div className="board" role="status" aria-label={text('جاري التحميل', 'Loading')}>
-      {COLUMNS.map(key => <div className="board-column" key={key}><Skeleton height={28} width="50%" /><Skeleton height={180} radius={16} /></div>)}
+      {COLUMNS.map(key => <div className="board-column" key={key}><Skeleton height={28} width="50%" /><Skeleton height={180} radius={12} /></div>)}
     </div>}
 
     {board.data && (ordering.enabled || orders.length > 0) && <>
@@ -141,11 +140,10 @@ export function OrdersBoardPage() {
       </div>
       <div className="board">
         {COLUMNS.map(key => {
-          const Icon = COLUMN_TEXT[key].icon;
           return <section key={key} className={`board-column board-column-${key} ${column === key ? 'is-current' : ''}`} aria-labelledby={`column-${key}`} data-testid={`column-${key}`}>
             <header className="board-column-head">
-              <h2 id={`column-${key}`}><Icon size={20} weight="bold" aria-hidden="true" />{text(COLUMN_TEXT[key].ar, COLUMN_TEXT[key].en)}</h2>
-              <span className="board-count" aria-label={text(`${number(columns[key].length)} طلب`, `${columns[key].length} orders`)}>{number(columns[key].length)}</span>
+              <h2 id={`column-${key}`}>{text(COLUMN_TEXT[key].ar, COLUMN_TEXT[key].en)}</h2>
+              <span className="board-count" aria-label={count(columns[key].length, 'order')}>{number(columns[key].length)}</span>
             </header>
             {columns[key].length === 0
               ? <p className="board-empty">{text(COLUMN_TEXT[key].emptyAr, COLUMN_TEXT[key].emptyEn)}</p>

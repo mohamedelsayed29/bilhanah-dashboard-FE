@@ -8,7 +8,7 @@ test.describe('signed-out pages', () => {
     await page.goto('/');
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-    await expect(page.getByRole('heading', { level: 1, name: 'أهلًا بيك تاني' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'ادخل على مطعمك' })).toBeVisible();
     await expect(page).toHaveTitle(/تسجيل الدخول/);
     await expectAccessible(page, 'login (ar)');
     await screenshot(page, 'login-ar-desktop');

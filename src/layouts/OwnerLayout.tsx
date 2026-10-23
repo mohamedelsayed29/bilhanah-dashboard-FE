@@ -5,7 +5,7 @@ import type { OwnerRestaurant } from '@bilhanah/contracts';
 import { Brand } from '../components/Brand';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { LanguageToggle } from '../components/LanguageToggle';
-import { AccessBadge } from '../features/restaurant/access';
+import { useAccessLabel } from '../features/restaurant/access';
 import { OrdersLiveProvider, useOrdersLive } from '../features/restaurant/orders/live';
 import { useLanguage } from '../lib/language';
 import { useSession } from '../lib/session';
@@ -26,12 +26,12 @@ const NAV: NavItem[] = [
 
 /** Orders waiting to be accepted, on the Orders navigation item. */
 function NewOrdersCount({ inverse = false }: { inverse?: boolean }) {
-  const { text, number } = useLanguage();
+  const { number, count } = useLanguage();
   const { newCount } = useOrdersLive();
   if (newCount <= 0) return null;
   return <span className={`nav-count ${inverse ? 'nav-count-on-dark' : ''}`} data-testid="new-orders-count">
     <span aria-hidden="true">{number(newCount)}</span>
-    <span className="visually-hidden">{text(`(${number(newCount)} طلب جديد)`, `(${newCount} new)`)}</span>
+    <span className="visually-hidden">({count(newCount, [{ one: 'طلب جديد', two: 'طلبين جداد', few: '{n} طلبات جديدة', many: '{n} طلب جديد' }, { one: '{n} new', other: '{n} new' }])})</span>
   </span>;
 }
 
@@ -40,6 +40,12 @@ export function RestaurantAvatar({ restaurant, size = 40 }: { restaurant: OwnerR
   return <span className="restaurant-avatar" style={{ width: size, height: size, background: restaurant.brandColor ?? undefined }} aria-hidden="true">
     {logo ? <img src={logo} alt="" /> : restaurant.name.trim().charAt(0)}
   </span>;
+}
+
+/** The plan status under the restaurant name, as a line of text with a coloured dot. */
+function SidebarAccess({ restaurant }: { restaurant: OwnerRestaurant }) {
+  const label = useAccessLabel(restaurant.access);
+  return <span className={`sidebar-access access-${restaurant.access.status.toLowerCase()}`}>{label}</span>;
 }
 
 /** Owner shell: sidebar on desktop; top bar and bottom tab bar on phones. The order board stays live on every page. */
@@ -58,15 +64,15 @@ function OwnerShell({ restaurant }: { restaurant: OwnerRestaurant }) {
     <div className="sidebar-column"><aside className="sidebar">
       <div className="sidebar-brand"><Brand inverse /></div>
       <div className="sidebar-restaurant">
-        <RestaurantAvatar restaurant={restaurant} />
+        <RestaurantAvatar restaurant={restaurant} size={36} />
         <div>
-          <strong>{restaurant.name}</strong>
-          <AccessBadge access={restaurant.access} inverse />
+          <strong><bdi>{restaurant.name}</bdi></strong>
+          <SidebarAccess restaurant={restaurant} />
         </div>
       </div>
       <nav aria-label={text('القائمة الرئيسية', 'Main navigation')} className="sidebar-nav">
         {NAV.map(item => <NavLink key={item.to} to={item.to} end={item.end} className="sidebar-link">
-          <item.icon size={21} aria-hidden="true" />{text(item.ar, item.en)}
+          <item.icon size={20} aria-hidden="true" />{text(item.ar, item.en)}
           {item.orders && <NewOrdersCount inverse />}
         </NavLink>)}
       </nav>
@@ -87,8 +93,8 @@ function OwnerShell({ restaurant }: { restaurant: OwnerRestaurant }) {
     </aside></div>
     <header className="topbar">
       <div className="topbar-restaurant">
-        <RestaurantAvatar restaurant={restaurant} size={34} />
-        <strong>{restaurant.name}</strong>
+        <RestaurantAvatar restaurant={restaurant} size={32} />
+        <strong><bdi>{restaurant.name}</bdi></strong>
       </div>
       <div className="topbar-actions">
         <LanguageToggle plain />
@@ -103,7 +109,7 @@ function OwnerShell({ restaurant }: { restaurant: OwnerRestaurant }) {
     <nav className="tabbar" aria-label={text('التنقل', 'Navigation')}>
       {NAV.filter(item => item.phone).map(item => <NavLink key={item.to} to={item.to} end={item.end} className="tabbar-link">
         {({ isActive }) => <>
-          <span className="tabbar-icon"><item.icon size={24} weight={isActive ? 'fill' : 'regular'} aria-hidden="true" />{item.orders && <NewOrdersCount />}</span>
+          <span className="tabbar-icon"><item.icon size={22} weight={isActive ? 'fill' : 'regular'} aria-hidden="true" />{item.orders && <NewOrdersCount />}</span>
           <span>{text(item.ar, item.en)}</span>
         </>}
       </NavLink>)}

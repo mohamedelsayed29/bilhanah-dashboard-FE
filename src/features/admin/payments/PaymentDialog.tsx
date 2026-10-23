@@ -153,7 +153,7 @@ function ApproveView({ payment, onBack, onDone, onClose }: ReviewProps) {
 }
 
 function RejectView({ payment, onBack, onDone, onClose }: ReviewProps) {
-  const { text } = useLanguage();
+  const { text, number } = useLanguage();
   const toast = useToast();
   const queryClient = useQueryClient();
   const onConflict = useReviewConflict(payment, onDone);
@@ -181,7 +181,7 @@ function RejectView({ payment, onBack, onDone, onClose }: ReviewProps) {
       {reject.isError && !reviewedElsewhere(reject.error) && <Alert kind="error">{errorMessage(reject.error, text)}</Alert>}
       <p className="muted">{text(`صاحب ${payment.restaurant.name} هيشوف السبب في صفحة الاشتراك وهيوصله بالإيميل، فاكتبه بوضوح.`, `The owner of ${payment.restaurant.name} sees this reason on their subscription page and by email, so make it clear.`)}</p>
       <Field label={text('سبب الرفض', 'Reason')} required error={fieldError ? { message: fieldErrorText(fieldError, text) } : undefined}
-        hint={text(`من ٣ لـ ٣٠٠ حرف · ${reason.trim().length}/300`, `3–300 characters · ${reason.trim().length}/300`)}>
+        hint={text(`من ٣ لـ ٣٠٠ حرف · ${number(reason.trim().length)}/${number(300)}`, `3–300 characters · ${reason.trim().length}/300`)}>
         <textarea className="textarea" rows={4} maxLength={300} value={reason} onChange={event => setReason(event.target.value)} onBlur={() => setTouched(true)} data-autofocus
           placeholder={text('مثلًا: مفيش تحويل بالرقم ده وصلنا.', 'e.g. No transfer with this reference has arrived.')} />
       </Field>

@@ -1,13 +1,15 @@
 import { Link } from 'react-router';
-import { ChartBarIcon, CoinsIcon, EyeIcon, ForkKnifeIcon, LinkIcon, QrCodeIcon, ReceiptIcon, StorefrontIcon, TableIcon, BagIcon } from '@phosphor-icons/react';
+import { LinkIcon, QrCodeIcon, StorefrontIcon, TableIcon, BagIcon } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
 import type { RestaurantStats, StatsPeriod, VisitSource } from '@bilhanah/contracts';
 import { Alert } from '../../../components/Alert';
 import { BarList } from '../../../components/charts/BarList';
 import { DailyChart, type ChartSeries } from '../../../components/charts/DailyChart';
 import { PeriodSwitch, periodLabel, usePeriodParam } from '../../../components/charts/PeriodSwitch';
+import { CompactMeta } from '../../../components/CompactMeta';
 import { ErrorPanel } from '../../../components/ErrorBoundary';
 import { PageHeader } from '../../../components/PageHeader';
+import { Section } from '../../../components/Section';
 import { Skeleton } from '../../../components/Skeleton';
 import { formatCompact, formatCompactPrice, formatPrice } from '../../../lib/format';
 import { useLanguage, usePageTitle } from '../../../lib/language';
@@ -47,8 +49,8 @@ export function InsightsPage() {
 function InsightsSkeleton() {
   const { text } = useLanguage();
   return <div className="insights-body" role="status" aria-label={text('جاري التحميل', 'Loading')}>
-    <div className="stats-grid">{[0, 1, 2, 3].map(index => <div className="stat card" key={index}><Skeleton width={70} height={28} /><Skeleton width={110} height={14} /></div>)}</div>
-    <div className="card card-padded skeleton-stack"><Skeleton width="30%" height={20} /><Skeleton height={220} /></div>
+    <div className="card kpi-band">{[0, 1, 2, 3].map(index => <div className="kpi" key={index}><Skeleton width={110} height={14} /><Skeleton width={70} height={28} /></div>)}</div>
+    <div className="skeleton-stack"><Skeleton width="30%" height={20} /><Skeleton height={220} /></div>
   </div>;
 }
 
@@ -66,19 +68,15 @@ function InsightsBody({ stats, days }: { stats: RestaurantStats; days: StatsPeri
   return <>
     <Kpis stats={stats} days={days} />
     {!stats.ordering && <Alert kind="info" live={false} title={text('الإحصائيات هنا للزيارات بس', 'These insights cover visits only')}
-      actions={<Link className="link" to="/subscription">{text('شوف الباقات', 'See the plans')}</Link>}>
+      actions={<Link className="link-action" to="/subscription">{text('شوف الباقات', 'See the plans')}</Link>}>
       {text('الطلبات من المنيو وأرقامها (الطلبات، الإيراد، أكتر الأصناف) موجودة في باقة «منيو وطلبات» و«التجربة الكاملة».',
         'Ordering from the menu, with its figures (orders, revenue, top dishes), comes with the Menu & Orders and Full Experience plans.')}
     </Alert>}
-    <section className="card card-padded" aria-labelledby="daily-title">
-      <div className="card-header"><div>
-        <h2 id="daily-title">{text('يوم بيوم', 'Day by day')}</h2>
-        <p>{text('مرّر على أي يوم أو دوس عليه عشان تشوف أرقامه.', 'Hover over or tap a day to see its figures.')}</p>
-      </div></div>
+    <Section id="daily-title" title={text('يوم بيوم', 'Day by day')} description={text('مرّر على أي يوم أو دوس عليه عشان تشوف أرقامه.', 'Hover over or tap a day to see its figures.')}>
       {empty
         ? <EmptyPeriod />
         : <DailyChart days={chartDays} series={series} label={text(`${series.map(entry => entry.label).join(' و')} كل يوم، ${periodLabel(days, text, number)}`, `${series.map(entry => entry.label).join(', ')} per day, ${periodLabel(days, text, number).toLowerCase()}`)} />}
-    </section>
+    </Section>
     <div className="insights-grid">
       <Sources stats={stats} />
       {stats.ordering && <OrderTypes stats={stats} />}
@@ -90,24 +88,25 @@ function InsightsBody({ stats, days }: { stats: RestaurantStats; days: StatsPeri
 function Kpis({ stats, days }: { stats: RestaurantStats; days: StatsPeriod }) {
   const { text, number, language } = useLanguage();
   const { totals } = stats;
-  const tiles: { key: string; icon: Icon; value: string; label: string; hint: string }[] = [
-    { key: 'visits', icon: EyeIcon, value: number(totals.visits), label: text('زيارة للمنيو', 'Menu visits'),
-      hint: text(`حوالي ${number(Math.round(totals.visits / days))} في اليوم`, `About ${Math.round(totals.visits / days)} a day`) },
+  const tiles: { key: string; value: string; label: string; hint: string }[] = [
+    { key: 'visits', value: number(totals.visits), label: text('زيارات المنيو', 'Menu visits'),
+      hint: totals.visits / days < 1
+        ? text('أقل من زيارة في اليوم', 'Less than one a day')
+        : text(`حوالي ${number(Math.round(totals.visits / days))} في اليوم`, `About ${Math.round(totals.visits / days)} a day`) },
   ];
   if (stats.ordering) {
     tiles.push(
-      { key: 'orders', icon: ReceiptIcon, value: number(totals.orders), label: text('طلب', 'Orders'), hint: text('من غير المرفوض والملغي', 'Excluding rejected and cancelled') },
-      { key: 'revenue', icon: CoinsIcon, value: formatPrice(totals.revenuePiastres, language), label: text('إيراد الطلبات', 'Order revenue'), hint: text('من الطلبات اللي اتعملت من المنيو', 'From orders placed on your menu') },
-      { key: 'average', icon: ChartBarIcon, value: formatPrice(totals.averageOrderPiastres, language), label: text('متوسط الطلب', 'Average order'), hint: text('الإيراد ÷ عدد الطلبات', 'Revenue ÷ orders') },
+      { key: 'orders', value: number(totals.orders), label: text('الطلبات', 'Orders'), hint: text('من غير المرفوض والملغي', 'Excluding rejected and cancelled') },
+      { key: 'revenue', value: formatPrice(totals.revenuePiastres, language), label: text('إيراد الطلبات', 'Order revenue'), hint: text('من الطلبات اللي اتعملت من المنيو', 'From orders placed on your menu') },
+      { key: 'average', value: formatPrice(totals.averageOrderPiastres, language), label: text('متوسط الطلب', 'Average order'), hint: text('الإيراد ÷ عدد الطلبات', 'Revenue ÷ orders') },
     );
   }
   return <section aria-labelledby="insights-kpis">
     <h2 id="insights-kpis" className="visually-hidden">{text(`الأرقام، ${periodLabel(days, text, number)}`, `Key figures, ${periodLabel(days, text, number).toLowerCase()}`)}</h2>
-    <div className={`stats-grid insights-kpis ${tiles.length === 1 ? 'is-single' : ''}`}>
-      {tiles.map(tile => <div key={tile.key} className="stat card insight-stat" data-testid={`kpi-${tile.key}`}>
-        <span className="stat-icon" aria-hidden="true"><tile.icon size={20} /></span>
-        <strong>{tile.value}</strong>
+    <div className={`card kpi-band ${tiles.length === 1 ? 'kpi-band-2' : ''}`}>
+      {tiles.map(tile => <div key={tile.key} className="kpi" data-testid={`kpi-${tile.key}`}>
         <span>{tile.label}</span>
+        <strong>{tile.value}</strong>
         <small>{tile.hint}</small>
       </div>)}
     </div>
@@ -117,7 +116,6 @@ function Kpis({ stats, days }: { stats: RestaurantStats; days: StatsPeriod }) {
 function EmptyPeriod() {
   const { text } = useLanguage();
   return <div className="empty-state chart-empty" data-testid="insights-empty">
-    <span className="empty-state-icon" aria-hidden="true"><ChartBarIcon size={30} /></span>
     <h3>{text('لسه مفيش زيارات في الفترة دي', 'No visits in this period yet')}</h3>
     <p>{text('اطبع كود QR وحطه على الترابيزات، أو شارك لينك المنيو على السوشيال، والأرقام هتبدأ تظهر هنا.',
       'Print your QR code for the tables or share your menu link on social media, and the figures will show up here.')}</p>
@@ -128,11 +126,7 @@ function EmptyPeriod() {
 function Sources({ stats }: { stats: RestaurantStats }) {
   const { text } = useLanguage();
   const total = SOURCE_ORDER.reduce((sum, source) => sum + stats.sources[source], 0);
-  return <section className="card card-padded" aria-labelledby="sources-title">
-    <div className="card-header"><div>
-      <h2 id="sources-title">{text('الزباين وصلوا للمنيو إزاي', 'How diners found your menu')}</h2>
-      <p>{text('من كل الزيارات في الفترة دي.', 'Out of all visits in this period.')}</p>
-    </div></div>
+  return <Section id="sources-title" title={text('الزباين وصلوا للمنيو إزاي', 'How diners found your menu')} description={text('من كل الزيارات في الفترة دي.', 'Out of all visits in this period.')}>
     {total === 0
       ? <p className="muted empty-line">{text('مفيش زيارات لسه.', 'No visits yet.')}</p>
       : <BarList label={text('مصادر الزيارات', 'Visit sources')} items={SOURCE_ORDER.map(source => {
@@ -141,41 +135,32 @@ function Sources({ stats }: { stats: RestaurantStats }) {
         })} />}
     <p className="field-hint insights-note">{text('كود QR اللي اتطبع قبل تحديث الإحصائيات مسحه بيتحسب «لينك». نزّل الكود من جديد من صفحة كود QR عشان يتحسب صح.',
       'QR codes printed before insights launched count as “link”. Download your code again from the QR code page to count scans correctly.')}</p>
-  </section>;
+  </Section>;
 }
 
 function OrderTypes({ stats }: { stats: RestaurantStats }) {
   const { text } = useLanguage();
   const total = stats.ordersByType.DINE_IN + stats.ordersByType.PICKUP;
-  return <section className="card card-padded" aria-labelledby="types-title">
-    <div className="card-header"><div>
-      <h2 id="types-title">{text('صالة ولا تيك أواي', 'Dine-in or pickup')}</h2>
-      <p>{text('الطلبات حسب نوعها.', 'Orders by type.')}</p>
-    </div></div>
+  return <Section id="types-title" title={text('صالة ولا تيك أواي', 'Dine-in or pickup')} description={text('الطلبات حسب نوعها.', 'Orders by type.')}>
     {total === 0
       ? <p className="muted empty-line">{text('مفيش طلبات في الفترة دي.', 'No orders in this period.')}</p>
       : <BarList label={text('الطلبات حسب النوع', 'Orders by type')} items={[
           { key: 'DINE_IN', icon: <StorefrontIcon size={18} />, label: text('صالة (على الترابيزة)', 'Dine-in (at the table)'), value: stats.ordersByType.DINE_IN },
           { key: 'PICKUP', icon: <BagIcon size={18} />, label: text('تيك أواي (استلام)', 'Pickup'), value: stats.ordersByType.PICKUP },
         ]} />}
-  </section>;
+  </Section>;
 }
 
 function TopDishes({ stats }: { stats: RestaurantStats }) {
   const { text, number, language } = useLanguage();
   const max = Math.max(1, ...stats.topItems.map(item => item.quantity));
-  return <section className="card card-padded" aria-labelledby="dishes-title">
-    <div className="card-header"><div>
-      <h2 id="dishes-title">{text('أكتر الأصناف اللي اتطلبت', 'Top dishes')}</h2>
-      <p>{text('أعلى ٥ أصناف بالكمية في الفترة دي.', 'The five dishes ordered most in this period, by quantity.')}</p>
-    </div></div>
+  return <Section id="dishes-title" title={text('أكتر الأصناف اللي اتطلبت', 'Top dishes')} description={text('أعلى ٥ أصناف بالكمية في الفترة دي.', 'The five dishes ordered most in this period, by quantity.')}>
     {stats.topItems.length === 0
       ? <div className="empty-state chart-empty">
-          <span className="empty-state-icon" aria-hidden="true"><ForkKnifeIcon size={30} /></span>
           <h3>{text('لسه مفيش أصناف اتطلبت', 'No dishes ordered yet')}</h3>
           <p>{text('أول ما الطلبات توصل من المنيو، هتشوف هنا الأصناف اللي الزباين بيحبوها.', 'Once orders arrive from your menu, the dishes diners love show up here.')}</p>
         </div>
-      : <div className="table-scroll"><table className="data-table top-dishes" data-testid="top-dishes">
+      : <div className="card list-card table-scroll"><table className="data-table top-dishes" data-testid="top-dishes">
           <thead><tr>
             <th scope="col">#</th>
             <th scope="col">{text('الصنف', 'Dish')}</th>
@@ -188,7 +173,8 @@ function TopDishes({ stats }: { stats: RestaurantStats }) {
               <span className="bar-track dish-bar" aria-hidden="true"><span className="bar-fill" style={{ width: `${(item.quantity / max) * 100}%` }} /></span></td>
             <td data-label={text('الكمية', 'Quantity')} className="cell-nowrap">{number(item.quantity)}</td>
             <td data-label={text('الإيراد', 'Revenue')} className="cell-amount">{formatPrice(item.revenuePiastres, language)}</td>
+            <CompactMeta parts={[text(`الكمية ${number(item.quantity)}`, `Quantity ${item.quantity}`), formatPrice(item.revenuePiastres, language)]} />
           </tr>)}</tbody>
         </table></div>}
-  </section>;
+  </Section>;
 }

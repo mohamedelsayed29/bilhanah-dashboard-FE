@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { MagnifyingGlassIcon, StorefrontIcon, XIcon } from '@phosphor-icons/react';
 import type { AccessStatus } from '@bilhanah/contracts';
+import { CompactMeta } from '../../../components/CompactMeta';
 import { ErrorPanel } from '../../../components/ErrorBoundary';
 import { PageHeader } from '../../../components/PageHeader';
 import { Pagination } from '../../../components/Pagination';
@@ -75,13 +76,14 @@ export function AdminRestaurantsPage() {
           <tbody>
             {restaurants.data.items.map(row => <tr key={row.id} data-testid="restaurant-row">
               <td data-label={text('المطعم', 'Restaurant')} className="cell-primary">
-                <Link className="table-link" to={`/admin/restaurants/${row.id}`}>{row.name}</Link>
+                <Link className="table-link row-link" to={`/admin/restaurants/${row.id}`}><bdi>{row.name}</bdi></Link>
                 <small className="ltr">{row.subdomain}</small>
               </td>
-              <td data-label={text('صاحب المطعم', 'Owner')}>{row.ownerName}<small className="ltr">{row.ownerEmail}</small></td>
+              <td data-label={text('صاحب المطعم', 'Owner')}>{row.ownerName}<small className="ltr cell-wrap-anywhere">{row.ownerEmail}</small></td>
               <td data-label={text('المدينة', 'City')}>{row.city}</td>
-              <td data-label={text('الاشتراك', 'Access')}><AccessBadge access={row.access} /></td>
-              <td data-label={text('اتسجل', 'Joined')}>{formatDate(row.createdAt, language)}</td>
+              <td data-label={text('الاشتراك', 'Access')} className="cell-end"><AccessBadge access={row.access} short /></td>
+              <td data-label={text('اتسجل', 'Joined')} className="cell-nowrap">{formatDate(row.createdAt, language)}</td>
+              <CompactMeta parts={[row.city, text(`اتسجل ${formatDate(row.createdAt, language)}`, `Joined ${formatDate(row.createdAt, language)}`)]} />
             </tr>)}
           </tbody>
         </table>

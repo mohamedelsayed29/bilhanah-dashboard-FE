@@ -133,10 +133,10 @@ test('tables: add one, add a range, rename, switch off, new code, delete', async
   await rangeDialog.getByLabel('لحد رقم').fill('200');
   await expect(rangeDialog.getByText('لحد ١٠٠ طاولة في المرة.')).toBeVisible();
   await rangeDialog.getByLabel('لحد رقم').fill('6');
-  await rangeDialog.getByRole('button', { name: 'ضيف ٦ طاولة' }).click();
+  await rangeDialog.getByRole('button', { name: 'ضيف ٦ طاولات' }).click();
   await expect(rangeDialog).toBeHidden();
   await expect(page.getByTestId('table-item')).toHaveCount(7);
-  await expect(page.getByTestId('tables-count')).toHaveText('٧ طاولة · ٧ شغالة');
+  await expect(page.getByTestId('tables-count')).toHaveText('٧ طاولات · ٧ شغالة');
 
   // Rename inline.
   const terrace = page.locator('[data-testid="table-item"][data-label="التراس"]');
@@ -150,7 +150,7 @@ test('tables: add one, add a range, rename, switch off, new code, delete', async
   const six = page.locator('[data-testid="table-item"][data-label="طاولة 6"]');
   await six.getByRole('switch', { name: 'بتستقبل طلبات' }).click();
   await expect(six.getByRole('switch', { name: 'بتستقبل طلبات' })).toHaveAttribute('aria-checked', 'false');
-  await expect(page.getByTestId('tables-count')).toHaveText('٧ طاولة · ٦ شغالة');
+  await expect(page.getByTestId('tables-count')).toHaveText('٧ طاولات · ٦ شغالة');
 
   // New code: the old QR link stops working.
   const before = (await tables()).find(table => table.label === 'طاولة 5')!;

@@ -127,7 +127,7 @@ function TableItem({ table, subdomain, mutations, onRegenerate, onDelete }: {
             {error && <p className="field-error" id={`${inputId}-error`}>{error}</p>}
           </form>
           : <div className="table-item-title">
-            <h3>{table.label}</h3>
+            <h3><bdi>{table.label}</bdi></h3>
             <button type="button" className="icon-button" aria-label={text(`غيّر اسم ${table.label}`, `Rename ${table.label}`)} onClick={() => { setLabel(table.label); setEditing(true); }}><PencilSimpleIcon size={18} /></button>
           </div>}
         <Switch checked={table.isActive} onChange={isActive => mutations.setActive.mutate({ table, isActive })}
@@ -145,7 +145,7 @@ function TableItem({ table, subdomain, mutations, onRegenerate, onDelete }: {
 }
 
 export function TablesPage() {
-  const { text, number } = useLanguage();
+  const { text, count } = useLanguage();
   usePageTitle('الطاولات', 'Tables');
   const restaurant = useRestaurant();
   const tables = useTablesQuery();
@@ -171,15 +171,15 @@ export function TablesPage() {
       </>} />
 
     {!ordering.included && <Alert kind="info" live={false} title={text('الطلب من الطاولة محتاج باقة فيها طلبات', 'Ordering from tables needs a plan with ordering')}
-      actions={<Link className="link" to="/subscription">{text('شوف الباقات', 'See plans')}</Link>}>
+      actions={<Link className="link-action" to="/subscription">{text('شوف الباقات', 'See plans')}</Link>}>
       {text('تقدر تجهّز طاولاتك وأكوادها دلوقتي، والزباين هيقدروا يطلبوا منها أول ما تشترك في «منيو وطلبات».', 'You can set up tables and codes now; diners can order from them once you are on “Menu & Orders”.')}
     </Alert>}
     {ordering.included && (!ordering.enabled || !ordering.acceptsDineIn) && <Alert kind="warning" live={false}
       title={!ordering.enabled ? text('الطلبات مش متشغّلة', 'Ordering is switched off') : text('طلبات الصالة مقفولة', 'Dine-in orders are switched off')}
-      actions={<Link className="link" to="/settings/ordering">{text('إعدادات الطلبات', 'Ordering settings')}</Link>}>
+      actions={<Link className="link-action" to="/settings/ordering">{text('إعدادات الطلبات', 'Ordering settings')}</Link>}>
       {text('الزبون اللي يمسح كود الطاولة هيشوف المنيو بس، من غير طلب.', 'Diners who scan a table code will see the menu but cannot order.')}
     </Alert>}
-    {full && <Alert kind="warning" live={false}>{text(`وصلت للحد الأقصى (${number(ORDER_LIMITS.tables)} طاولة). امسح طاولة عشان تضيف غيرها.`, `You reached the limit of ${ORDER_LIMITS.tables} tables. Delete one to add another.`)}</Alert>}
+    {full && <Alert kind="warning" live={false}>{text(`وصلت للحد الأقصى (${count(ORDER_LIMITS.tables, 'table')}). امسح طاولة عشان تضيف غيرها.`, `You reached the limit of ${count(ORDER_LIMITS.tables, 'table')}. Delete one to add another.`)}</Alert>}
 
     {list.length === 0
       ? <section className="card empty-state" aria-labelledby="tables-empty-title">
@@ -191,10 +191,10 @@ export function TablesPage() {
           <Button variant="secondary" onClick={() => setAdding('one')} icon={<PlusIcon size={18} aria-hidden="true" />}>{text('ضيف طاولة', 'Add table')}</Button>
         </div>
       </section>
-      : <section aria-labelledby="tables-title">
-        <div className="section-bar">
-          <h2 id="tables-title" className="section-title">{text('طاولاتك', 'Your tables')}</h2>
-          <span className="muted small" data-testid="tables-count">{text(`${number(list.length)} طاولة · ${number(active)} شغالة`, `${list.length} table${list.length === 1 ? '' : 's'} · ${active} active`)}</span>
+      : <section className="section" aria-labelledby="tables-title">
+        <div className="section-head">
+          <h2 id="tables-title">{text('طاولاتك', 'Your tables')}</h2>
+          <p data-testid="tables-count">{text(`${count(list.length, 'table')} · ${count(active, [{ one: 'واحدة شغالة', two: 'اتنين شغالين', few: '{n} شغالة', many: '{n} شغالة', zero: 'مفيش ولا واحدة شغالة' }, { one: '{n} active', other: '{n} active' }])}`, `${count(list.length, 'table')} · ${active} active`)}</p>
         </div>
         <ul className="tables-grid">
           {list.map(table => <TableItem key={table.id} table={table} subdomain={restaurant.subdomain} mutations={mutations}
