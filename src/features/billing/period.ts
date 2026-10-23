@@ -1,5 +1,5 @@
 /**
- * Paid periods, computed the way the API does (apps/api/src/modules/billing/periods.ts),
+ * Paid periods, computed the way the API does (bilhanah-BE: src/modules/billing/periods.ts),
  * so the dates previewed before paying or granting match the period that is created.
  */
 

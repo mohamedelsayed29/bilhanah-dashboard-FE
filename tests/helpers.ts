@@ -73,16 +73,17 @@ export async function makeJpeg(page: Page, width = 800, height = 600): Promise<B
   return Buffer.from(base64, 'base64');
 }
 
-const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
+// bilhanah-BE, cloned next to this repository.
+const BACKEND_DIR = process.env['BILHANAH_BE_DIR'] ?? fileURLToPath(new URL('../../bilhanah-BE/', import.meta.url));
 export const DASHBOARD_ORIGIN = `http://127.0.0.1:${process.env['DASHBOARD_E2E_PORT'] ?? 5174}`;
 
 /**
- * Creates an administrator with the API's CLI (built by the running API dev watcher; it reads the root .env)
+ * Creates an administrator with the API's CLI (built by the running API dev watcher; it reads bilhanah-BE's .env)
  * and returns the authenticator key it prints once.
  */
 export function createAdmin(email: string, password: string, name = 'E2E Admin'): { key: string } {
-  const output = execFileSync('node', ['apps/api/dist/commands/create-admin.cli.js', '--email', email, '--name', name], {
-    cwd: REPO_ROOT, input: `${password}\n`, encoding: 'utf8',
+  const output = execFileSync('node', ['dist/commands/create-admin.cli.js', '--email', email, '--name', name], {
+    cwd: BACKEND_DIR, input: `${password}\n`, encoding: 'utf8',
   });
   const key = /Key:\s+([A-Z2-7 ]+)/.exec(output)?.[1]?.replace(/\s/g, '');
   if (!key) throw new Error(`No authenticator key in the create-admin output:\n${output}`);

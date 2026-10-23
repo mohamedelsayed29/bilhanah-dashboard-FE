@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-// Same provider as the marketing site (apps/web/src/lib/language.tsx) and the same storage key,
+// Same provider as the marketing site (bilhanah-client-FE: src/lib/language.tsx) and the same storage key,
 // so a visitor's language follows them from the website into the dashboard on the same origin family.
 export type Language = 'ar' | 'en';
 type LanguageValue = {

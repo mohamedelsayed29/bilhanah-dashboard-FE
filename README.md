@@ -2,14 +2,18 @@
 
 The restaurant owner's dashboard for Bilhanah (بالهنا): sign-up, onboarding, the menu editor, QR codes, the live order board and order history, tables with printable QR cards, settings and the subscription (manual-transfer payments). The same app hosts the platform **admin console** under `/admin`. It is Arabic-first (RTL) with English, and works on phones.
 
-Stack: React 19, TypeScript, Vite, React Router, TanStack Query, react-hook-form with the zod schemas from `@bilhanah/contracts`, dnd-kit for drag-and-drop, socket.io-client for live orders and qrcode.react for QR codes. The brand tokens, fonts and the inline `text('عربي', 'English')` language provider are the same as the marketing site (`apps/web`).
+Part of Bilhanah, three repositories cloned side by side: [bilhanah-BE](https://github.com/mohamedelsayed29/bilhanah-BE) (API, shared packages, infrastructure), [bilhanah-client-FE](https://github.com/mohamedelsayed29/bilhanah-client-FE) (website) and [bilhanah-dashboard-FE](https://github.com/mohamedelsayed29/bilhanah-dashboard-FE) (dashboard). To run everything together, use `npm run dev` in bilhanah-BE; it starts this app too.
+
+`packages/contracts` is a copy of the API's request/response schemas, owned by bilhanah-BE. Do not edit it here: change it in bilhanah-BE and run `npm run contracts:sync` there (see `packages/README.md`).
+
+Stack: React 19, TypeScript, Vite, React Router, TanStack Query, react-hook-form with the zod schemas from `@bilhanah/contracts`, dnd-kit for drag-and-drop, socket.io-client for live orders and qrcode.react for QR codes. The brand tokens, fonts and the inline `text('عربي', 'English')` language provider are the same as the website (bilhanah-client-FE).
 
 ## Running locally
 
-The API must be running (see `apps/api/README.md`); email links are caught by Mailpit at http://127.0.0.1:8025.
+The API must be running (`npm run dev` in bilhanah-BE); email links are caught by Mailpit at http://127.0.0.1:8025.
 
 ```bash
-cp apps/dashboard/.env.example apps/dashboard/.env   # optional; the defaults suit local development
+cp .env.example .env   # optional; the defaults suit local development
 npm run dev -w @bilhanah/dashboard                   # http://127.0.0.1:5174
 ```
 
@@ -60,7 +64,7 @@ src/
     session/                  In-memory session store (access token never touches storage)
     forms.ts                  zod resolver with translatable validation messages
     format.ts                 EGP ⇄ piastres, dates, Arabic-Indic digits
-    language.tsx              Language provider (shared approach with apps/web)
+    language.tsx              Language provider (shared approach with the website)
   components/                 Button, Field, Dialog, ConfirmDialog, Toast, Switch, ImageUpload, ProtectedImage, Pagination, ErrorBoundary…
   features/
     auth/                     Login, register, check email, verify email, forgot/reset password, logout
@@ -74,7 +78,7 @@ src/
     restaurant/subscription/  Current plan, pay or renew by manual transfer, the payment under review, payment history
     billing/                  Plan, method and status labels; paid-period dates (same rules as the API)
     admin/                    Admin sign-in and console: overview, payments, restaurants, settings, audit log
-  styles/                     Tokens (shared with apps/web), layouts, pages
+  styles/                     Tokens (shared with the website), layouts, pages
 tests/                        Playwright end-to-end tests
 ```
 
@@ -102,7 +106,7 @@ Ordering needs a plan that includes it (`restaurant.ordering.included`) and the 
 
 ## Admin console
 
-Administrators are users with the `ADMIN` role. Create one with the API's CLI (`npm run admin:create -- --email … --name …`, see `apps/api/README.md`) and add the printed key to an authenticator app.
+Administrators are users with the `ADMIN` role. Create one with the API's CLI (`npm run admin:create -- --email … --name …` in bilhanah-BE) and add the printed key to an authenticator app.
 
 - **Sign in** at `/admin/login` with email, password and the 6-digit code (`POST /v1/auth/admin/login`). It uses the same session store, refresh cookie and cross-tab lock as owners, and the session is restored on reload the same way. Wrong passwords and wrong codes get the same message; `MFA_NOT_SET_UP` tells the administrator to ask an operator to run `npm run admin:reset-mfa`. The owner sign-in at `/login` rejects administrators (the API does) and links to `/admin/login`.
 - **Routing is role-aware**: administrators are sent to `/admin` from owner pages, owners to `/` from `/admin/*`, and signed-out visitors of `/admin/*` to `/admin/login?next=…`. Signing out of the console returns to `/admin/login`.
