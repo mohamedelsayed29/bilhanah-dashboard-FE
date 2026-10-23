@@ -31,7 +31,6 @@ const MESSAGES: Record<string, [ar: string, en: string]> = {
   [RESTAURANT.RESTAURANT_SUSPENDED]: ['المطعم موقوف حاليًا. تواصل مع دعم بالهنا.', 'This restaurant is suspended. Please contact Bilhanah support.'],
   [RESTAURANT.SUBDOMAIN_TAKEN]: ['العنوان ده اتحجز. اختار عنوان تاني.', 'That address is taken. Please choose another.'],
   [MEDIA.UNSUPPORTED_IMAGE]: ['ارفع صورة JPEG أو PNG أو WebP.', 'Upload a JPEG, PNG or WebP image.'],
-  [MEDIA.IMAGE_TOO_LARGE]: ['الصورة أكبر من ٥ ميجا.', 'The image is larger than 5 MB.'],
   [MEDIA.IMAGE_TOO_SMALL]: [`الصورة صغيرة. استخدم صورة ${MEDIA_MIN_DIMENSION} بكسل على الأقل طول وعرض.`, `The image is too small. Use one at least ${MEDIA_MIN_DIMENSION} pixels wide and tall.`],
   [MEDIA.MEDIA_NOT_FOUND]: ['الصورة مش موجودة. ارفعها تاني.', 'The image was not found. Please upload it again.'],
   [MENU.CATEGORY_NOT_FOUND]: ['القسم ده اتمسح أو مش موجود.', 'That category no longer exists.'],

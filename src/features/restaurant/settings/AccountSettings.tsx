@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { DesktopIcon, DeviceMobileIcon, SignOutIcon } from '@phosphor-icons/react';
-import { AUTH_ERROR_CODES, type AuthSession, passwordSchema } from '@bilhanah/contracts';
+import { AUTH_ERROR_CODES, type AuthSession, type Language, passwordSchema } from '@bilhanah/contracts';
 import { z } from 'zod';
 import { Alert } from '../../../components/Alert';
 import { Button } from '../../../components/Button';
@@ -18,7 +18,7 @@ import { errorMessage } from '../../../lib/api/error-messages';
 import { formatDate, formatRelative } from '../../../lib/format';
 import { schemaResolver } from '../../../lib/forms';
 import { useLanguage, usePageTitle } from '../../../lib/language';
-import { useSession } from '../../../lib/session';
+import { sessionStore, useSession } from '../../../lib/session';
 import { queryKeys, useSessionsQuery } from '../queries';
 
 const changePasswordFormSchema = z.object({ currentPassword: z.string().min(1).max(128), newPassword: passwordSchema, confirm: z.string() })
@@ -49,11 +49,33 @@ export function AccountSettings() {
       <dl className="details">
         <div><dt>{text('الاسم', 'Name')}</dt><dd>{user?.fullName}</dd></div>
         <div><dt>{text('الإيميل', 'Email')}</dt><dd className="ltr">{user?.email}</dd></div>
-        <div><dt>{text('لغة الرسائل', 'Email language')}</dt><dd>{user?.preferredLanguage === 'en' ? 'English' : 'العربية'}</dd></div>
       </dl>
+      {user && <EmailLanguage current={user.preferredLanguage} />}
       <Link to="/logout" className="button button-secondary button-block"><SignOutIcon size={18} className="directional" aria-hidden="true" />{text('خروج من الجهاز ده', 'Sign out of this device')}</Link>
     </aside>
   </div>;
+}
+
+/** The language of the emails Bilhanah sends (confirmations, password resets). */
+function EmailLanguage({ current }: { current: Language }) {
+  const { text, hasPreference } = useLanguage();
+  const toast = useToast();
+  const save = useMutation({
+    mutationFn: (preferredLanguage: Language) => authApi.updateProfile({ preferredLanguage }),
+    onSuccess: user => {
+      sessionStore.updateUser(user);
+      // Without a chosen display language the dashboard follows this setting, so confirm in the new language.
+      const confirm = hasPreference ? text : (ar: string, en: string) => (user.preferredLanguage === 'ar' ? ar : en);
+      toast.success(confirm('اتحفظت لغة الرسائل', 'Email language saved'));
+    },
+    onError: error => toast.error(errorMessage(error, text)),
+  });
+  return <Field label={text('لغة الرسائل', 'Email language')} hint={text('لغة إيميلات التفعيل واستعادة كلمة السر.', 'Used for confirmation and password emails.')}>
+    <select className="select" value={current} disabled={save.isPending} onChange={event => save.mutate(event.target.value as Language)}>
+      <option value="ar">العربية</option>
+      <option value="en">English</option>
+    </select>
+  </Field>;
 }
 
 function ChangePassword() {
