@@ -43,6 +43,7 @@ const KNOWN_MESSAGES: Record<string, [string, string]> = {
   'Use a hex color such as #0f5c4c.': ['اكتب لون بصيغة hex زي ‎#0f5c4c.', 'Use a hex color such as #0f5c4c.'],
   'Name each size.': ['اكتب اسم كل حجم.', 'Name each size.'],
   'Unknown time zone.': ['المنطقة الزمنية مش معروفة.', 'Unknown time zone.'],
+  'Enter the 6-digit code.': ['اكتب الكود اللي فيه ٦ أرقام.', 'Enter the 6-digit code.'],
 };
 
 /** The translated text of a react-hook-form error (or of a message key / raw text). */

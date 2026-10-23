@@ -1,3 +1,4 @@
+import type React from 'react';
 import { createBrowserRouter } from 'react-router';
 import { RouteErrorPage } from '../components/ErrorBoundary';
 import { AuthLayout } from '../layouts/AuthLayout';
@@ -11,7 +12,9 @@ import { LogoutPage } from '../features/auth/LogoutPage';
 import { OverviewPage } from '../features/restaurant/overview/OverviewPage';
 import { NotFoundPage } from './NotFoundPage';
 import { Splash } from './providers/SessionBootstrap';
-import { OnboardingGate, RequireAuth, RequireGuest, RestaurantGate } from './router/guards';
+import { OnboardingGate, RequireAdmin, RequireAuth, RequireGuest, RestaurantGate } from './router/guards';
+
+const page = <T,>(load: () => Promise<T>, pick: (module: T) => React.ComponentType) => async () => ({ Component: pick(await load()) });
 
 /** Pages beyond the overview load on demand (the menu editor brings drag and drop, the QR page the QR encoder). */
 export const router = createBrowserRouter([
@@ -51,6 +54,7 @@ export const router = createBrowserRouter([
               { index: true, element: <OverviewPage /> },
               { path: 'menu', lazy: async () => ({ Component: (await import('../features/restaurant/menu/MenuPage')).MenuPage }) },
               { path: 'qr-codes', lazy: async () => ({ Component: (await import('../features/restaurant/qr-codes/QrCodesPage')).QrCodesPage }) },
+              { path: 'subscription', lazy: page(() => import('../features/restaurant/subscription/SubscriptionPage'), module => module.SubscriptionPage) },
               {
                 path: 'settings',
                 lazy: async () => ({ Component: (await import('../features/restaurant/settings/SettingsLayout')).SettingsLayout }),
@@ -64,6 +68,27 @@ export const router = createBrowserRouter([
             ],
           },
         ],
+      },
+      // Platform administrators (password + authenticator code); the console loads on demand.
+      {
+        path: 'admin/login',
+        element: <AuthLayout variant="admin" />,
+        children: [{ element: <RequireGuest />, children: [{ index: true, lazy: page(() => import('../features/admin/AdminLoginPage'), module => module.AdminLoginPage) }] }],
+      },
+      {
+        path: 'admin',
+        element: <RequireAdmin />,
+        children: [{
+          lazy: page(() => import('../layouts/AdminLayout'), module => module.AdminLayout),
+          children: [
+            { index: true, lazy: page(() => import('../features/admin/overview/AdminOverviewPage'), module => module.AdminOverviewPage) },
+            { path: 'payments', lazy: page(() => import('../features/admin/payments/AdminPaymentsPage'), module => module.AdminPaymentsPage) },
+            { path: 'restaurants', lazy: page(() => import('../features/admin/restaurants/AdminRestaurantsPage'), module => module.AdminRestaurantsPage) },
+            { path: 'restaurants/:restaurantId', lazy: page(() => import('../features/admin/restaurants/AdminRestaurantPage'), module => module.AdminRestaurantPage) },
+            { path: 'settings', lazy: page(() => import('../features/admin/settings/AdminSettingsPage'), module => module.AdminSettingsPage) },
+            { path: 'audit', lazy: page(() => import('../features/admin/audit/AdminAuditPage'), module => module.AdminAuditPage) },
+          ],
+        }],
       },
       { path: '*', element: <NotFoundPage /> },
     ],

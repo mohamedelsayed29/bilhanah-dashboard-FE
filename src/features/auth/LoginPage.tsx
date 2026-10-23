@@ -71,5 +71,6 @@ export function LoginPage() {
       <Button type="submit" block loading={isSubmitting}>{text('دخول', 'Sign in')}</Button>
     </form>
     <p className="auth-alt">{text('لسه معندكش حساب؟', 'New to Bilhanah?')} <Link className="link" to="/register">{text('ابدأ تجربتك المجانية', 'Start your free trial')}</Link></p>
+    <p className="auth-alt auth-team">{text('من فريق بالهنا؟', 'Bilhanah team?')} <Link className="link-muted" to="/admin/login">{text('ادخل من هنا', 'Sign in here')}</Link></p>
   </AuthCard>;
 }

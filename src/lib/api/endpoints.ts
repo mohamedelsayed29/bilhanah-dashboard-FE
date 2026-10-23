@@ -1,4 +1,21 @@
 import type {
+  AdminEntitlement,
+  AdminOverview,
+  AdminPayment,
+  AdminRestaurantDetail,
+  AdminRestaurantRow,
+  AdminSettings,
+  AuditEntry,
+  BillingSummary,
+  grantEntitlementSchema,
+  OwnerPayment,
+  Paginated,
+  PaymentStatus,
+  PlanCode,
+  submitPaymentSchema,
+  updatePaymentSettingsSchema,
+  updateTrialSettingsSchema,
+  AccessStatus,
   AuthSession,
   AuthUser,
   changePasswordSchema,
@@ -33,6 +50,7 @@ export const authApi = {
   resendVerification: (email: string) => post('/v1/auth/resend-verification', { email }, false),
   verifyEmail: (token: string) => request<VerifyEmailResponse>('/v1/auth/verify-email', { method: 'POST', body: { token }, auth: false }),
   login: apiClient.login,
+  adminLogin: apiClient.adminLogin,
   logout: apiClient.logout,
   forgotPassword: (email: string) => post('/v1/auth/forgot-password', { email }, false),
   resetPassword: (token: string, password: string) => post('/v1/auth/reset-password', { token, password }, false),
@@ -70,4 +88,48 @@ export const mediaApi = {
     form.append('file', file);
     return apiClient.uploadFile<ImageSet>(`/v1/media?kind=${kind}`, form, options);
   },
+};
+
+/** `?a=1&b=x`, skipping empty values. */
+function query(params: Record<string, string | number | undefined | null>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+  const text = search.toString();
+  return text ? `?${text}` : '';
+}
+const id = (value: string) => encodeURIComponent(value);
+
+/** The owner's subscription and manual-transfer payments. */
+export const billingApi = {
+  summary: () => request<BillingSummary>('/v1/billing'),
+  submit: (body: z.output<typeof submitPaymentSchema>) => request<OwnerPayment>('/v1/billing/payments', { method: 'POST', body }),
+  withdraw: (paymentId: string) => request<void>(`/v1/billing/payments/${id(paymentId)}`, { method: 'DELETE' }),
+  /** Path of the receipt image (fetch it with `apiClient.requestBlob`). */
+  proofPath: (paymentId: string) => `/v1/billing/payments/${id(paymentId)}/proof`,
+};
+
+export type AdminRestaurantsQuery = { query?: string; access?: AccessStatus; page?: number; pageSize?: number };
+
+/** Platform administration (administrators only). */
+export const adminApi = {
+  overview: () => request<AdminOverview>('/v1/admin/overview'),
+  restaurants: (params: AdminRestaurantsQuery, signal?: AbortSignal) =>
+    request<Paginated<AdminRestaurantRow>>(`/v1/admin/restaurants${query(params)}`, { signal }),
+  restaurant: (restaurantId: string) => request<AdminRestaurantDetail>(`/v1/admin/restaurants/${id(restaurantId)}`),
+  suspend: (restaurantId: string, reason: string) => request<void>(`/v1/admin/restaurants/${id(restaurantId)}/suspend`, { method: 'POST', body: { reason } }),
+  unsuspend: (restaurantId: string) => request<void>(`/v1/admin/restaurants/${id(restaurantId)}/unsuspend`, { method: 'POST' }),
+  grant: (restaurantId: string, body: z.output<typeof grantEntitlementSchema>) =>
+    request<AdminEntitlement>(`/v1/admin/restaurants/${id(restaurantId)}/entitlements`, { method: 'POST', body }),
+  payments: (params: { status?: PaymentStatus; page?: number; pageSize?: number }) =>
+    request<Paginated<AdminPayment>>(`/v1/admin/payments${query(params)}`),
+  payment: (paymentId: string) => request<AdminPayment>(`/v1/admin/payments/${id(paymentId)}`),
+  proofPath: (paymentId: string) => `/v1/admin/payments/${id(paymentId)}/proof`,
+  approve: (paymentId: string) => request<OwnerPayment>(`/v1/admin/payments/${id(paymentId)}/approve`, { method: 'POST' }),
+  reject: (paymentId: string, reason: string) => request<OwnerPayment>(`/v1/admin/payments/${id(paymentId)}/reject`, { method: 'POST', body: { reason } }),
+  settings: () => request<AdminSettings>('/v1/admin/settings'),
+  updatePaymentSettings: (body: z.output<typeof updatePaymentSettingsSchema>) => request<AdminSettings>('/v1/admin/settings/payment', { method: 'PUT', body }),
+  updateTrialSettings: (body: z.output<typeof updateTrialSettingsSchema>) => request<AdminSettings>('/v1/admin/settings/trial', { method: 'PUT', body }),
+  updatePlanPrice: (code: PlanCode, priceMonthlyPiastres: number) =>
+    request<AdminSettings>(`/v1/admin/plans/${code}`, { method: 'PUT', body: { priceMonthlyPiastres } }),
+  audit: (page: number) => request<Paginated<AuditEntry>>(`/v1/admin/audit${query({ page })}`),
 };

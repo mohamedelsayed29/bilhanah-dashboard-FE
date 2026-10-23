@@ -1,0 +1,167 @@
+import { useEffect, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { ClockCountdownIcon, ReceiptIcon, SealCheckIcon, XCircleIcon } from '@phosphor-icons/react';
+import { BILLING_ERROR_CODES, type BillingSummary, type OwnerPayment, type OwnerRestaurant, type RestaurantAccess } from '@bilhanah/contracts';
+import { Alert } from '../../../components/Alert';
+import { Button } from '../../../components/Button';
+import { ConfirmDialog } from '../../../components/ConfirmDialog';
+import { ErrorPanel } from '../../../components/ErrorBoundary';
+import { PageHeader } from '../../../components/PageHeader';
+import { ReceiptDialog } from '../../../components/ProtectedImage';
+import { PageSkeleton } from '../../../components/Skeleton';
+import { useToast } from '../../../components/Toast';
+import { isApiError } from '../../../lib/api';
+import { billingApi } from '../../../lib/api/endpoints';
+import { errorMessage } from '../../../lib/api/error-messages';
+import { formatDate, formatPrice } from '../../../lib/format';
+import { useLanguage, usePageTitle } from '../../../lib/language';
+import { methodName, monthsLabel, PaymentStatusBadge, planName } from '../../billing/labels';
+import { accessDaysLeft, AccessBadge } from '../access';
+import { queryKeys, useBillingQuery, useRestaurant } from '../queries';
+import { PaymentForm } from './PaymentForm';
+
+export function SubscriptionPage() {
+  const { text } = useLanguage();
+  usePageTitle('الاشتراك', 'Subscription');
+  const billing = useBillingQuery();
+  const restaurant = useRestaurant();
+  const queryClient = useQueryClient();
+  const [receipt, setReceipt] = useState<string | null>(null);
+
+  // A review elsewhere (e.g. an approval) changes access; keep the shell's badge in step.
+  const access = billing.data?.access;
+  useEffect(() => {
+    if (access && JSON.stringify(access) !== JSON.stringify(restaurant.access)) {
+      queryClient.setQueryData<OwnerRestaurant>(queryKeys.restaurant, current => current && { ...current, access });
+    }
+  }, [access, restaurant.access, queryClient]);
+
+  if (billing.isPending) return <PageSkeleton blocks={3} />;
+  if (billing.isError) return <div className="page"><ErrorPanel error={billing.error} onRetry={() => void billing.refetch()} /></div>;
+  const summary = billing.data;
+  return <div className="page subscription-page">
+    <PageHeader title={text('الاشتراك', 'Subscription')}
+      description={text('ادفع بإنستاباي أو فودافون كاش أو تحويل بنكي، وابعت لنا بيانات التحويل. فريق بالهنا بيراجعه ويفعّل اشتراكك.',
+        'Pay by InstaPay, Vodafone Cash or bank transfer and send us the transfer details. The Bilhanah team reviews it and activates your plan.')} />
+    <StatusCard access={summary.access} />
+    {summary.pendingPayment
+      ? <PendingPayment payment={summary.pendingPayment} onViewReceipt={setReceipt} />
+      : summary.access.status === 'SUSPENDED'
+        ? <Alert kind="error" live={false} title={text('مينفعش تدفع والمطعم موقوف', 'Payments are paused while your restaurant is suspended')}>
+            {text('تواصل مع دعم بالهنا عشان نحل المشكلة.', 'Please contact Bilhanah support to sort this out.')}
+          </Alert>
+        : <PaymentForm summary={summary} />}
+    <History summary={summary} onViewReceipt={setReceipt} />
+    <ReceiptDialog path={receipt} onClose={() => setReceipt(null)} />
+  </div>;
+}
+
+function StatusCard({ access }: { access: RestaurantAccess }) {
+  const { text, number, language } = useLanguage();
+  const days = accessDaysLeft(access);
+  const end = access.status === 'TRIAL' ? access.trialEndsAt : access.status === 'PAID' ? access.currentPeriodEndsAt : null;
+  return <section className="card card-padded status-card" aria-labelledby="status-title" data-testid="subscription-status">
+    <div className="status-card-main">
+      <span className="eyebrow"><SealCheckIcon size={16} aria-hidden="true" />{text('اشتراكك الحالي', 'Your current plan')}</span>
+      <div className="plan-card-head">
+        <h2 id="status-title" className="section-title">{access.planCode ? planName(access.planCode, text) : text('من غير باقة', 'No plan')}</h2>
+        <AccessBadge access={access} />
+      </div>
+      {end && <p className="muted">{access.status === 'TRIAL' ? text('التجربة المجانية بتنتهي يوم', 'Your free trial ends on') : text('الاشتراك ساري لحد', 'Active until')} <strong className="status-date">{formatDate(end, language, { dateStyle: 'long' })}</strong></p>}
+      {access.status === 'TRIAL' && <p className="muted small">{text('تقدر تدفع دلوقتي؛ المدة المدفوعة بتبدأ بعد ما التجربة تخلص، فمش هتخسر ولا يوم.', 'You can pay now: the paid period starts when your trial ends, so you keep every trial day.')}</p>}
+    </div>
+    {days !== null && <div className="status-days" aria-hidden="true"><strong>{number(days)}</strong><span>{text(days === 1 ? 'يوم فاضل' : 'يوم فاضلين', days === 1 ? 'day left' : 'days left')}</span></div>}
+    {access.status === 'INACTIVE' && <Alert kind="warning" live={false} title={text('المنيو العام متوقف مؤقتًا', 'Your public menu is paused')}>
+      {text('اشتراكك مش فعّال، فالزباين بيشوفوا إن المنيو "مش متاح مؤقتًا". كل بياناتك محفوظة وتقدر تكمّل تعديل المنيو، وأول ما الدفع يتراجع المنيو يرجع يظهر على طول.',
+        'Your subscription isn’t active, so diners see the menu as “temporarily unavailable”. All your data is kept and you can keep editing; the menu goes live again as soon as your payment is approved.')}
+    </Alert>}
+    {access.status === 'SUSPENDED' && <Alert kind="error" live={false} title={text('المطعم موقوف', 'Your restaurant is suspended')}>
+      {text('المنيو العام مش ظاهر والتعديل متوقف، وبياناتك محفوظة. تواصل مع دعم بالهنا.', 'The public menu is hidden and editing is paused; your data is kept. Please contact Bilhanah support.')}
+    </Alert>}
+  </section>;
+}
+
+/** Facts of a payment as a description list. */
+export function PaymentFacts({ payment }: { payment: OwnerPayment }) {
+  const { text, number, language } = useLanguage();
+  return <dl className="facts">
+    <div><dt>{text('الباقة', 'Plan')}</dt><dd>{planName(payment.planCode, text)}</dd></div>
+    <div><dt>{text('المدة', 'Length')}</dt><dd>{monthsLabel(payment.months, text, number)}</dd></div>
+    <div><dt>{text('المبلغ', 'Amount')}</dt><dd>{formatPrice(payment.amountPiastres, language)}</dd></div>
+    <div><dt>{text('طريقة الدفع', 'Method')}</dt><dd>{methodName(payment.method, text)}</dd></div>
+    <div><dt>{text('رقم العملية', 'Reference')}</dt><dd className="ltr">{payment.reference}</dd></div>
+    {payment.payerName && <div><dt>{text('اسم المحوّل', 'Paid by')}</dt><dd>{payment.payerName}</dd></div>}
+    <div><dt>{text('اتبعت يوم', 'Submitted')}</dt><dd>{formatDate(payment.createdAt, language, { dateStyle: 'medium', timeStyle: 'short' })}</dd></div>
+  </dl>;
+}
+
+function PendingPayment({ payment, onViewReceipt }: { payment: OwnerPayment; onViewReceipt: (path: string) => void }) {
+  const { text } = useLanguage();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+  const withdraw = useMutation({
+    mutationFn: () => billingApi.withdraw(payment.id),
+    onSuccess: () => toast.success(text('سحبنا التحويل. تقدر تبعت بيانات جديدة.', 'Payment withdrawn. You can send new details.')),
+    onError: error => {
+      // Reviewed in the meantime: show the result instead.
+      if (isApiError(error, BILLING_ERROR_CODES.PAYMENT_NOT_PENDING)) toast.error(text('التحويل ده اتراجع خلاص، حدّثنا الصفحة.', 'This payment was already reviewed; the page has been updated.'));
+      else toast.error(errorMessage(error, text));
+    },
+    onSettled: () => {
+      setConfirming(false);
+      return queryClient.invalidateQueries({ queryKey: queryKeys.billing });
+    },
+  });
+  return <section className="card card-padded pending-card" aria-labelledby="pending-title" data-testid="pending-payment">
+    <div className="pending-head">
+      <span className="pending-icon" aria-hidden="true"><ClockCountdownIcon size={26} weight="duotone" /></span>
+      <div>
+        <h2 id="pending-title" className="section-title">{text('تحويلك بيتراجع', 'Your payment is under review')}</h2>
+        <p className="muted">{text('فريق بالهنا بيراجع التحويل، وهيوصلك إيميل أول ما يتقبل أو لو في مشكلة. لو عايز تغيّر حاجة، اسحبه وابعت تاني.',
+          'The Bilhanah team is checking your transfer; you will get an email once it is approved or if something is wrong. To change anything, withdraw it and send it again.')}</p>
+      </div>
+      <PaymentStatusBadge status="PENDING" />
+    </div>
+    <PaymentFacts payment={payment} />
+    <div className="form-actions">
+      {payment.hasProof && <Button variant="secondary" small icon={<ReceiptIcon size={17} aria-hidden="true" />} onClick={() => onViewReceipt(billingApi.proofPath(payment.id))}>{text('شوف الإيصال', 'View receipt')}</Button>}
+      <Button variant="danger-outline" small icon={<XCircleIcon size={17} aria-hidden="true" />} onClick={() => setConfirming(true)}>{text('اسحب التحويل', 'Withdraw')}</Button>
+    </div>
+    <ConfirmDialog open={confirming} busy={withdraw.isPending} onCancel={() => setConfirming(false)} onConfirm={() => withdraw.mutate()}
+      title={text('تسحب التحويل ده؟', 'Withdraw this payment?')} confirmLabel={text('اسحبه', 'Withdraw')}
+      description={text('مش هنراجعه. لو الفلوس اتحولت فعلًا، ابعت البيانات تاني بعد السحب.', 'We will not review it. If the money was already sent, submit the details again afterwards.')} />
+  </section>;
+}
+
+function History({ summary, onViewReceipt }: { summary: BillingSummary; onViewReceipt: (path: string) => void }) {
+  const { text, number, language } = useLanguage();
+  return <section className="card card-padded" aria-labelledby="history-title">
+    <div className="card-header"><div>
+      <h2 id="history-title">{text('سجل المدفوعات', 'Payment history')}</h2>
+      <p>{text('كل التحويلات اللي بعتها وحالتها.', 'Every transfer you have sent and what happened to it.')}</p>
+    </div></div>
+    {summary.payments.length === 0
+      ? <p className="muted empty-line">{text('لسه مبعتش أي تحويل.', 'You haven’t sent any payments yet.')}</p>
+      : <ul className="history-list">
+          {summary.payments.map(payment => <li key={payment.id} className="history-row" data-testid="payment-row" data-status={payment.status}>
+            <div className="history-main">
+              <strong>{planName(payment.planCode, text)} · {monthsLabel(payment.months, text, number)}</strong>
+              <small>{formatDate(payment.createdAt, language)} · {methodName(payment.method, text)} · <span className="ltr">{payment.reference}</span></small>
+              {payment.status === 'APPROVED' && payment.period && <small className="history-period">
+                {text('المدة:', 'Period:')} {formatDate(payment.period.startsAt, language)} – {formatDate(payment.period.endsAt, language)}
+              </small>}
+              {payment.status === 'REJECTED' && payment.rejectionReason && <p className="history-reason"><strong>{text('سبب الرفض:', 'Reason:')}</strong> {payment.rejectionReason}</p>}
+            </div>
+            <div className="history-side">
+              <span className="history-amount">{formatPrice(payment.amountPiastres, language)}</span>
+              <PaymentStatusBadge status={payment.status} />
+              {payment.hasProof && <button type="button" className="text-button small" onClick={() => onViewReceipt(billingApi.proofPath(payment.id))}
+                aria-label={text(`الإيصال، تحويل ${formatDate(payment.createdAt, language)}`, `Receipt, ${formatDate(payment.createdAt, language)} payment`)}>
+                <ReceiptIcon size={16} aria-hidden="true" />{text('الإيصال', 'Receipt')}
+              </button>}
+            </div>
+          </li>)}
+        </ul>}
+  </section>;
+}

@@ -199,4 +199,52 @@ describe('api client', () => {
     const client = createApiClient({ baseUrl: 'http://api.test', store, fetch: async () => { throw new TypeError('Failed to fetch'); }, locks: null });
     await expect(client.request('/v1/public/plans', { auth: false })).rejects.toMatchObject({ status: 0, code: 'NETWORK_ERROR' });
   });
+
+  it('downloads protected files as a Blob with the bearer token, refreshing once on 401', async () => {
+    const store = new SessionStore();
+    store.setSession(session('stale'));
+    const seen: string[] = [];
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const auth = (init?.headers as Record<string, string> | undefined)?.['Authorization'] ?? null;
+      seen.push(`${url.replace('http://api.test', '')} ${auth}`);
+      if (url.endsWith('/v1/auth/refresh')) return json(200, session('fresh'));
+      if (auth !== 'Bearer fresh') return json(401, { error: { code: 'UNAUTHENTICATED', message: 'x', requestId: 'r' } });
+      return new Response(new Uint8Array([0x52, 0x49, 0x46, 0x46]), { status: 200, headers: { 'content-type': 'image/webp' } });
+    });
+    const client = createApiClient({ baseUrl: 'http://api.test', store, fetch: fetchImpl, locks: null });
+    const blob = await client.requestBlob('/v1/billing/payments/p1/proof');
+    expect(blob).toBeInstanceOf(Blob);
+    expect(blob.type).toBe('image/webp');
+    expect(new Uint8Array(await blob.arrayBuffer())).toEqual(new Uint8Array([0x52, 0x49, 0x46, 0x46]));
+    expect(seen).toEqual(['/v1/billing/payments/p1/proof Bearer stale', '/v1/auth/refresh null', '/v1/billing/payments/p1/proof Bearer fresh']);
+    expect(fetchImpl.mock.calls.every(([, init]) => init?.credentials === 'include')).toBe(true);
+  });
+
+  it('turns an error response to a blob request into a typed ApiError', async () => {
+    const store = new SessionStore();
+    store.setSession(session('token'));
+    const fetchImpl = vi.fn(async () => json(404, { error: { code: 'PAYMENT_NOT_FOUND', message: 'This payment has no receipt.', requestId: 'r9' } }));
+    const client = createApiClient({ baseUrl: 'http://api.test', store, fetch: fetchImpl, locks: null });
+    await expect(client.requestBlob('/v1/admin/payments/p1/proof')).rejects.toMatchObject({ status: 404, code: 'PAYMENT_NOT_FOUND', requestId: 'r9' });
+  });
+
+  it('signs administrators in through the admin route, under the session lock, and tells other tabs', async () => {
+    const admin = { ...user, role: 'ADMIN' as const };
+    const fetchImpl = vi.fn(async () => json(200, { accessToken: 'admin-token', accessTokenExpiresIn: 900, user: admin }));
+    const locks = fakeLocks();
+    const posted: unknown[] = [];
+    const store = new SessionStore();
+    const client = createApiClient({
+      baseUrl: 'http://api.test', store, fetch: fetchImpl, locks,
+      channel: { postMessage: message => posted.push(message), addEventListener: () => undefined },
+    });
+    await client.adminLogin({ email: 'admin@example.com', password: 'long-password-123', code: '123456' });
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('http://api.test/v1/auth/admin/login');
+    expect(JSON.parse(String(init.body))).toEqual({ email: 'admin@example.com', password: 'long-password-123', code: '123456' });
+    expect(locks.maxHeld()).toBe(1);
+    expect(store.getState()).toMatchObject({ status: 'authenticated', user: { role: 'ADMIN' } });
+    expect(posted).toEqual([{ type: 'signed-in' }]);
+  });
 });

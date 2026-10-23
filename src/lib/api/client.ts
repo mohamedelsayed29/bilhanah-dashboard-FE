@@ -113,6 +113,30 @@ export function createApiClient(options: ApiClientOptions) {
     return unwrap<T>(await authorized(token => send(path, { ...init, token }), init.auth ?? true));
   }
 
+  /** GET of a binary resource (e.g. a private receipt image); successful bodies stay a Blob. */
+  async function sendForBlob(path: string, token: string | null, signal?: AbortSignal): Promise<RawResponse> {
+    const headers: Record<string, string> = { Accept: 'image/*, application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    let response: Response;
+    try {
+      response = await fetchImpl(`${baseUrl}${path}`, { method: 'GET', headers, credentials: 'include', signal });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') throw error;
+      throw new ApiError({ status: 0, code: CLIENT_ERROR_CODES.NETWORK_ERROR, message: 'Could not reach the server.' });
+    }
+    const requestId = response.headers.get('x-request-id');
+    if (response.ok) return { status: response.status, body: await response.blob(), requestId };
+    return { status: response.status, body: parseBody(await response.text()), requestId };
+  }
+
+  /**
+   * Authenticated download as a Blob, with the same token refresh as `request`.
+   * Needed for images the API only streams with a bearer token (a plain <img src> cannot send one).
+   */
+  async function requestBlob(path: string, options: { signal?: AbortSignal } = {}): Promise<Blob> {
+    return unwrap<Blob>(await authorized(token => sendForBlob(path, token, options.signal), true));
+  }
+
   function sendXhr(path: string, form: FormData, token: string | null, upload: UploadOptions): Promise<RawResponse> {
     return new Promise((resolve, reject) => {
       const xhr = createXhr();
@@ -144,17 +168,24 @@ export function createApiClient(options: ApiClientOptions) {
     if (event.data?.type === 'signed-in' && store.getState().status !== 'authenticated') void refreshOnce().catch(() => undefined);
   });
 
+  /** Signs in through `path` under the session lock, then tells the other tabs. */
+  async function signIn(path: string, body: unknown): Promise<SessionResponse> {
+    const session = await exclusive(() => request<SessionResponse>(path, { method: 'POST', body, auth: false }));
+    store.setSession(session);
+    announce({ type: 'signed-in' });
+    return session;
+  }
+
   return {
     request,
+    requestBlob,
     uploadFile,
     /** Restores the session from the refresh cookie (on startup) or renews the access token. */
     refreshSession: () => refreshOnce(),
-    async login(credentials: { email: string; password: string }): Promise<SessionResponse> {
-      const session = await exclusive(() => request<SessionResponse>('/v1/auth/login', { method: 'POST', body: credentials, auth: false }));
-      store.setSession(session);
-      announce({ type: 'signed-in' });
-      return session;
-    },
+    /** Restaurant owners. */
+    login: (credentials: { email: string; password: string }) => signIn('/v1/auth/login', credentials),
+    /** Platform administrators: password plus the 6-digit authenticator code. Same session and refresh cookie as owners. */
+    adminLogin: (credentials: { email: string; password: string; code: string }) => signIn('/v1/auth/admin/login', credentials),
     /** Ends the session on the server (best effort) and forgets it locally, in every tab. */
     async logout(): Promise<void> {
       try {

@@ -16,18 +16,27 @@ type Props = {
   /** CSS aspect ratio of the preview, e.g. "1 / 1" or "16 / 7". */
   aspect?: string;
   onBusyChange?: (busy: boolean) => void;
+  /**
+   * Private images (payment receipts) come back without a URL; keep showing the chosen
+   * file from a local object URL instead.
+   */
+  localPreview?: boolean;
+  /** `contain` shows the whole image (receipts) instead of filling the frame. */
+  fit?: 'cover' | 'contain';
+  emptyLabel?: string;
 };
 
 /**
  * Uploads to POST /v1/media and reports progress, then "processing" while the API
  * creates the WebP renditions. Type and size are checked before anything is sent.
  */
-export function ImageUpload({ kind, value, onChange, label, hint, aspect = '4 / 3', onBusyChange }: Props) {
+export function ImageUpload({ kind, value, onChange, label, hint, aspect = '4 / 3', onBusyChange, localPreview = false, fit = 'cover', emptyLabel }: Props) {
   const { text } = useLanguage();
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>({ state: 'idle' });
   const [preview, setPreview] = useState<string | null>(null);
+  const [kept, setKept] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
   const busy = status.state === 'uploading' || status.state === 'processing';
 
@@ -37,6 +46,9 @@ export function ImageUpload({ kind, value, onChange, label, hint, aspect = '4 / 
   useEffect(() => { onBusy.current?.(busy); }, [busy]);
   useEffect(() => () => { abort.current?.abort(); }, []);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  useEffect(() => () => { if (kept) URL.revokeObjectURL(kept); }, [kept]);
+  // A removed or replaced image no longer needs its local copy.
+  useEffect(() => { if (!value) setKept(null); }, [value]);
 
   const choose = async (file: File | undefined) => {
     if (!file) return;
@@ -58,6 +70,7 @@ export function ImageUpload({ kind, value, onChange, label, hint, aspect = '4 / 
         onProgress: progress => setStatus({ state: 'uploading', progress }),
         onUploaded: () => setStatus({ state: 'processing' }),
       });
+      if (localPreview) setKept(URL.createObjectURL(file));
       onChange(image);
       setStatus({ state: 'idle' });
     } catch (error) {
@@ -69,16 +82,16 @@ export function ImageUpload({ kind, value, onChange, label, hint, aspect = '4 / 
     }
   };
 
-  const shown = preview ?? value?.url ?? null;
+  const shown = preview ?? (value ? value.url || kept : null);
   const percent = status.state === 'uploading' ? Math.round(status.progress * 100) : null;
   return <div className="field image-upload">
     <span className="field-label" id={`${id}-label`}>{label}</span>
-    <div className={`image-upload-frame ${shown ? 'has-image' : ''}`} style={{ aspectRatio: aspect }}>
+    <div className={`image-upload-frame ${shown ? 'has-image' : ''} ${fit === 'contain' ? 'is-contain' : ''}`} style={{ aspectRatio: aspect }}>
       {shown
         ? <img src={shown} alt={text('معاينة الصورة', 'Image preview')} />
         : <button type="button" className="image-upload-empty" onClick={() => input.current?.click()} disabled={busy} aria-describedby={`${id}-hint`}>
             <CameraIcon size={30} aria-hidden="true" />
-            <strong>{text('اختار صورة', 'Choose a photo')}</strong>
+            <strong>{emptyLabel ?? text('اختار صورة', 'Choose a photo')}</strong>
             <small>{text('JPEG أو PNG أو WebP حتى ٥ ميجا', 'JPEG, PNG or WebP up to 5 MB')}</small>
           </button>}
       {busy && <div className="image-upload-overlay" role="status" aria-live="polite">

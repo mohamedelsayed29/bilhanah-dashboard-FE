@@ -88,7 +88,7 @@ html[lang='en'] .auth-visual-title { line-height: 1.25; }
   .topbar-restaurant strong { font-size: 16px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .topbar-actions { display: flex; align-items: center; gap: 2px; }
   .topbar .language-button { padding-inline: 10px; }
-  .tabbar { position: fixed; z-index: var(--layer-nav); inset-inline: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr); padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -10px 30px -24px #1f3a3066; }
+  .tabbar { position: fixed; z-index: var(--layer-nav); inset-inline: 0; bottom: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -10px 30px -24px #1f3a3066; }
   .tabbar-link { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 54px; border-radius: 12px; color: var(--muted); font-size: 11.5px; font-weight: 700; }
   .tabbar-link.active { color: var(--teal); }
   .tabbar-link.active svg { background: var(--mint-strong); border-radius: 999px; padding: 2px 14px; width: 54px; height: 28px; }

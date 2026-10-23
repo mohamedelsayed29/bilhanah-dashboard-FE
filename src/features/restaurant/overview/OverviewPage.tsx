@@ -98,7 +98,7 @@ function PlanCard({ restaurant }: { restaurant: OwnerRestaurant }) {
     </>}
     {end && <p className="muted plan-end">{access.status === 'TRIAL' ? text('التجربة بتنتهي يوم', 'Trial ends on') : text('الاشتراك ساري لحد', 'Active until')} {formatDate(end, language, { dateStyle: 'long' })}</p>}
     {access.status === 'INACTIVE' && <p className="muted">{text('التعديل متاح، والمنيو هيرجع يظهر أول ما تشترك.', 'Editing is available; your menu goes live again once you subscribe.')}</p>}
-    <p className="plan-footnote">{text('الدفع الإلكتروني جاي قريب. للاشتراك دلوقتي كلّم فريق بالهنا.', 'Online payment is coming soon. To subscribe now, contact the Bilhanah team.')}</p>
+    <p className="plan-footnote"><Link className="link" to="/subscription">{access.status === 'PAID' ? text('جدّد اشتراكك', 'Renew your subscription') : text('ادفع واشترك', 'Pay and subscribe')}</Link> · {text('إنستاباي أو فودافون كاش أو تحويل بنكي', 'InstaPay, Vodafone Cash or bank transfer')}</p>
   </section>;
 }
 

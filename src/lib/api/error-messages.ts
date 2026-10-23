@@ -1,5 +1,7 @@
 import {
+  ADMIN_ERROR_CODES as ADMIN,
   AUTH_ERROR_CODES as AUTH,
+  BILLING_ERROR_CODES as BILLING,
   COMMON_ERROR_CODES as COMMON,
   MEDIA_ERROR_CODES as MEDIA,
   MEDIA_MIN_DIMENSION,
@@ -36,6 +38,13 @@ const MESSAGES: Record<string, [ar: string, en: string]> = {
   [MENU.CATEGORY_NOT_FOUND]: ['القسم ده اتمسح أو مش موجود.', 'That category no longer exists.'],
   [MENU.ITEM_NOT_FOUND]: ['الصنف ده اتمسح أو مش موجود.', 'That item no longer exists.'],
   [MENU.MENU_LIMIT_REACHED]: [`وصلت للحد الأقصى (${MENU_LIMITS.categories} قسم، ${MENU_LIMITS.items} صنف).`, `You reached the limit (${MENU_LIMITS.categories} categories, ${MENU_LIMITS.items} items).`],
+  [BILLING.PAYMENT_ALREADY_PENDING]: ['عندك تحويل لسه بيتراجع. استنى المراجعة أو اسحبه الأول.', 'You already have a payment under review. Wait for it, or withdraw it first.'],
+  [BILLING.PAYMENT_NOT_FOUND]: ['التحويل ده مش موجود.', 'That payment could not be found.'],
+  [BILLING.PAYMENT_NOT_PENDING]: ['التحويل ده اتراجع خلاص.', 'This payment has already been reviewed.'],
+  [BILLING.PAYMENT_METHOD_UNAVAILABLE]: ['طريقة الدفع دي مش متاحة دلوقتي. اختار طريقة تانية.', 'This payment method is not available right now. Please choose another.'],
+  [ADMIN.MFA_NOT_SET_UP]: ['التحقق بخطوتين مش متفعّل على الحساب ده. اطلب من المسؤول التقني يشغّل npm run admin:reset-mfa.', 'Two-step sign-in is not set up for this account. Ask an operator to run npm run admin:reset-mfa.'],
+  [ADMIN.ALREADY_SUSPENDED]: ['المطعم ده موقوف بالفعل.', 'This restaurant is already suspended.'],
+  [ADMIN.NOT_SUSPENDED]: ['المطعم ده مش موقوف.', 'This restaurant is not suspended.'],
   [MENU.ORDER_MISMATCH]: ['المنيو اتغير من مكان تاني. حدّثنا الترتيب، جرّب تاني.', 'The menu changed elsewhere. We refreshed it; please try again.'],
 };
 

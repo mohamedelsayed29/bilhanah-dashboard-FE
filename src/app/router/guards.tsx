@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation, useSearchParams } from 'react-router';
-import { RESTAURANT_ERROR_CODES } from '@bilhanah/contracts';
+import { RESTAURANT_ERROR_CODES, type UserRole } from '@bilhanah/contracts';
 import { ErrorPanel } from '../../components/ErrorBoundary';
 import { isApiError } from '../../lib/api';
 import { useSession } from '../../lib/session';
@@ -7,28 +7,49 @@ import { useRestaurantQuery } from '../../features/restaurant/queries';
 import { OwnerLayout } from '../../layouts/OwnerLayout';
 import { Splash } from '../providers/SessionBootstrap';
 
-/** Only same-app paths are accepted as a post-login destination. */
-export function safeNext(value: string | null): string {
-  return value && value.startsWith('/') && !value.startsWith('//') ? value : '/';
+/** Where each role lands after signing in: administrators have their own console. */
+export function roleHome(role: UserRole): string {
+  return role === 'ADMIN' ? '/admin' : '/';
 }
 
-/** Signed-in owners only; others go to the login page and come back afterwards. */
+const isAdminPath = (path: string) => path === '/admin' || path.startsWith('/admin/');
+
+/** Only same-app paths for the signed-in role are accepted as a post-login destination. */
+export function safeNext(value: string | null, role: UserRole = 'OWNER'): string {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return roleHome(role);
+  return isAdminPath(value) === (role === 'ADMIN') ? value : roleHome(role);
+}
+
+/** Sends a signed-out visitor to `login`, coming back to the current page afterwards. */
+function ToLogin({ login, home, expired }: { login: string; home: string; expired: boolean }) {
+  const location = useLocation();
+  const next = `${location.pathname}${location.search}`;
+  return <Navigate to={next === home ? login : `${login}?next=${encodeURIComponent(next)}`} replace state={{ expired }} />;
+}
+
+/** Signed-in owners only; others go to the login page and come back afterwards. Administrators go to their console. */
 export function RequireAuth() {
   const session = useSession();
-  const location = useLocation();
   if (session.status === 'loading') return <Splash />;
-  if (session.status === 'anonymous') {
-    const next = `${location.pathname}${location.search}`;
-    return <Navigate to={next === '/' ? '/login' : `/login?next=${encodeURIComponent(next)}`} replace state={{ expired: session.reason === 'expired' }} />;
-  }
+  if (session.status === 'anonymous') return <ToLogin login="/login" home="/" expired={session.reason === 'expired'} />;
+  if (session.user.role === 'ADMIN') return <Navigate to="/admin" replace />;
   return <Outlet />;
 }
 
-/** Pages for signed-out visitors (login, register…); signed-in owners skip them. */
+/** The admin console: administrators only. Owners go back to their dashboard. */
+export function RequireAdmin() {
+  const session = useSession();
+  if (session.status === 'loading') return <Splash />;
+  if (session.status === 'anonymous') return <ToLogin login="/admin/login" home="/admin" expired={session.reason === 'expired'} />;
+  if (session.user.role !== 'ADMIN') return <Navigate to="/" replace />;
+  return <Outlet />;
+}
+
+/** Pages for signed-out visitors (login, register…); signed-in users skip them. */
 export function RequireGuest() {
   const session = useSession();
   const [params] = useSearchParams();
-  if (session.status === 'authenticated') return <Navigate to={safeNext(params.get('next'))} replace />;
+  if (session.status === 'authenticated') return <Navigate to={safeNext(params.get('next'), session.user.role)} replace />;
   return <Outlet />;
 }
 

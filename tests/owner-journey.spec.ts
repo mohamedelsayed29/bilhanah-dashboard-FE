@@ -241,7 +241,10 @@ test('saves the brand color and opening hours', async () => {
   await page.getByRole('button', { name: 'امسح فترة 2 يوم السبت' }).click();
   await expectAccessible(page, 'settings: hours');
   await screenshot(page, 'hours-ar-desktop');
+  // The branding save's toast may still be showing, so wait for this save itself.
+  const savedHours = apiCall('PATCH', /\/v1\/restaurants\/mine$/);
   await page.getByRole('button', { name: 'احفظ المواعيد' }).click();
+  await savedHours;
   await expect(page.getByText('اتحفظت التغييرات')).toBeVisible();
 
   const { restaurant } = await publicMenu();

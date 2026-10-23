@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { ArrowSquareOutIcon, ForkKnifeIcon, GearSixIcon, HouseIcon, QrCodeIcon, SignOutIcon } from '@phosphor-icons/react';
+import { ArrowSquareOutIcon, CreditCardIcon, ForkKnifeIcon, GearSixIcon, HouseIcon, QrCodeIcon, SignOutIcon } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
 import type { OwnerRestaurant } from '@bilhanah/contracts';
 import { Brand } from '../components/Brand';
@@ -15,6 +15,7 @@ const NAV: NavItem[] = [
   { to: '/', end: true, icon: HouseIcon, ar: 'الرئيسية', en: 'Overview' },
   { to: '/menu', icon: ForkKnifeIcon, ar: 'المنيو', en: 'Menu' },
   { to: '/qr-codes', icon: QrCodeIcon, ar: 'كود QR', en: 'QR code' },
+  { to: '/subscription', icon: CreditCardIcon, ar: 'الاشتراك', en: 'Subscription' },
   { to: '/settings', icon: GearSixIcon, ar: 'الإعدادات', en: 'Settings' },
 ];
 
