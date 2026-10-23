@@ -1,5 +1,5 @@
 import { io } from 'socket.io-client';
-import { REALTIME_EVENTS, REALTIME_PATH, type OwnerOrder, type OwnerOrderEvent } from '@bilhanah/contracts';
+import { type OrderingSettings, REALTIME_EVENTS, REALTIME_PATH, type OwnerOrder, type OwnerOrderEvent, type RestaurantUpdatedEvent } from '@bilhanah/contracts';
 
 /** What the board shows: live, or trying to get back (events may be missed meanwhile). */
 export type ConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'stopped';
@@ -25,6 +25,8 @@ export type OwnerRealtimeOptions = {
   refresh: () => Promise<boolean>;
   onOrderCreated: (order: OwnerOrder) => void;
   onOrderUpdated: (order: OwnerOrder) => void;
+  /** Ordering settings changed, e.g. orders paused on another device. */
+  onRestaurantUpdated?: (ordering: OrderingSettings) => void;
   /** Called on every (re)connection: events may have been missed, so refetch. */
   onResync: () => void;
   onStateChange?: (state: ConnectionState) => void;
@@ -148,6 +150,7 @@ export function createOwnerRealtime(options: OwnerRealtimeOptions) {
     });
     created.on(REALTIME_EVENTS.ORDER_CREATED, (event: OwnerOrderEvent) => options.onOrderCreated(event.order));
     created.on(REALTIME_EVENTS.ORDER_UPDATED, (event: OwnerOrderEvent) => options.onOrderUpdated(event.order));
+    created.on(REALTIME_EVENTS.RESTAURANT_UPDATED, (event: RestaurantUpdatedEvent) => options.onRestaurantUpdated?.(event.ordering));
     setState('connecting');
     created.connect();
   }

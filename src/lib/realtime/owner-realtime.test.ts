@@ -43,6 +43,7 @@ function setup(options: { refresh?: () => Promise<boolean> } = {}) {
   const timers: { callback: () => void; ms: number }[] = [];
   const states: ConnectionState[] = [];
   const created: OwnerOrder[] = [];
+  const settings: unknown[] = [];
   const resyncs = vi.fn();
   let socket!: FakeSocket;
   const refresh = options.refresh ?? (async () => { refreshes += 1; token = `token-${refreshes + 1}`; return true; });
@@ -52,6 +53,7 @@ function setup(options: { refresh?: () => Promise<boolean> } = {}) {
     refresh: async () => { const result = await refresh(); return result; },
     onOrderCreated: order => created.push(order),
     onOrderUpdated: () => undefined,
+    onRestaurantUpdated: ordering => settings.push(ordering),
     onResync: resyncs,
     onStateChange: state => states.push(state),
     createSocket: (_url, auth) => (socket = new FakeSocket(auth)),
@@ -59,7 +61,7 @@ function setup(options: { refresh?: () => Promise<boolean> } = {}) {
     clearTimer: () => undefined,
   });
   return {
-    realtime, timers, states, created, resyncs,
+    realtime, timers, states, created, resyncs, settings,
     get socket() { return socket; },
     get refreshes() { return refreshes; },
     setToken: (value: string | null) => { token = value; },
@@ -77,6 +79,8 @@ describe('owner realtime', () => {
     expect(t.resyncs).toHaveBeenCalledTimes(1);
     t.socket.emit('order.created', { order: { id: 'o1' } });
     expect(t.created.map(order => order.id)).toEqual(['o1']);
+    t.socket.emit('restaurant.updated', { ordering: { paused: true } });
+    expect(t.settings).toEqual([{ paused: true }]);
     // A network drop: Socket.IO reconnects by itself; the board refetches afterwards.
     t.socket.emit('disconnect', 'transport close');
     expect(t.realtime.getState()).toBe('reconnecting');

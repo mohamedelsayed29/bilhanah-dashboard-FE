@@ -97,6 +97,9 @@ export function OrdersLiveProvider({ restaurant, children }: { restaurant: Owner
           queryClient.setQueryData(queryKeys.order(order.id), order);
           if (!isActiveStatus(order.status)) void queryClient.invalidateQueries({ queryKey: queryKeys.orderHistoryAll });
         },
+        onRestaurantUpdated: ordering => {
+          queryClient.setQueryData<OwnerRestaurant>(queryKeys.restaurant, current => (current ? { ...current, ordering } : current));
+        },
         onResync: () => void queryClient.invalidateQueries({ queryKey: queryKeys.board }),
         onStateChange: setConnection,
       });
