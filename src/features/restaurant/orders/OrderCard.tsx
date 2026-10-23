@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArmchairIcon, BagIcon, NoteIcon, PhoneIcon } from '@phosphor-icons/react';
+import { ArmchairIcon, BagIcon, BellRingingIcon, NoteIcon, PhoneIcon } from '@phosphor-icons/react';
 import type { OrderStatus, OwnerOrder } from '@bilhanah/contracts';
 import { Button } from '../../../components/Button';
 import { formatDate, formatPrice } from '../../../lib/format';
@@ -58,6 +58,17 @@ export function OrderLines({ order, prices = false }: { order: OwnerOrder; price
   </>;
 }
 
+/** The diner turned on notifications for this order (the Full Experience plan), so nobody needs to call out their name. */
+function OrderNotifies({ ready }: { ready: boolean }) {
+  const { text } = useLanguage();
+  const label = ready
+    ? text('اتبعت للزبون إشعار إن طلبه جاهز', 'The guest was notified that it is ready')
+    : text('الزبون هيوصله إشعار أول ما الطلب يجهز', 'The guest gets a notification when it is ready');
+  return <span className="order-notifies" title={label}>
+    <BellRingingIcon size={15} weight="bold" aria-hidden="true" /><span className="visually-hidden">{label}</span>
+  </span>;
+}
+
 type Props = {
   order: OwnerOrder;
   now: number;
@@ -78,6 +89,7 @@ export function OrderCard({ order, now, isNew, onAction }: Props) {
       <div className="order-card-meta">
         {isNew && <span className="badge badge-guava order-new-flag">{text('جديد', 'New')}</span>}
         {order.status !== 'PLACED' && <OrderStatusBadge status={order.status} />}
+        {order.notifiesDiner && <OrderNotifies ready={order.status === 'READY'} />}
         <time className={`order-age ${late ? 'is-late' : ''}`} dateTime={order.placedAt} title={formatDate(order.placedAt, language, { dateStyle: 'medium', timeStyle: 'short' })}>
           {elapsedLabel(minutes, text, number)}<span className="order-clock"> · {formatDate(order.placedAt, language, { timeStyle: 'short' })}</span>
         </time>

@@ -3,7 +3,7 @@ import type { OwnerOrder } from '@bilhanah/contracts';
 import { groupByColumn, minutesSince, orderActions, upsertOrder, withStatus } from './board';
 
 const order = (id: string, number: number, status: OwnerOrder['status'], placedAt: string): OwnerOrder => ({
-  id, number, status, placedAt, type: 'PICKUP', tableLabel: null, customerName: 'Mona', customerPhone: '01000000000',
+  id, number, status, placedAt, type: 'PICKUP', tableLabel: null, customerName: 'Mona', customerPhone: '01000000000', notifiesDiner: false,
   subtotalPiastres: 5000, note: null, items: [], acceptedAt: null, readyAt: null, completedAt: null, closedAt: null, rejectionReason: null, updatedAt: placedAt,
 });
 
