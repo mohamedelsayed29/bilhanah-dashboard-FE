@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { RESTAURANT_ERROR_CODES, type OwnerRestaurant } from '@bilhanah/contracts';
 import { isApiError } from '../../lib/api';
-import { authApi, billingApi, menuApi, restaurantApi } from '../../lib/api/endpoints';
+import { authApi, billingApi, menuApi, restaurantApi, tablesApi } from '../../lib/api/endpoints';
 
 export const queryKeys = {
   restaurant: ['restaurant'] as const,
@@ -9,6 +9,12 @@ export const queryKeys = {
   sessions: ['auth', 'sessions'] as const,
   billing: ['billing'] as const,
   subdomain: (name: string) => ['subdomain-availability', name] as const,
+  /** The live board (active orders, oldest first). */
+  board: ['orders', 'board'] as const,
+  orderHistory: (page: number) => ['orders', 'history', page] as const,
+  orderHistoryAll: ['orders', 'history'] as const,
+  order: (id: string) => ['orders', 'detail', id] as const,
+  tables: ['tables'] as const,
 };
 
 export function useRestaurantQuery() {
@@ -36,4 +42,8 @@ export function useSessionsQuery() {
 
 export function useBillingQuery() {
   return useQuery({ queryKey: queryKeys.billing, queryFn: billingApi.summary });
+}
+
+export function useTablesQuery() {
+  return useQuery({ queryKey: queryKeys.tables, queryFn: tablesApi.list });
 }

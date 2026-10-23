@@ -54,6 +54,10 @@ export const router = createBrowserRouter([
               { index: true, element: <OverviewPage /> },
               { path: 'menu', lazy: async () => ({ Component: (await import('../features/restaurant/menu/MenuPage')).MenuPage }) },
               { path: 'qr-codes', lazy: async () => ({ Component: (await import('../features/restaurant/qr-codes/QrCodesPage')).QrCodesPage }) },
+              { path: 'orders', lazy: page(() => import('../features/restaurant/orders/OrdersBoardPage'), module => module.OrdersBoardPage) },
+              { path: 'orders/history', lazy: page(() => import('../features/restaurant/orders/OrderHistoryPage'), module => module.OrderHistoryPage) },
+              { path: 'tables', lazy: page(() => import('../features/restaurant/tables/TablesPage'), module => module.TablesPage) },
+              { path: 'tables/print', lazy: page(() => import('../features/restaurant/tables/TablesPrintPage'), module => module.TablesPrintPage) },
               { path: 'subscription', lazy: page(() => import('../features/restaurant/subscription/SubscriptionPage'), module => module.SubscriptionPage) },
               {
                 path: 'settings',
@@ -61,6 +65,7 @@ export const router = createBrowserRouter([
                 children: [
                   { index: true, lazy: async () => ({ Component: (await import('../features/restaurant/settings/ProfileSettings')).ProfileSettings }) },
                   { path: 'branding', lazy: async () => ({ Component: (await import('../features/restaurant/settings/BrandingSettings')).BrandingSettings }) },
+                  { path: 'ordering', lazy: page(() => import('../features/restaurant/settings/OrderingSettings'), module => module.OrderingSettings) },
                   { path: 'hours', lazy: async () => ({ Component: (await import('../features/restaurant/settings/OpeningHoursSettings')).OpeningHoursSettings }) },
                   { path: 'account', lazy: async () => ({ Component: (await import('../features/restaurant/settings/AccountSettings')).AccountSettings }) },
                 ],

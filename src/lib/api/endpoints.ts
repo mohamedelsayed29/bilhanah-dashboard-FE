@@ -7,6 +7,11 @@ import type {
   AdminSettings,
   AuditEntry,
   BillingSummary,
+  bulkCreateTablesSchema,
+  OwnerOrder,
+  RestaurantTable,
+  updateOrderStatusSchema,
+  updateTableSchema,
   grantEntitlementSchema,
   OwnerPayment,
   Paginated,
@@ -132,4 +137,25 @@ export const adminApi = {
   updatePlanPrice: (code: PlanCode, priceMonthlyPiastres: number) =>
     request<AdminSettings>(`/v1/admin/plans/${code}`, { method: 'PUT', body: { priceMonthlyPiastres } }),
   audit: (page: number) => request<Paginated<AuditEntry>>(`/v1/admin/audit${query({ page })}`),
+};
+
+/** The live order board, order history and status changes. */
+export const ordersApi = {
+  /** active: the board, oldest first. history: closed orders, newest first. */
+  list: (params: { view: 'active' | 'history'; page?: number; pageSize?: number }) => request<Paginated<OwnerOrder>>(`/v1/orders${query(params)}`),
+  get: (orderId: string) => request<OwnerOrder>(`/v1/orders/${id(orderId)}`),
+  updateStatus: (orderId: string, body: z.output<typeof updateOrderStatusSchema>) =>
+    request<OwnerOrder>(`/v1/orders/${id(orderId)}/status`, { method: 'PATCH', body }),
+};
+
+/** Tables and the QR codes printed on them. */
+export const tablesApi = {
+  list: () => request<RestaurantTable[]>('/v1/tables'),
+  create: (label: string) => request<RestaurantTable>('/v1/tables', { method: 'POST', body: { label } }),
+  /** Returns every table after creating the range. */
+  createRange: (body: z.input<typeof bulkCreateTablesSchema>) => request<RestaurantTable[]>('/v1/tables/range', { method: 'POST', body }),
+  update: (tableId: string, body: z.output<typeof updateTableSchema>) => request<RestaurantTable>(`/v1/tables/${id(tableId)}`, { method: 'PATCH', body }),
+  remove: (tableId: string) => request<void>(`/v1/tables/${id(tableId)}`, { method: 'DELETE' }),
+  /** A new code: printed QR codes of this table stop working. */
+  regenerateCode: (tableId: string) => request<RestaurantTable>(`/v1/tables/${id(tableId)}/code`, { method: 'POST' }),
 };

@@ -7,6 +7,8 @@ import {
   MEDIA_MIN_DIMENSION,
   MENU_ERROR_CODES as MENU,
   MENU_LIMITS,
+  ORDER_ERROR_CODES as ORDER,
+  ORDER_LIMITS,
   RESTAURANT_ERROR_CODES as RESTAURANT,
 } from '@bilhanah/contracts';
 import { ApiError, CLIENT_ERROR_CODES as CLIENT } from './api-error';
@@ -45,6 +47,15 @@ const MESSAGES: Record<string, [ar: string, en: string]> = {
   [ADMIN.MFA_NOT_SET_UP]: ['التحقق بخطوتين مش متفعّل على الحساب ده. اطلب من المسؤول التقني يشغّل npm run admin:reset-mfa.', 'Two-step sign-in is not set up for this account. Ask an operator to run npm run admin:reset-mfa.'],
   [ADMIN.ALREADY_SUSPENDED]: ['المطعم ده موقوف بالفعل.', 'This restaurant is already suspended.'],
   [ADMIN.NOT_SUSPENDED]: ['المطعم ده مش موقوف.', 'This restaurant is not suspended.'],
+  [ORDER.ORDERING_UNAVAILABLE]: ['الطلبات مش متاحة دلوقتي.', 'Ordering is not available right now.'],
+  [ORDER.RESTAURANT_CLOSED]: ['المطعم مقفول دلوقتي حسب مواعيد الشغل.', 'The restaurant is closed right now (opening hours).'],
+  [ORDER.ORDER_TYPE_UNAVAILABLE]: ['نوع الطلب ده مش متاح.', 'This kind of order is not available.'],
+  [ORDER.TABLE_NOT_FOUND]: ['الطاولة دي مش موجودة أو اتمسحت.', 'That table no longer exists.'],
+  [ORDER.ITEMS_UNAVAILABLE]: ['في أصناف في الطلب خلصت أو مش متاحة.', 'Some dishes in the order are sold out or unavailable.'],
+  [ORDER.ORDER_NOT_FOUND]: ['الطلب ده مش موجود.', 'That order could not be found.'],
+  [ORDER.INVALID_STATUS_CHANGE]: ['الطلب ده اتحدّث من جهاز تاني. حدّثنا اللوحة.', 'This order was updated on another device. The board has been refreshed.'],
+  [ORDER.TABLE_LABEL_TAKEN]: ['في طاولة بنفس الاسم ده. اختار اسم تاني.', 'A table with this name already exists. Choose another name.'],
+  [ORDER.TABLE_LIMIT_REACHED]: [`وصلت للحد الأقصى (${ORDER_LIMITS.tables} طاولة).`, `You reached the limit of ${ORDER_LIMITS.tables} tables.`],
   [MENU.ORDER_MISMATCH]: ['المنيو اتغير من مكان تاني. حدّثنا الترتيب، جرّب تاني.', 'The menu changed elsewhere. We refreshed it; please try again.'],
 };
 

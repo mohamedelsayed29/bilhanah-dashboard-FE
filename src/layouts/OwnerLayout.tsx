@@ -1,23 +1,38 @@
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { ArrowSquareOutIcon, CreditCardIcon, ForkKnifeIcon, GearSixIcon, HouseIcon, QrCodeIcon, SignOutIcon } from '@phosphor-icons/react';
+import { ArrowSquareOutIcon, CreditCardIcon, ForkKnifeIcon, GearSixIcon, HouseIcon, QrCodeIcon, ReceiptIcon, SignOutIcon, TableIcon } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
 import type { OwnerRestaurant } from '@bilhanah/contracts';
 import { Brand } from '../components/Brand';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { LanguageToggle } from '../components/LanguageToggle';
 import { AccessBadge } from '../features/restaurant/access';
+import { OrdersLiveProvider, useOrdersLive } from '../features/restaurant/orders/live';
 import { useLanguage } from '../lib/language';
 import { useSession } from '../lib/session';
 import { useRouteFocus } from '../lib/use-route-focus';
 
-type NavItem = { to: string; end?: boolean; icon: Icon; ar: string; en: string };
+/** `phone`: also in the bottom tab bar (five fit at 390 px; the QR code and subscription are linked from the overview). */
+type NavItem = { to: string; end?: boolean; icon: Icon; ar: string; en: string; phone?: boolean; orders?: boolean };
 const NAV: NavItem[] = [
-  { to: '/', end: true, icon: HouseIcon, ar: 'الرئيسية', en: 'Overview' },
-  { to: '/menu', icon: ForkKnifeIcon, ar: 'المنيو', en: 'Menu' },
+  { to: '/', end: true, icon: HouseIcon, ar: 'الرئيسية', en: 'Overview', phone: true },
+  { to: '/orders', icon: ReceiptIcon, ar: 'الطلبات', en: 'Orders', phone: true, orders: true },
+  { to: '/menu', icon: ForkKnifeIcon, ar: 'المنيو', en: 'Menu', phone: true },
+  { to: '/tables', icon: TableIcon, ar: 'الطاولات', en: 'Tables', phone: true },
   { to: '/qr-codes', icon: QrCodeIcon, ar: 'كود QR', en: 'QR code' },
   { to: '/subscription', icon: CreditCardIcon, ar: 'الاشتراك', en: 'Subscription' },
-  { to: '/settings', icon: GearSixIcon, ar: 'الإعدادات', en: 'Settings' },
+  { to: '/settings', icon: GearSixIcon, ar: 'الإعدادات', en: 'Settings', phone: true },
 ];
+
+/** Orders waiting to be accepted, on the Orders navigation item. */
+function NewOrdersCount({ inverse = false }: { inverse?: boolean }) {
+  const { text, number } = useLanguage();
+  const { newCount } = useOrdersLive();
+  if (newCount <= 0) return null;
+  return <span className={`nav-count ${inverse ? 'nav-count-on-dark' : ''}`} data-testid="new-orders-count">
+    <span aria-hidden="true">{number(newCount)}</span>
+    <span className="visually-hidden">{text(`(${number(newCount)} طلب جديد)`, `(${newCount} new)`)}</span>
+  </span>;
+}
 
 export function RestaurantAvatar({ restaurant, size = 40 }: { restaurant: OwnerRestaurant; size?: number }) {
   const logo = restaurant.logo?.sources[0]?.url ?? restaurant.logo?.url;
@@ -26,8 +41,12 @@ export function RestaurantAvatar({ restaurant, size = 40 }: { restaurant: OwnerR
   </span>;
 }
 
-/** Owner shell: sidebar on desktop; top bar and bottom tab bar on phones. */
+/** Owner shell: sidebar on desktop; top bar and bottom tab bar on phones. The order board stays live on every page. */
 export function OwnerLayout({ restaurant }: { restaurant: OwnerRestaurant }) {
+  return <OrdersLiveProvider restaurant={restaurant}><OwnerShell restaurant={restaurant} /></OrdersLiveProvider>;
+}
+
+function OwnerShell({ restaurant }: { restaurant: OwnerRestaurant }) {
   const { text } = useLanguage();
   const session = useSession();
   const { pathname } = useLocation();
@@ -47,6 +66,7 @@ export function OwnerLayout({ restaurant }: { restaurant: OwnerRestaurant }) {
       <nav aria-label={text('القائمة الرئيسية', 'Main navigation')} className="sidebar-nav">
         {NAV.map(item => <NavLink key={item.to} to={item.to} end={item.end} className="sidebar-link">
           <item.icon size={21} aria-hidden="true" />{text(item.ar, item.en)}
+          {item.orders && <NewOrdersCount inverse />}
         </NavLink>)}
       </nav>
       <a className="sidebar-preview" href={restaurant.publicUrl} target="_blank" rel="noreferrer">
@@ -80,8 +100,11 @@ export function OwnerLayout({ restaurant }: { restaurant: OwnerRestaurant }) {
       </div>
     </main>
     <nav className="tabbar" aria-label={text('التنقل', 'Navigation')}>
-      {NAV.map(item => <NavLink key={item.to} to={item.to} end={item.end} className="tabbar-link">
-        {({ isActive }) => <><item.icon size={24} weight={isActive ? 'fill' : 'regular'} aria-hidden="true" /><span>{text(item.ar, item.en)}</span></>}
+      {NAV.filter(item => item.phone).map(item => <NavLink key={item.to} to={item.to} end={item.end} className="tabbar-link">
+        {({ isActive }) => <>
+          <span className="tabbar-icon"><item.icon size={24} weight={isActive ? 'fill' : 'regular'} aria-hidden="true" />{item.orders && <NewOrdersCount />}</span>
+          <span>{text(item.ar, item.en)}</span>
+        </>}
       </NavLink>)}
     </nav>
   </div>;

@@ -9,6 +9,7 @@ import './styles/global.css';
 import './styles/layout.css';
 import './styles/pages.css';
 import './styles/billing-admin.css';
+import './styles/orders.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
