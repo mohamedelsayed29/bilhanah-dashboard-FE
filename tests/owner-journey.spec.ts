@@ -218,7 +218,10 @@ test('saves the brand color and opening hours', async () => {
 
   await page.getByRole('link', { name: 'الشكل والألوان' }).click();
   await page.getByLabel('كود اللون (hex)').fill('#b91c1c');
-  await expect(page.locator('.phone-preview')).toHaveCSS('--accent', '#b91c1c');
+  // The theme switches the live preview of the real menu at once; it reaches diners when saved.
+  await expect(page.getByRole('radio', { name: /كلاسيك/ })).toBeChecked();
+  await page.getByRole('radio', { name: /أرابيسك/ }).check();
+  await expect(page.locator('.live-preview iframe')).toHaveAttribute('src', new RegExp(`^https?://${subdomain}\\.[^/]+/\\?preview-theme=arabesque`));
   const logo = await makeJpeg(page, 500, 500);
   await page.getByTestId('upload-logo').setInputFiles({ name: 'logo.jpg', mimeType: 'image/jpeg', buffer: logo });
   await expect(page.getByRole('button', { name: 'تغيير الصورة' })).toBeVisible();
@@ -250,6 +253,7 @@ test('saves the brand color and opening hours', async () => {
   const { restaurant } = await publicMenu();
   if (restaurant.availability !== 'AVAILABLE') throw new Error('Restaurant should be available during the trial');
   expect(restaurant.brandColor).toBe('#b91c1c');
+  expect(restaurant.menuTheme).toBe('arabesque');
   expect(restaurant.logo).not.toBeNull();
   expect(restaurant.openingHours?.fri).toEqual([]);
   expect(restaurant.openingHours?.thu).toEqual([{ opens: '10:00', closes: '02:00' }]);

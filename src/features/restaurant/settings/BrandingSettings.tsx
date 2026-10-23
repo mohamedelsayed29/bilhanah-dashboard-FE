@@ -1,15 +1,14 @@
 import { useState } from 'react';
-import { ArrowCounterClockwiseIcon, ClockIcon, MapPinIcon } from '@phosphor-icons/react';
-import type { ImageSet } from '@bilhanah/contracts';
+import { ArrowCounterClockwiseIcon, ArrowSquareOutIcon } from '@phosphor-icons/react';
+import { type ImageSet, MENU_THEME_INFO, MENU_THEMES, type MenuTheme } from '@bilhanah/contracts';
 import { Alert } from '../../../components/Alert';
 import { Button } from '../../../components/Button';
 import { Field } from '../../../components/Field';
 import { ImageUpload } from '../../../components/ImageUpload';
 import { errorMessage } from '../../../lib/api/error-messages';
-import { formatPrice } from '../../../lib/format';
 import { useLanguage, usePageTitle } from '../../../lib/language';
 import { useRestaurant } from '../queries';
-import { HEX_COLOR, readableTextOn } from './color';
+import { HEX_COLOR } from './color';
 import { useSaveRestaurant } from './useSaveRestaurant';
 
 const DEFAULT_COLOR = '#075e54';
@@ -23,22 +22,35 @@ export function BrandingSettings() {
   const [logo, setLogo] = useState<ImageSet | null>(restaurant.logo);
   const [cover, setCover] = useState<ImageSet | null>(restaurant.cover);
   const [color, setColor] = useState<string | null>(restaurant.brandColor);
+  const [theme, setTheme] = useState<MenuTheme>(restaurant.menuTheme);
+  // Reloads the live preview after saving, so it shows the saved logo, cover and colour.
+  const [previewVersion, setPreviewVersion] = useState(0);
   const [hexInput, setHexInput] = useState(restaurant.brandColor ?? DEFAULT_COLOR);
   const [uploading, setUploading] = useState({ logo: false, cover: false });
   const hexValid = HEX_COLOR.test(hexInput);
-  const dirty = logo?.id !== restaurant.logo?.id || cover?.id !== restaurant.cover?.id || (color ?? null) !== (restaurant.brandColor ?? null);
+  const dirty = logo?.id !== restaurant.logo?.id || cover?.id !== restaurant.cover?.id || (color ?? null) !== (restaurant.brandColor ?? null) || theme !== restaurant.menuTheme;
   const accent = color ?? DEFAULT_COLOR;
-  const onAccent = readableTextOn(accent);
+  const previewUrl = `${restaurant.publicUrl}/?preview-theme=${theme}&v=${previewVersion}`;
 
   const pick = (value: string) => { setColor(value.toLowerCase()); setHexInput(value.toLowerCase()); };
   const submit = () => {
     if (!hexValid) return;
-    save.mutate({ logoId: logo?.id ?? null, coverId: cover?.id ?? null, brandColor: color });
+    save.mutate({ logoId: logo?.id ?? null, coverId: cover?.id ?? null, brandColor: color, menuTheme: theme }, { onSuccess: () => setPreviewVersion(version => version + 1) });
   };
 
   return <div className="branding-layout">
     <form className="settings-main" noValidate onSubmit={event => { event.preventDefault(); submit(); }}>
       {save.isError && <Alert kind="error">{errorMessage(save.error, text)}</Alert>}
+      <section className="section" aria-labelledby="theme-title">
+        <div className="section-head"><div><h2 id="theme-title">{text('شكل المنيو', 'Menu theme')}</h2><p>{text('الشكل اللي الزبون بيشوف بيه المنيو والطلب ومتابعته.', 'How diners see your menu, their order and its tracking page.')}</p></div></div>
+        <div className="theme-options" role="radiogroup" aria-labelledby="theme-title">
+          {MENU_THEMES.map(id => <label key={id} className={`theme-option ${theme === id ? 'is-selected' : ''}`}>
+            <input type="radio" name="menu-theme" value={id} checked={theme === id} onChange={() => setTheme(id)} />
+            <span className={`theme-sample theme-sample-${id}`} aria-hidden="true"><span /><span /><span /></span>
+            <span className="theme-option-text"><strong>{MENU_THEME_INFO[id].name[language]}</strong><small>{MENU_THEME_INFO[id].description[language]}</small></span>
+          </label>)}
+        </div>
+      </section>
       <section className="section" aria-labelledby="images-title">
         <div className="section-head"><div><h2 id="images-title">{text('اللوجو وصورة الغلاف', 'Logo and cover photo')}</h2><p>{text('اللوجو بيظهر جنب اسم المطعم، والغلاف في أول المنيو.', 'Your logo appears next to the restaurant name; the cover sits at the top of the menu.')}</p></div></div>
         <div className="branding-uploads">
@@ -71,26 +83,19 @@ export function BrandingSettings() {
       </section>
       <div className={`sticky-actions ${dirty ? 'is-dirty' : ''}`}>
         {dirty && <span className="muted">{text('في تغييرات مش محفوظة', 'You have unsaved changes')}</span>}
-        <Button variant="secondary" disabled={!dirty || save.isPending} onClick={() => { setLogo(restaurant.logo); setCover(restaurant.cover); setColor(restaurant.brandColor); setHexInput(restaurant.brandColor ?? DEFAULT_COLOR); }}>{text('تراجع', 'Discard')}</Button>
+        <Button variant="secondary" disabled={!dirty || save.isPending} onClick={() => { setLogo(restaurant.logo); setCover(restaurant.cover); setColor(restaurant.brandColor); setHexInput(restaurant.brandColor ?? DEFAULT_COLOR); setTheme(restaurant.menuTheme); }}>{text('تراجع', 'Discard')}</Button>
         <Button type="submit" loading={save.isPending} disabled={!dirty || !hexValid || uploading.logo || uploading.cover}>{text('احفظ الشكل', 'Save branding')}</Button>
       </div>
     </form>
 
     <aside className="preview-panel" aria-labelledby="preview-title">
       <h2 id="preview-title">{text('الزبون هيشوف كده', 'What diners see')}</h2>
-      <div className="phone-preview" style={{ ['--accent' as string]: accent, ['--on-accent' as string]: onAccent }}>
-        <div className="phone-cover">{cover ? <img src={cover.url} alt="" /> : <span className="phone-cover-empty" />}</div>
-        <div className="phone-head">
-          <span className="phone-logo">{logo ? <img src={logo.url} alt="" /> : restaurant.name.charAt(0)}</span>
-          <div><strong>{restaurant.name}</strong><small><ClockIcon size={12} aria-hidden="true" /> {text('مفتوح دلوقتي', 'Open now')} · <MapPinIcon size={12} aria-hidden="true" /> {restaurant.city}</small></div>
-        </div>
-        <div className="phone-tabs"><span className="active">{text('الأكثر طلبًا', 'Popular')}</span><span>{text('مشويات', 'Grills')}</span><span>{text('مشروبات', 'Drinks')}</span></div>
-        {[{ ar: 'كفتة مشوية', en: 'Grilled kofta', price: 14500 }, { ar: 'فراخ بالليمون', en: 'Lemon chicken', price: 12000 }].map(dish => <div className="phone-dish" key={dish.ar}>
-          <div><strong>{text(dish.ar, dish.en)}</strong><small>{text('مع عيش بلدي وسلطة', 'With baladi bread and salad')}</small><span className="phone-price">{formatPrice(dish.price, language)}</span></div>
-          <span className="phone-add" aria-hidden="true">+</span>
-        </div>)}
-        <div className="phone-button">{text('كلّمنا واتساب', 'Message us on WhatsApp')}</div>
+      <p className="muted">{text('منيوك الحقيقي بالشكل اللي اخترته. اللوجو والغلاف واللون بيظهروا هنا بعد الحفظ.', 'Your real menu in the theme you picked. Logo, cover and colour show here once saved.')}</p>
+      {/* A picture of the menu: inert, so keyboard and screen-reader users aren't sent into a second copy of it; the link below opens it properly. */}
+      <div className="live-preview" inert>
+        <iframe key={previewUrl} src={previewUrl} title={text('معاينة المنيو', 'Menu preview')} loading="lazy" />
       </div>
+      <a className="link preview-open" href={previewUrl} target="_blank" rel="noreferrer"><ArrowSquareOutIcon size={16} aria-hidden="true" /> {text('افتح المعاينة في صفحة', 'Open the preview in a tab')}</a>
     </aside>
   </div>;
 }

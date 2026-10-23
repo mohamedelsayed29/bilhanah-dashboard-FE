@@ -88,7 +88,7 @@ export function restaurant(changes: Partial<OwnerRestaurant> = {}): OwnerRestaur
     access: { status: 'PAID', planCode: 'ORDERS', features: { menu: true, ordering: true, readyAlerts: false }, currentPeriodEndsAt: '2026-12-01T00:00:00.000Z', trialEndsAt: null },
     // The board and its socket stay off in mocked runs.
     ordering: { included: false, enabled: false, acceptsDineIn: true, acceptsPickup: true, paused: false },
-    logo: null, cover: null, brandColor: null, openingHours: null,
+    logo: null, cover: null, brandColor: null, openingHours: null, menuTheme: 'classic',
     ...changes,
   };
 }

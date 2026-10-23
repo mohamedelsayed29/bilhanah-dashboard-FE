@@ -52,9 +52,12 @@ export async function emailLinks(request: APIRequestContext, to: string, path: '
   return links;
 }
 
-/** Fails on serious or critical axe violations, listing them. */
+/**
+ * Fails on serious or critical axe violations, listing them. The branding page's live menu preview
+ * is excluded: it is the restaurant's own page (audited by the website's tests), shown inert.
+ */
 export async function expectAccessible(page: Page, label: string) {
-  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).exclude('.live-preview').analyze();
   const serious = results.violations.filter(violation => violation.impact === 'serious' || violation.impact === 'critical');
   expect(serious.map(violation => `${violation.id}: ${violation.help} (${violation.nodes.map(node => node.target.join(' ')).slice(0, 3).join(', ')})`), `axe on ${label}`).toEqual([]);
 }
