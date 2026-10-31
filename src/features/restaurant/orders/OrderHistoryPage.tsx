@@ -66,7 +66,7 @@ export function OrderHistoryPage() {
                 <bdi>{order.customerName}</bdi>, formatPrice(order.subtotalPiastres, language)]} />
               <td className="cell-action cell-action-inline">
                 <button type="button" className="button button-secondary button-small row-link" onClick={() => setViewing(order.id)}
-                  aria-label={text(`تفاصيل طلب #${number(order.number)}`, `Details of order #${order.number}`)}>{text('التفاصيل', 'Details')}</button>
+                  aria-label={text(`التفاصيل: طلب #${number(order.number)}`, `Details: order #${order.number}`)}>{text('التفاصيل', 'Details')}</button>
               </td>
             </tr>)}
           </tbody>

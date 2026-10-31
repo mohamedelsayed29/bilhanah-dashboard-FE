@@ -217,7 +217,7 @@ test('saves the brand color and opening hours', async () => {
   await expectAccessible(page, 'settings: profile');
 
   await page.getByRole('link', { name: 'الشكل والألوان' }).click();
-  await page.getByLabel('كود اللون (hex)').fill('#b91c1c');
+  await page.getByLabel('كود اللون').fill('#b91c1c');
   // The theme switches the live preview of the real menu at once; it reaches diners when saved.
   await expect(page.getByRole('radio', { name: /كلاسيك/ })).toBeChecked();
   await page.getByRole('radio', { name: /أرابيسك/ }).check();
@@ -227,7 +227,7 @@ test('saves the brand color and opening hours', async () => {
   await expect(page.getByRole('button', { name: 'تغيير الصورة' })).toBeVisible();
   await expectAccessible(page, 'settings: branding');
   await screenshot(page, 'branding-ar-desktop');
-  await page.getByRole('button', { name: 'احفظ الشكل' }).click();
+  await page.getByRole('button', { name: 'احفظ', exact: true }).click();
   await expect(page.getByText('اتحفظت التغييرات')).toBeVisible();
 
   await page.getByRole('link', { name: 'مواعيد الشغل' }).click();
@@ -276,7 +276,8 @@ test('changes the password and signs in with the new one', async () => {
   // The session survives a reload (restored from the refresh cookie), then ends on sign-out.
   await page.reload();
   await expect(page.getByRole('heading', { level: 1, name: 'الإعدادات' })).toBeVisible();
-  await page.locator('.sidebar').getByRole('link', { name: 'خروج' }).click();
+  await page.locator('.sidebar').getByRole('button', { name: 'تسجيل الخروج' }).click();
+  await page.getByRole('dialog', { name: 'تسجيل الخروج' }).getByRole('button', { name: 'اخرج' }).click();
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByText('خرجت من حسابك.')).toBeVisible();
   await page.goto('/menu');

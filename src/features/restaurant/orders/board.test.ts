@@ -4,7 +4,7 @@ import { groupByColumn, minutesSince, orderActions, upsertOrder, withStatus } fr
 
 const order = (id: string, number: number, status: OwnerOrder['status'], placedAt: string): OwnerOrder => ({
   id, number, status, placedAt, type: 'PICKUP', tableLabel: null, customerName: 'Mona', customerPhone: '01000000000', notifiesDiner: false,
-  subtotalPiastres: 5000, note: null, items: [], acceptedAt: null, readyAt: null, completedAt: null, closedAt: null, rejectionReason: null, updatedAt: placedAt,
+  subtotalPiastres: 5000, note: null, items: [], acceptedAt: null, readyAt: null, completedAt: null, closedAt: null, rejectionReason: null, paidAt: null, updatedAt: placedAt,
 });
 
 const a = order('a', 1, 'PLACED', '2026-10-23T10:00:00.000Z');

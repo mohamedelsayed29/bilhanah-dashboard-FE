@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ORDER_ERROR_CODES, ORDER_LIMITS, type RestaurantTable } from '@bilhanah/contracts';
+import { MinusIcon, PlusIcon } from '@phosphor-icons/react';
+import { ORDER_ERROR_CODES, ORDER_LIMITS, type RestaurantTable, TABLE_SEATS, type TableShape } from '@bilhanah/contracts';
 import { Alert } from '../../../components/Alert';
 import { Button } from '../../../components/Button';
 import { Dialog } from '../../../components/Dialog';
@@ -13,6 +14,56 @@ import { normalizeDigits } from '../../../lib/format';
 import { useLanguage } from '../../../lib/language';
 import { queryKeys } from '../queries';
 import { rangeLabel } from './qr-download';
+import { TableGraphic, TableShapeIcon } from './TableGraphic';
+
+export const TABLE_SHAPE_OPTIONS = [
+  { value: 'ROUND', ar: 'مدورة', en: 'Round' },
+  { value: 'SQUARE', ar: 'مربعة', en: 'Square' },
+  { value: 'RECTANGLE', ar: 'مستطيلة', en: 'Rectangle' },
+] as const satisfies readonly { value: TableShape; ar: string; en: string }[];
+
+type TableLayout = { shape: TableShape; seats: number };
+const DEFAULT_LAYOUT: TableLayout = { shape: 'SQUARE', seats: TABLE_SEATS.default };
+const clampSeats = (value: number) => Math.min(TABLE_SEATS.max, Math.max(TABLE_SEATS.min, value));
+
+/** The table's shape and how many guests it seats, with a drawing of how it shows on the floor. */
+function TableLayoutFields({ value, onChange, label }: { value: TableLayout; onChange: (layout: TableLayout) => void; label: string }) {
+  const { text, number, count } = useLanguage();
+  const name = useId();
+  const [draft, setDraft] = useState(String(value.seats));
+  useEffect(() => setDraft(String(value.seats)), [value.seats]);
+  const setSeats = (seats: number) => onChange({ ...value, seats: clampSeats(seats) });
+  const commitDraft = () => {
+    const seats = Number.parseInt(normalizeDigits(draft), 10);
+    if (Number.isInteger(seats)) setSeats(seats); else setDraft(String(value.seats));
+  };
+  return <div className="table-layout-fields">
+    <fieldset className="field">
+      <legend className="field-label">{text('شكل الترابيزة', 'Table shape')}</legend>
+      <div className="segmented">
+        {TABLE_SHAPE_OPTIONS.map(option => <label key={option.value}>
+          <input type="radio" name={name} value={option.value} checked={value.shape === option.value} onChange={() => onChange({ ...value, shape: option.value })} />
+          <TableShapeIcon shape={option.value} />{text(option.ar, option.en)}
+        </label>)}
+      </div>
+    </fieldset>
+    <Field label={text('عدد الأفراد', 'Seats')} hint={text(`من ${number(TABLE_SEATS.min)} لـ ${number(TABLE_SEATS.max)}. الكراسي بتترسم حوالين الترابيزة.`, `${TABLE_SEATS.min} to ${TABLE_SEATS.max}. Chairs are drawn around the table.`)}>
+      {control => <div className="seat-stepper">
+        <button type="button" className="icon-button" onClick={() => setSeats(value.seats - 1)} disabled={value.seats <= TABLE_SEATS.min} aria-label={text('فرد أقل', 'One seat fewer')}><MinusIcon size={18} weight="bold" /></button>
+        <input {...control} className="input" inputMode="numeric" dir="ltr" maxLength={2} value={draft}
+          onChange={event => setDraft(event.target.value)} onBlur={commitDraft}
+          onKeyDown={event => { if (event.key === 'Enter') commitDraft(); }} />
+        <button type="button" className="icon-button" onClick={() => setSeats(value.seats + 1)} disabled={value.seats >= TABLE_SEATS.max} aria-label={text('فرد زيادة', 'One more seat')}><PlusIcon size={18} weight="bold" /></button>
+      </div>}
+    </Field>
+    <div className="table-layout-preview" aria-hidden="true">
+      <TableGraphic shape={value.shape} seats={value.seats}>
+        <bdi className="table-top-label">{label}</bdi>
+        <small>{count(value.seats, 'seat')}</small>
+      </TableGraphic>
+    </div>
+  </div>;
+}
 
 /** Adds one table. TABLE_LABEL_TAKEN is shown on the field. */
 export function AddTableDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -20,10 +71,11 @@ export function AddTableDialog({ open, onClose }: { open: boolean; onClose: () =
   const toast = useToast();
   const queryClient = useQueryClient();
   const [label, setLabel] = useState('');
+  const [layout, setLayout] = useState(DEFAULT_LAYOUT);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { if (open) { setLabel(''); setError(null); } }, [open]);
+  useEffect(() => { if (open) { setLabel(''); setLayout(DEFAULT_LAYOUT); setError(null); } }, [open]);
   const create = useMutation({
-    mutationFn: (value: string) => tablesApi.create(value),
+    mutationFn: (value: string) => tablesApi.create({ label: value, ...layout }),
     onSuccess: table => {
       queryClient.setQueryData<RestaurantTable[]>(queryKeys.tables, current => [...(current ?? []), table]);
       toast.success(text(`ضفنا «${table.label}»`, `“${table.label}” added`));
@@ -48,6 +100,7 @@ export function AddTableDialog({ open, onClose }: { open: boolean; onClose: () =
         error={labelProblem ? { message: labelProblem } : undefined}>
         <input className="input" data-autofocus maxLength={40} value={label} onChange={event => { setLabel(event.target.value); setError(null); create.reset(); }} />
       </Field>
+      <TableLayoutFields value={layout} onChange={setLayout} label={label.trim() || text('طاولة', 'Table')} />
     </div>
   </Dialog>;
 }
@@ -62,14 +115,16 @@ export function AddRangeDialog({ open, onClose, existing }: { open: boolean; onC
   const [prefix, setPrefix] = useState('');
   const [from, setFrom] = useState('1');
   const [to, setTo] = useState('10');
+  const [layout, setLayout] = useState(DEFAULT_LAYOUT);
   useEffect(() => {
     if (!open) return;
     setPrefix(text('طاولة', 'Table'));
     setFrom('1');
     setTo('10');
+    setLayout(DEFAULT_LAYOUT);
   }, [open, text]);
   const create = useMutation({
-    mutationFn: (body: { from: number; to: number; prefix: string }) => tablesApi.createRange(body),
+    mutationFn: (body: { from: number; to: number; prefix: string }) => tablesApi.createRange({ ...body, ...layout }),
     onSuccess: tables => {
       const added = tables.length - existing;
       queryClient.setQueryData(queryKeys.tables, tables);
@@ -119,6 +174,36 @@ export function AddRangeDialog({ open, onClose, existing }: { open: boolean; onC
         <strong>{preview}</strong>
         <small className="muted">{text(`${counted(count, 'table')}. الأسماء الموجودة بالفعل مش هتتكرر.`, `${counted(count, 'table')}. Names that already exist are skipped.`)}</small>
       </div>}
+      <TableLayoutFields value={layout} onChange={setLayout} label={rangeLabel(prefix, Number.isInteger(start) ? start : 1)} />
+    </div>
+  </Dialog>;
+}
+
+/** Changes a table's shape and seats; its name and QR code stay the same. */
+export function TableLayoutDialog({ table, onClose }: { table: RestaurantTable | null; onClose: () => void }) {
+  const { text } = useLanguage();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [layout, setLayout] = useState(DEFAULT_LAYOUT);
+  useEffect(() => { if (table) setLayout({ shape: table.shape, seats: table.seats }); }, [table]);
+  const save = useMutation({
+    mutationFn: (target: RestaurantTable) => tablesApi.update(target.id, layout),
+    onSuccess: updated => {
+      queryClient.setQueryData<RestaurantTable[]>(queryKeys.tables, tables => tables?.map(entry => (entry.id === updated.id ? updated : entry)));
+      void queryClient.invalidateQueries({ queryKey: queryKeys.floor });
+      toast.success(text(`اتحفظ شكل «${updated.label}»`, `“${updated.label}” updated`));
+      onClose();
+    },
+  });
+  return <Dialog open={table !== null} onClose={onClose} size="small" busy={save.isPending} onSubmit={() => table && save.mutate(table)}
+    title={table ? text(`شكل «${table.label}»`, `“${table.label}” layout`) : ''}
+    footer={<>
+      <Button variant="secondary" onClick={onClose} disabled={save.isPending}>{text('إلغاء', 'Cancel')}</Button>
+      <Button type="submit" loading={save.isPending}>{text('احفظ', 'Save')}</Button>
+    </>}>
+    <div className="form">
+      {save.isError && <Alert kind="error">{errorMessage(save.error, text)}</Alert>}
+      {table && <TableLayoutFields value={layout} onChange={setLayout} label={table.label} />}
     </div>
   </Dialog>;
 }

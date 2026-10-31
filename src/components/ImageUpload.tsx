@@ -24,13 +24,15 @@ type Props = {
   /** `contain` shows the whole image (receipts) instead of filling the frame. */
   fit?: 'cover' | 'contain';
   emptyLabel?: string;
+  /** `inline`: a small thumbnail beside the label, hint and buttons (e.g. a logo). */
+  layout?: 'stacked' | 'inline';
 };
 
 /**
  * Uploads to POST /v1/media and reports progress, then "processing" while the API
  * creates the WebP renditions. Type and size are checked before anything is sent.
  */
-export function ImageUpload({ kind, value, onChange, label, hint, aspect = '4 / 3', onBusyChange, localPreview = false, fit = 'cover', emptyLabel }: Props) {
+export function ImageUpload({ kind, value, onChange, label, hint, aspect = '4 / 3', onBusyChange, localPreview = false, fit = 'cover', emptyLabel, layout = 'stacked' }: Props) {
   const { text, number } = useLanguage();
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
@@ -84,15 +86,19 @@ export function ImageUpload({ kind, value, onChange, label, hint, aspect = '4 / 
 
   const shown = preview ?? (value ? value.url || kept : null);
   const percent = status.state === 'uploading' ? Math.round(status.progress * 100) : null;
-  return <div className="field image-upload">
-    <span className="field-label" id={`${id}-label`}>{label}</span>
+  const inline = layout === 'inline';
+  const labelElement = <span className="field-label" id={`${id}-label`}>{label}</span>;
+  return <div className={`field image-upload ${inline ? 'image-upload-inline' : ''}`}>
+    {!inline && labelElement}
     <div className={`image-upload-frame ${shown ? 'has-image' : ''} ${fit === 'contain' ? 'is-contain' : ''}`} style={{ aspectRatio: aspect }}>
       {shown
         ? <img src={shown} alt={text('معاينة الصورة', 'Image preview')} />
         : <button type="button" className="image-upload-empty" onClick={() => input.current?.click()} disabled={busy} aria-describedby={`${id}-hint`}>
-            <CameraIcon size={30} aria-hidden="true" />
-            <strong>{emptyLabel ?? text('اختار صورة', 'Choose a photo')}</strong>
-            <small>{text('JPEG أو PNG أو WebP حتى ٥ ميجا', 'JPEG, PNG or WebP up to 5 MB')}</small>
+            <CameraIcon size={inline ? 24 : 30} aria-hidden="true" />
+            {inline
+              ? <span className="visually-hidden">{emptyLabel ?? text('اختار صورة', 'Choose a photo')}</span>
+              : <><strong>{emptyLabel ?? text('اختار صورة', 'Choose a photo')}</strong>
+                <small>{text('JPEG أو PNG أو WebP حتى ٥ ميجا', 'JPEG, PNG or WebP up to 5 MB')}</small></>}
           </button>}
       {busy && <div className="image-upload-overlay" role="status" aria-live="polite">
         <span className="spinner" aria-hidden="true" />
@@ -102,17 +108,20 @@ export function ImageUpload({ kind, value, onChange, label, hint, aspect = '4 / 
     </div>
     <input ref={input} type="file" accept={MEDIA_ACCEPTED_TYPES.join(',')} className="visually-hidden" tabIndex={-1} aria-labelledby={`${id}-label`}
       onChange={event => void choose(event.target.files?.[0])} data-testid={`upload-${kind.toLowerCase()}`} />
-    <div className="image-upload-actions">
-      <button type="button" className="button button-secondary button-small" onClick={() => input.current?.click()} disabled={busy}>
-        {value ? <ImageIcon size={17} aria-hidden="true" /> : <UploadSimpleIcon size={17} aria-hidden="true" />}
-        {value ? text('تغيير الصورة', 'Change photo') : text('رفع صورة', 'Upload photo')}
-      </button>
-      {value && !busy && <button type="button" className="button button-ghost button-small" onClick={() => onChange(null)}>
-        <TrashIcon size={17} aria-hidden="true" />{text('إزالة', 'Remove')}
-      </button>}
-      {busy && <button type="button" className="button button-ghost button-small" onClick={() => { abort.current?.abort(); setStatus({ state: 'idle' }); setPreview(null); }}>{text('إلغاء', 'Cancel')}</button>}
+    <div className="image-upload-body">
+      {inline && labelElement}
+      <div className="image-upload-actions">
+        <button type="button" className="button button-secondary button-small" onClick={() => input.current?.click()} disabled={busy}>
+          {value ? <ImageIcon size={17} aria-hidden="true" /> : <UploadSimpleIcon size={17} aria-hidden="true" />}
+          {value ? text('تغيير الصورة', 'Change photo') : text('رفع صورة', 'Upload photo')}
+        </button>
+        {value && !busy && <button type="button" className="button button-ghost button-small" onClick={() => onChange(null)}>
+          <TrashIcon size={17} aria-hidden="true" />{text('إزالة', 'Remove')}
+        </button>}
+        {busy && <button type="button" className="button button-ghost button-small" onClick={() => { abort.current?.abort(); setStatus({ state: 'idle' }); setPreview(null); }}>{text('إلغاء', 'Cancel')}</button>}
+      </div>
+      <p className="field-hint" id={`${id}-hint`}>{hint ?? text('يفضّل صورة واضحة ٨٠٠ بكسل أو أكبر.', 'A clear photo of 800 px or more works best.')}</p>
+      {status.state === 'error' && <p className="field-error" role="alert"><WarningCircleIcon size={15} weight="fill" aria-hidden="true" />{status.message}</p>}
     </div>
-    <p className="field-hint" id={`${id}-hint`}>{hint ?? text('يفضّل صورة واضحة ٨٠٠ بكسل أو أكبر.', 'A clear photo of 800 px or more works best.')}</p>
-    {status.state === 'error' && <p className="field-error" role="alert"><WarningCircleIcon size={15} weight="fill" aria-hidden="true" />{status.message}</p>}
   </div>;
 }

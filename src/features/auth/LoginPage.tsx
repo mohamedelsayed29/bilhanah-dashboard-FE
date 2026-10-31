@@ -48,7 +48,8 @@ export function LoginPage() {
   };
 
   const unverified = isApiError(error, AUTH_ERROR_CODES.EMAIL_NOT_VERIFIED);
-  return <AuthCard title={text('ادخل على مطعمك', 'Sign in to your restaurant')}>
+  return <AuthCard icon={<img src="/brand/bilhanah-mark.svg" alt="" width="445" height="479" />} title={text('ادخل على مطعمك أو كافيهك', 'Sign in to your restaurant or café')}
+    description={text('أهلًا بيك تاني. سجّل دخولك وكمّل إدارة المنيو والطلبات.', 'Welcome back. Sign in to manage your menu and orders.')}>
     {notice?.expired && !error && <Alert kind="info">{text('انتهت جلستك. سجّل دخولك تاني.', 'Your session has ended. Please sign in again.')}</Alert>}
     {notice?.signedOut && !error && <Alert kind="success">{text('خرجت من حسابك.', 'You have signed out.')}</Alert>}
     {notice?.passwordReset && !error && <Alert kind="success">{text('اتغيرت كلمة السر. سجّل دخولك بالكلمة الجديدة.', 'Your password was changed. Sign in with the new one.')}</Alert>}
@@ -70,7 +71,8 @@ export function LoginPage() {
       </div>
       <Button type="submit" block loading={isSubmitting}>{text('دخول', 'Sign in')}</Button>
     </form>
-    <p className="auth-alt">{text('لسه معندكش حساب؟', 'New to Bilhanah?')} <Link className="link" to="/register">{text('ابدأ تجربتك المجانية', 'Start your free trial')}</Link></p>
+    <div className="auth-divider"><span>{text('أو', 'or')}</span></div>
+    <Link className="button button-secondary button-block auth-signup" to="/register">{text('معندكش حساب؟', 'New here?')} <b>{text('ابدأ تجربتك المجانية', 'Start your free trial')}</b></Link>
     <p className="auth-alt auth-team">{text('من فريق بالهنا؟', 'Bilhanah team?')} <Link className="link-muted" to="/admin/login">{text('ادخل من هنا', 'Sign in here')}</Link></p>
   </AuthCard>;
 }

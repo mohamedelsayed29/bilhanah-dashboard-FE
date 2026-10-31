@@ -430,7 +430,8 @@ test('routes follow the role: owners stay out of the console, administrators out
   await context.close();
 
   // Signing out of the console returns to the team sign-in.
-  await adminPage.locator('.sidebar').getByRole('link', { name: 'خروج' }).click();
+  await adminPage.locator('.sidebar').getByRole('button', { name: 'تسجيل الخروج' }).click();
+  await adminPage.getByRole('dialog', { name: 'تسجيل الخروج' }).getByRole('button', { name: 'اخرج' }).click();
   await expect(adminPage).toHaveURL(/\/admin\/login$/);
   await expect(adminPage.getByText('خرجت من حسابك.')).toBeVisible();
   adminToken = null;

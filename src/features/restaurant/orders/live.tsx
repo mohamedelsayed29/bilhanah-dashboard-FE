@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { OwnerOrder, OwnerRestaurant } from '@bilhanah/contracts';
+import type { KitchenContext, OwnerOrder, OwnerRestaurant } from '@bilhanah/contracts';
 import { useToast } from '../../../components/Toast';
 import { apiClient } from '../../../lib/api';
 import { ordersApi } from '../../../lib/api/endpoints';
@@ -29,6 +29,8 @@ type LiveValue = {
   markSeen: () => void;
   /** Orders waiting to be accepted (the navigation badge). */
   newCount: number;
+  /** Goes up by one each time new orders arrive (not on the first load); the sidebar animates on it. */
+  arrivals: number;
   sound: { on: boolean; setOn: (on: boolean) => void; audio: AudioState; unlock: () => Promise<boolean> };
 };
 
@@ -62,17 +64,18 @@ function useTitleCount(count: number) {
 }
 
 /**
- * Keeps the owner's board live across the whole owner shell: the Socket.IO feed,
+ * Keeps the board live across the owner shell (or the kitchen screen): the Socket.IO feed,
  * the new-order alert (sound, toast, tab title) and the count for the navigation.
+ * `enabled`: ordering is part of the plan.
  */
-export function OrdersLiveProvider({ restaurant, children }: { restaurant: OwnerRestaurant; children: ReactNode }) {
-  const enabled = restaurant.ordering.included;
+export function OrdersLiveProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const { text, number } = useLanguage();
   const board = useBoardQuery(enabled);
   const [connection, setConnection] = useState<ConnectionState>('stopped');
   const [unseen, setUnseen] = useState<ReadonlySet<string>>(() => new Set());
+  const [arrivals, setArrivals] = useState(0);
   const [soundOn, setSoundOnState] = useState(readSoundPreference);
   const audio = useSyncExternalStore(subscribeAudio, getAudioState, () => 'unsupported' as const);
 
@@ -91,16 +94,24 @@ export function OrdersLiveProvider({ restaurant, children }: { restaurant: Owner
         url: API_URL,
         getToken: () => sessionStore.accessToken(),
         refresh: () => apiClient.refreshSession(),
-        onOrderCreated: order => queryClient.setQueryData<OwnerOrder[]>(queryKeys.board, current => upsertOrder(current ?? [], order)),
+        onOrderCreated: order => {
+          queryClient.setQueryData<OwnerOrder[]>(queryKeys.board, current => upsertOrder(current ?? [], order));
+          if (order.type === 'DINE_IN') void queryClient.invalidateQueries({ queryKey: queryKeys.floor });
+        },
         onOrderUpdated: order => {
+          if (order.type === 'DINE_IN') void queryClient.invalidateQueries({ queryKey: queryKeys.floor });
           queryClient.setQueryData<OwnerOrder[]>(queryKeys.board, current => (current ? upsertOrder(current, order) : current));
           queryClient.setQueryData(queryKeys.order(order.id), order);
           if (!isActiveStatus(order.status)) void queryClient.invalidateQueries({ queryKey: queryKeys.orderHistoryAll });
         },
         onRestaurantUpdated: ordering => {
           queryClient.setQueryData<OwnerRestaurant>(queryKeys.restaurant, current => (current ? { ...current, ordering } : current));
+          queryClient.setQueryData<KitchenContext>(queryKeys.kitchenContext, current => (current ? { ...current, ordering } : current));
         },
-        onResync: () => void queryClient.invalidateQueries({ queryKey: queryKeys.board }),
+        onResync: () => {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.board });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.floor });
+        },
         onStateChange: setConnection,
       });
       realtime.start();
@@ -130,6 +141,7 @@ export function OrdersLiveProvider({ restaurant, children }: { restaurant: Owner
       return next.size === current.size && stillNew.length === current.size ? current : next;
     });
     if (fresh.length === 0) return;
+    setArrivals(count => count + 1);
     const { soundOn: sound, text: t, number: n, toast: notify } = latest.current;
     if (sound) playChime();
     notify.success(fresh.length === 1
@@ -167,9 +179,9 @@ export function OrdersLiveProvider({ restaurant, children }: { restaurant: Owner
 
   const newCount = board.data?.filter(order => order.status === 'PLACED').length ?? 0;
   const value = useMemo<LiveValue>(() => ({
-    enabled, connection, unseen, markSeen, newCount,
+    enabled, connection, unseen, markSeen, newCount, arrivals,
     sound: { on: soundOn, setOn: setSoundOn, audio, unlock: unlockAudio },
-  }), [enabled, connection, unseen, markSeen, newCount, soundOn, setSoundOn, audio]);
+  }), [enabled, connection, unseen, markSeen, newCount, arrivals, soundOn, setSoundOn, audio]);
   return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>;
 }
 

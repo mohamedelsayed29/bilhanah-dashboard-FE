@@ -10,6 +10,8 @@ export type ChartSeries<Day> = {
   format: (value: number) => string;
   /** Short value for the axis ("١٫٢ ألف"). Defaults to `format`. */
   axisFormat?: (value: number) => string;
+  /** The period's total, shown beside the panel title (already formatted). */
+  total?: string;
 };
 
 type Props<Day extends { date: string }> = {
@@ -118,7 +120,7 @@ export function DailyChart<Day extends { date: string }>({ days, series, label }
           const y0 = panel * panelSpan + PANEL_TITLE;
           const axisFormat = entry.axisFormat ?? entry.format;
           return <g key={entry.key}>
-            <text className="chart-panel-title" x={rtl ? width : 0} y={y0 - 18} textAnchor="start" direction={rtl ? 'rtl' : 'ltr'}>{entry.label}</text>
+            <text className="chart-panel-title" x={rtl ? width : 0} y={y0 - 18} textAnchor="start" direction={rtl ? 'rtl' : 'ltr'}>{entry.label}{entry.total && <tspan className="chart-panel-total" dx="8">{entry.total}</tspan>}</text>
             {[ticks[0]!, ticks[Math.floor(ticks.length / 2)]!, ticks.at(-1)!].filter((tick, index, all) => all.indexOf(tick) === index).map(tick => {
               const y = y0 + PANEL_HEIGHT - (tick / top) * PANEL_HEIGHT;
               return <g key={tick}>

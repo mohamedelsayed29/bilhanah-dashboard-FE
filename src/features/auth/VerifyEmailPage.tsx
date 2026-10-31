@@ -49,7 +49,7 @@ export function VerifyEmailPage() {
   if (state.kind === 'verified') {
     const signedIn = session.status === 'authenticated';
     return <AuthCard icon={<CheckCircleIcon size={30} weight="fill" />} tone="success" title={text('إيميلك اتأكد', 'Your email is confirmed')}
-      description={text('تمام! دلوقتي تقدر تسجّل دخولك وتجهّز منيو مطعمك.', 'All set! You can now sign in and set up your restaurant menu.')}>
+      description={text('تمام! دلوقتي تقدر تسجّل دخولك وتجهّز منيو مطعمك أو كافيهك.', 'All set! You can now sign in and set up your restaurant or café menu.')}>
       <Link className="button button-primary button-block" to={signedIn ? '/' : '/login'}>{signedIn ? text('كمّل للوحة التحكم', 'Continue to the dashboard') : text('سجّل دخولك', 'Sign in')}</Link>
     </AuthCard>;
   }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router';
-import { LockIcon, PowerIcon, SpeakerHighIcon, SpeakerSlashIcon } from '@phosphor-icons/react';
+import { CheckCircleIcon, CookingPotIcon, type Icon, LockIcon, PowerIcon, ReceiptIcon, SpeakerHighIcon, SpeakerSlashIcon } from '@phosphor-icons/react';
 import type { OrderStatus, OwnerOrder } from '@bilhanah/contracts';
 import { Alert } from '../../../components/Alert';
 import { Button } from '../../../components/Button';
@@ -8,19 +8,20 @@ import { ErrorPanel } from '../../../components/ErrorBoundary';
 import { PageHeader } from '../../../components/PageHeader';
 import { Skeleton } from '../../../components/Skeleton';
 import { Switch } from '../../../components/Switch';
+import { formatPrice } from '../../../lib/format';
 import { useLanguage, usePageTitle } from '../../../lib/language';
 import type { ConnectionState } from '../../../lib/realtime/owner-realtime';
 import { useRestaurant } from '../queries';
 import { COLUMNS, groupByColumn, needsReason, type Column } from './board';
 import { useBoardQuery, useOrdersLive } from './live';
-import { useOrdersPause, useOrderStatus } from './mutations';
+import { useOrderPayment, useOrdersPause, useOrderStatus } from './mutations';
 import { OrderCard, useNow } from './OrderCard';
 import { ReasonDialog } from './ReasonDialog';
 
-const COLUMN_TEXT: Record<Column, { ar: string; en: string; emptyAr: string; emptyEn: string }> = {
-  new: { ar: 'جديد', en: 'New', emptyAr: 'مفيش طلبات جديدة. أول ما زبون يطلب هيظهر هنا وهتسمع تنبيه.', emptyEn: 'No new orders. When a diner orders, it appears here with a sound.' },
-  progress: { ar: 'بيتحضّر', en: 'In progress', emptyAr: 'الطلبات اللي قبلتها هتفضل هنا لحد ما تجهز.', emptyEn: 'Orders you accept stay here until they are ready.' },
-  ready: { ar: 'جاهز', en: 'Ready', emptyAr: 'الطلبات الجاهزة للتسليم هتظهر هنا.', emptyEn: 'Orders ready to hand over appear here.' },
+const COLUMN_TEXT: Record<Column, { ar: string; en: string; emptyAr: string; emptyEn: string; icon: Icon }> = {
+  new: { ar: 'جديد', en: 'New', icon: ReceiptIcon, emptyAr: 'مفيش طلبات جديدة. أول ما زبون يطلب هيظهر هنا وهتسمع تنبيه.', emptyEn: 'No new orders. When a diner orders, it appears here with a sound.' },
+  progress: { ar: 'بيتحضّر', en: 'In progress', icon: CookingPotIcon, emptyAr: 'الطلبات اللي قبلتها هتفضل هنا لحد ما تجهز.', emptyEn: 'Orders you accept stay here until they are ready.' },
+  ready: { ar: 'جاهز', en: 'Ready', icon: CheckCircleIcon, emptyAr: 'الطلبات الجاهزة للتسليم هتظهر هنا.', emptyEn: 'Orders ready to hand over appear here.' },
 };
 
 /** Live board / history switch shared by both order pages. */
@@ -42,7 +43,7 @@ export function ConnectionPill({ state }: { state: ConnectionState }) {
 }
 
 export function OrdersBoardPage() {
-  const { text, number, count } = useLanguage();
+  const { text, number, count, language } = useLanguage();
   usePageTitle('الطلبات', 'Orders');
   const restaurant = useRestaurant();
   const { ordering } = restaurant;
@@ -50,6 +51,7 @@ export function OrdersBoardPage() {
   const board = useBoardQuery(ordering.included);
   const [announcement, setAnnouncement] = useState('');
   const status = useOrderStatus({ announce: setAnnouncement });
+  const payment = useOrderPayment();
   const pause = useOrdersPause();
   const now = useNow();
   const [closing, setClosing] = useState<{ order: OwnerOrder; status: 'REJECTED' | 'CANCELLED' } | null>(null);
@@ -128,7 +130,7 @@ export function OrdersBoardPage() {
 
     {board.isError && <ErrorPanel error={board.error} onRetry={() => void board.refetch()} />}
     {board.isPending && <div className="board" role="status" aria-label={text('جاري التحميل', 'Loading')}>
-      {COLUMNS.map(key => <div className="board-column" key={key}><Skeleton height={28} width="50%" /><Skeleton height={180} radius={12} /></div>)}
+      {COLUMNS.map(key => <div className="board-column" key={key}><Skeleton height={24} width="40%" /><Skeleton height={200} radius={14} /></div>)}
     </div>}
 
     {board.data && (ordering.enabled || orders.length > 0) && <>
@@ -140,15 +142,18 @@ export function OrdersBoardPage() {
       </div>
       <div className="board">
         {COLUMNS.map(key => {
+          const { icon: EmptyIcon } = COLUMN_TEXT[key];
+          const value = columns[key].reduce((sum, order) => sum + order.subtotalPiastres, 0);
           return <section key={key} className={`board-column board-column-${key} ${column === key ? 'is-current' : ''}`} aria-labelledby={`column-${key}`} data-testid={`column-${key}`}>
             <header className="board-column-head">
               <h2 id={`column-${key}`}>{text(COLUMN_TEXT[key].ar, COLUMN_TEXT[key].en)}</h2>
               <span className="board-count" aria-label={count(columns[key].length, 'order')}>{number(columns[key].length)}</span>
+              {value > 0 && <span className="board-column-value">{formatPrice(value, language)}</span>}
             </header>
             {columns[key].length === 0
-              ? <p className="board-empty">{text(COLUMN_TEXT[key].emptyAr, COLUMN_TEXT[key].emptyEn)}</p>
+              ? <div className="board-empty"><EmptyIcon size={22} aria-hidden="true" /><p>{text(COLUMN_TEXT[key].emptyAr, COLUMN_TEXT[key].emptyEn)}</p></div>
               : <div className="board-cards">
-                {columns[key].map(order => <OrderCard key={order.id} order={order} now={now} isNew={live.unseen.has(order.id)} onAction={act} />)}
+                {columns[key].map(order => <OrderCard key={order.id} order={order} now={now} isNew={live.unseen.has(order.id)} onAction={act} onPaid={paid => payment.mutate({ order: paid, paid: true })} />)}
               </div>}
           </section>;
         })}

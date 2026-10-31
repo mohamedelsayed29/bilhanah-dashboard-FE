@@ -12,7 +12,7 @@ import { LogoutPage } from '../features/auth/LogoutPage';
 import { OverviewPage } from '../features/restaurant/overview/OverviewPage';
 import { NotFoundPage } from './NotFoundPage';
 import { Splash } from './providers/SessionBootstrap';
-import { OnboardingGate, RequireAdmin, RequireAuth, RequireGuest, RestaurantGate } from './router/guards';
+import { OnboardingGate, RequireAdmin, RequireAuth, RequireGuest, RequireKitchen, RestaurantGate } from './router/guards';
 
 const page = <T,>(load: () => Promise<T>, pick: (module: T) => React.ComponentType) => async () => ({ Component: pick(await load()) });
 
@@ -68,12 +68,22 @@ export const router = createBrowserRouter([
                   { path: 'branding', lazy: async () => ({ Component: (await import('../features/restaurant/settings/BrandingSettings')).BrandingSettings }) },
                   { path: 'ordering', lazy: page(() => import('../features/restaurant/settings/OrderingSettings'), module => module.OrderingSettings) },
                   { path: 'hours', lazy: async () => ({ Component: (await import('../features/restaurant/settings/OpeningHoursSettings')).OpeningHoursSettings }) },
+                  { path: 'kitchen', lazy: page(() => import('../features/restaurant/settings/KitchenSettings'), module => module.KitchenSettings) },
                   { path: 'account', lazy: async () => ({ Component: (await import('../features/restaurant/settings/AccountSettings')).AccountSettings }) },
                 ],
               },
             ],
           },
         ],
+      },
+      // Kitchen screens (kitchen accounts made by the owner): the live board only.
+      {
+        path: 'kitchen',
+        element: <RequireKitchen />,
+        children: [{
+          lazy: page(() => import('../features/kitchen/KitchenLayout'), module => module.KitchenLayout),
+          children: [{ index: true, lazy: page(() => import('../features/kitchen/KitchenBoardPage'), module => module.KitchenBoardPage) }],
+        }],
       },
       // Platform administrators (password + authenticator code); the console loads on demand.
       {

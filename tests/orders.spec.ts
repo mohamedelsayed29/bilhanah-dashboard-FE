@@ -319,7 +319,7 @@ test('order history lists closed orders with details', async () => {
   await expect(page.getByTestId('history-1')).toContainText('اتسلّم');
   await expect(page.getByTestId('history-1')).toContainText('طاولة 1');
   await expect(page.getByTestId('history-2')).toContainText('اترفض');
-  await page.getByRole('button', { name: 'تفاصيل طلب #٢' }).click();
+  await page.getByRole('button', { name: 'التفاصيل: طلب #٢' }).click();
   const detail = page.getByRole('dialog', { name: 'طلب #٢' });
   await expect(detail).toContainText('سبب الرفض: صنف في الطلب خلص');
   await expect(detail).toContainText('منى');

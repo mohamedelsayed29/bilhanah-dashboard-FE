@@ -16,9 +16,15 @@ import type {
   AdminSettings,
   AuditEntry,
   BillingSummary,
+  createKitchenAccountSchema,
+  KitchenAccount,
+  KitchenContext,
+  updateKitchenAccountSchema,
   bulkCreateTablesSchema,
+  createTableSchema,
   OwnerOrder,
   RestaurantTable,
+  TableOccupancy,
   updateOrderStatusSchema,
   updateTableSchema,
   grantEntitlementSchema,
@@ -178,16 +184,37 @@ export const ordersApi = {
   get: (orderId: string) => request<OwnerOrder>(`/v1/orders/${id(orderId)}`),
   updateStatus: (orderId: string, body: z.output<typeof updateOrderStatusSchema>) =>
     request<OwnerOrder>(`/v1/orders/${id(orderId)}/status`, { method: 'PATCH', body }),
+  setPaid: (orderId: string, paid: boolean) => request<OwnerOrder>(`/v1/orders/${id(orderId)}/payment`, { method: 'PATCH', body: { paid } }),
+  /** Active tables and whether guests (an unpaid order) are at each. */
+  floor: () => request<TableOccupancy[]>('/v1/orders/floor'),
+  /** Marks every open order on the table paid; returns the whole floor. */
+  settleTable: (tableId: string) => request<TableOccupancy[]>(`/v1/orders/tables/${id(tableId)}/settle`, { method: 'POST' }),
 };
 
 /** Tables and the QR codes printed on them. */
 export const tablesApi = {
   list: () => request<RestaurantTable[]>('/v1/tables'),
-  create: (label: string) => request<RestaurantTable>('/v1/tables', { method: 'POST', body: { label } }),
+  create: (body: z.input<typeof createTableSchema>) => request<RestaurantTable>('/v1/tables', { method: 'POST', body }),
   /** Returns every table after creating the range. */
   createRange: (body: z.input<typeof bulkCreateTablesSchema>) => request<RestaurantTable[]>('/v1/tables/range', { method: 'POST', body }),
   update: (tableId: string, body: z.output<typeof updateTableSchema>) => request<RestaurantTable>(`/v1/tables/${id(tableId)}`, { method: 'PATCH', body }),
   remove: (tableId: string) => request<void>(`/v1/tables/${id(tableId)}`, { method: 'DELETE' }),
   /** A new code: printed QR codes of this table stop working. */
   regenerateCode: (tableId: string) => request<RestaurantTable>(`/v1/tables/${id(tableId)}/code`, { method: 'POST' }),
+};
+
+/** The owner's kitchen accounts (the kitchen screens' sign-ins). */
+export const kitchenAccountsApi = {
+  list: () => request<KitchenAccount[]>('/v1/kitchen-accounts'),
+  create: (body: z.output<typeof createKitchenAccountSchema>) => request<KitchenAccount>('/v1/kitchen-accounts', { method: 'POST', body }),
+  update: (accountId: string, body: z.output<typeof updateKitchenAccountSchema>) =>
+    request<KitchenAccount>(`/v1/kitchen-accounts/${id(accountId)}`, { method: 'PATCH', body }),
+  /** Signs the account's screens out. */
+  setPassword: (accountId: string, password: string) => post(`/v1/kitchen-accounts/${id(accountId)}/password`, { password }),
+  remove: (accountId: string) => request<void>(`/v1/kitchen-accounts/${id(accountId)}`, { method: 'DELETE' }),
+};
+
+/** What the kitchen screen reads about its restaurant. */
+export const kitchenApi = {
+  context: () => request<KitchenContext>('/v1/kitchen/context'),
 };

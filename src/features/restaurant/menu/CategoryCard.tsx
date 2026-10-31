@@ -7,10 +7,10 @@ import { ItemRow } from './ItemRow';
 import { useMenuMutations } from './menu-mutations';
 import { DragHandle, SortableList, useSortableRow } from './Sortable';
 
-type Props = { category: OwnerMenuCategory; onRename: () => void; onAddItem: () => void; onEditItem: (item: OwnerMenuItem) => void };
+type Props = { category: OwnerMenuCategory; position: number; onRename: () => void; onAddItem: () => void; onEditItem: (item: OwnerMenuItem) => void };
 
-export function CategoryCard({ category, onRename, onAddItem, onEditItem }: Props) {
-  const { text, count, language } = useLanguage();
+export function CategoryCard({ category, position, onRename, onAddItem, onEditItem }: Props) {
+  const { text, count, language, number } = useLanguage();
   const { setNodeRef, style, isDragging, handle } = useSortableRow(category.id);
   const { reorderItems, setCategoryVisibility, deleteCategory } = useMenuMutations();
   const [confirming, setConfirming] = useState(false);
@@ -21,6 +21,7 @@ export function CategoryCard({ category, onRename, onAddItem, onEditItem }: Prop
   return <li ref={setNodeRef} style={style} className={`category card ${isDragging ? 'is-dragging' : ''} ${category.isVisible ? '' : 'is-hidden'}`} aria-labelledby={headingId} data-testid="category">
     <header className="category-header">
       <DragHandle handle={handle} label={text(`رتّب قسم ${primary}`, `Reorder category ${primary}`)} />
+      <span className="category-number" aria-hidden="true">{number(position)}</span>
       <div className="category-title">
         <h2 id={headingId}><bdi>{primary}</bdi></h2>
         <div className="category-meta">

@@ -1,6 +1,6 @@
 import {
   STAND_ORDER_STATUSES, STAND_ORDER_TRANSITIONS, type AdminStandOrder, type StandDesign, type StandOrderLine, type StandOrderStatus,
-  type StandPaymentMethod, type StandPaymentStatus, type StandPurpose, type StandShape,
+  type StandPaymentMethod, type StandPaymentStatus, type StandPurpose, type ProductShape, type ShopProduct,
 } from '@bilhanah/contracts';
 import type { StandOrderFilter } from '../../../lib/api/endpoints';
 
@@ -71,7 +71,8 @@ export function canCollectCash(order: Pick<AdminStandOrder, 'paymentMethod' | 'p
 }
 
 // Names and colours of the website's stand builder (bilhanah-client-FE: src/features/stand-shop/catalog.ts).
-export const SHAPES: Record<StandShape, Label> = { classic: ['كلاسيك', 'Classic'], arch: ['قوس', 'Arch'], tilt: ['مائل', 'Tilt'] };
+export const PRODUCTS: Record<ShopProduct, Label> = { stand: ['ستاند أكريليك', 'Acrylic stand'], sticker: ['ستيكر ترابيزة', 'Table sticker'] };
+export const SHAPES: Record<ProductShape, Label> = { classic: ['كلاسيك', 'Classic'], arch: ['قوس', 'Arch'], tilt: ['مائل', 'Tilt'], wood: ['قاعدة خشب', 'Wood base'], square: ['مربع', 'Square'], circle: ['دايرة', 'Circle'] };
 
 export const DESIGNS: Record<StandDesign, { label: Label; background: string; ink: string; accent: string }> = {
   signature: { label: ['بصمة', 'Signature'], background: '#FFF8EF', ink: '#075E54', accent: '#FF7868' },

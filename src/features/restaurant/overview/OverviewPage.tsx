@@ -8,6 +8,7 @@ import { CopyButton } from '../../../components/CopyButton';
 import { PageHeader } from '../../../components/PageHeader';
 import { Skeleton } from '../../../components/Skeleton';
 import { formatDate } from '../../../lib/format';
+import { TablesFloor } from '../tables/TablesFloor';
 import { useLanguage, usePageTitle } from '../../../lib/language';
 import { accessDaysLeft, accessStatusName, PLAN_NAMES } from '../access';
 import { useOrdersLive } from '../orders/live';
@@ -19,12 +20,13 @@ const InsightsSummary = lazy(async () => ({ default: (await import('../insights/
 
 /** The restaurant at a glance: what needs doing now, this week's numbers, the menu link and the plan. */
 export function OverviewPage() {
-  const { text } = useLanguage();
+  const { text, language } = useLanguage();
   usePageTitle('الرئيسية', 'Overview');
   const restaurant = useRestaurant();
   const menu = useMenuQuery();
   return <div className="page overview">
     <PageHeader title={<bdi>{restaurant.name}</bdi>}
+      description={<>{formatDate(new Date().toISOString(), language, { weekday: 'long', day: 'numeric', month: 'long' })} · {text('ده ملخص مطعمك النهارده.', 'Here is your restaurant today.')}</>}
       actions={<>
         <a className="button button-secondary" href={restaurant.publicUrl} target="_blank" rel="noreferrer"><ArrowSquareOutIcon size={18} aria-hidden="true" />{text('معاينة المنيو', 'Preview menu')}</a>
         <Link className="button button-primary" to="/menu"><PencilSimpleLineIcon size={18} aria-hidden="true" />{text('عدّل المنيو', 'Edit menu')}</Link>
@@ -38,6 +40,7 @@ export function OverviewPage() {
           <Suspense fallback={<div className="figures-group" aria-hidden="true"><Skeleton width={120} height={16} /><Skeleton width={220} height={30} /></div>}><InsightsSummary /></Suspense>
           {menu.data ? <MenuFigures menu={menu.data} /> : <div className="figures-group" aria-hidden="true"><Skeleton width={80} height={16} /><Skeleton width={260} height={30} /></div>}
         </section>
+        {restaurant.ordering.included && <TablesFloor />}
         {menu.data && <Checklist restaurant={restaurant} menu={menu.data} />}
       </div>
       <div className="overview-side">
@@ -125,7 +128,7 @@ function Checklist({ restaurant, menu }: { restaurant: OwnerRestaurant; menu: Ow
   ];
   const remaining = steps.filter(step => !step.done).length;
   if (remaining === 0) return null;
-  return <section className="section" aria-labelledby="checklist-title">
+  return <section className="card section overview-card" aria-labelledby="checklist-title">
     <div className="section-head">
       <h2 id="checklist-title">{text('جهّز منيو مطعمك', 'Get your menu ready')}</h2>
       <p>{text(`فاضل ${count(remaining, 'step')}`, `${count(remaining, 'step')} left`)}</p>
@@ -141,7 +144,7 @@ function Checklist({ restaurant, menu }: { restaurant: OwnerRestaurant; menu: Ow
 
 function MenuLink({ restaurant }: { restaurant: OwnerRestaurant }) {
   const { text } = useLanguage();
-  return <section className="section" aria-labelledby="link-title">
+  return <section className="card section overview-card" aria-labelledby="link-title">
     <div className="section-head"><h2 id="link-title">{text('لينك المنيو', 'Menu link')}</h2></div>
     <div className="link-body">
       <div className="link-text">
@@ -164,7 +167,7 @@ function Plan({ restaurant }: { restaurant: OwnerRestaurant }) {
   const { access } = restaurant;
   const days = accessDaysLeft(access);
   const end = access.status === 'TRIAL' ? access.trialEndsAt : access.currentPeriodEndsAt;
-  return <section className="section plan-card" aria-labelledby="plan-title">
+  return <section className="card section overview-card plan-card" aria-labelledby="plan-title">
     <div className="section-head">
       <h2 id="plan-title">{text('الاشتراك', 'Subscription')}</h2>
       <span className={`plan-status access-${access.status.toLowerCase()}`}>{accessStatusName(access.status, text)}</span>

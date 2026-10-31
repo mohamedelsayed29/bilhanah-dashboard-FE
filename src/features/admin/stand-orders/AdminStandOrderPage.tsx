@@ -23,7 +23,7 @@ import { useLanguage, usePageTitle } from '../../../lib/language';
 import { afterStandOrderChange, adminKeys, useStandOrderQuery } from '../queries';
 import { StandStatusBadge } from './StandOrderBadges';
 import {
-  canCollectCash, DESIGNS, logoFilename, needsNote, nextStatuses, numberRange, PAYMENT_METHOD_NAMES, PAYMENT_STATUS_NAMES, printColors, PURPOSES, safeLink, SHAPES,
+  canCollectCash, DESIGNS, logoFilename, needsNote, nextStatuses, numberRange, PAYMENT_METHOD_NAMES, PAYMENT_STATUS_NAMES, printColors, PRODUCTS, PURPOSES, safeLink, SHAPES,
   standActionName, standCount, standStatusName,
 } from './stand-orders';
 
@@ -156,13 +156,14 @@ function LineCard({ order, line, index }: { order: AdminStandOrder; line: StandO
       <span className="stand-line-total">{number(line.quantity)} × {formatPrice(line.unitPricePiastres, language)} = <strong>{formatPrice(line.lineTotalPiastres, language)}</strong></span>
     </div>
     <div className="stand-line-body">
-      <div className="stand-preview" style={{ background: colors.background, color: colors.ink }} aria-hidden="true">
+      <div className={`stand-preview${line.shape === 'circle' ? ' stand-preview-circle' : ''}`} style={{ background: colors.background, color: colors.ink }} aria-hidden="true">
         <span className="stand-preview-accent" style={{ background: colors.accent }} />
         <strong>{line.brand || '—'}</strong>
         <span className="stand-preview-qr" style={{ borderColor: colors.ink }} />
         <small>{line.caption}</small>
       </div>
       <dl className="facts stand-facts">
+        <div><dt>{text('المنتج', 'Product')}</dt><dd>{text(...PRODUCTS[line.product])}</dd></div>
         <div><dt>{text('الشكل', 'Shape')}</dt><dd>{text(...SHAPES[line.shape])}</dd></div>
         <div><dt>{text('التصميم', 'Design')}</dt><dd>{text(...DESIGNS[line.design].label)}{colors.custom && <> · {text('ألوان مخصوصة', 'custom colours')}</>}</dd></div>
         <div className="fact-wide"><dt>{text('الألوان', 'Colours')}</dt><dd className="stand-swatches">

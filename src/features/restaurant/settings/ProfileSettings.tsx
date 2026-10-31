@@ -1,5 +1,5 @@
 import { useForm } from 'react-hook-form';
-import { LockSimpleIcon } from '@phosphor-icons/react';
+import { ArrowSquareOutIcon, GlobeIcon, LockSimpleIcon } from '@phosphor-icons/react';
 import { type OwnerRestaurant, updateRestaurantSchema } from '@bilhanah/contracts';
 import { Alert } from '../../../components/Alert';
 import { Button } from '../../../components/Button';
@@ -77,11 +77,19 @@ export function ProfileSettings() {
       </div>
     </form>
     <aside className="settings-aside address-card" aria-labelledby="address-title">
-      <h2 id="address-title">{text('عنوان المنيو', 'Menu address')}</h2>
-      <p className="public-url ltr">{restaurant.subdomain}</p>
-      <p className="muted"><LockSimpleIcon size={14} aria-hidden="true" className="inline-icon" /> {text('العنوان ده ثابت ومينفعش يتغير، عشان الأكواد المطبوعة تفضل شغالة.', 'This address is permanent so printed QR codes keep working.')}</p>
-      <p className="ltr small public-url-full">{restaurant.publicUrl}</p>
-      <CopyButton value={restaurant.publicUrl} label={text('انسخ اللينك', 'Copy link')} />
+      <div className="address-card-head">
+        <span className="address-card-icon" aria-hidden="true"><GlobeIcon size={20} weight="bold" /></span>
+        <h2 id="address-title">{text('عنوان المنيو', 'Menu address')}</h2>
+      </div>
+      <div className="address-card-url">
+        <p className="public-url ltr">{restaurant.subdomain}</p>
+        <p className="ltr small public-url-full">{restaurant.publicUrl}</p>
+      </div>
+      <div className="address-card-actions">
+        <CopyButton value={restaurant.publicUrl} label={text('انسخ اللينك', 'Copy link')} />
+        <a className="button button-ghost" href={restaurant.publicUrl} target="_blank" rel="noreferrer"><ArrowSquareOutIcon size={17} aria-hidden="true" />{text('افتح المنيو', 'Open menu')}</a>
+      </div>
+      <p className="address-card-lock"><LockSimpleIcon size={14} weight="bold" aria-hidden="true" />{text('العنوان ده ثابت ومينفعش يتغير، عشان الأكواد المطبوعة تفضل شغالة.', 'This address is permanent so printed QR codes keep working.')}</p>
     </aside>
   </div>;
 }

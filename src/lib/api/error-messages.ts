@@ -7,6 +7,8 @@ import {
   MEDIA_MIN_DIMENSION,
   MENU_ERROR_CODES as MENU,
   MENU_LIMITS,
+  KITCHEN_ERROR_CODES as KITCHEN,
+  KITCHEN_LIMITS,
   ORDER_ERROR_CODES as ORDER,
   ORDER_LIMITS,
   RESTAURANT_ERROR_CODES as RESTAURANT,
@@ -57,8 +59,12 @@ const MESSAGES: Record<string, [ar: string, en: string]> = {
   [ORDER.ITEMS_UNAVAILABLE]: ['في أصناف في الطلب خلصت أو مش متاحة.', 'Some dishes in the order are sold out or unavailable.'],
   [ORDER.ORDER_NOT_FOUND]: ['الطلب ده مش موجود.', 'That order could not be found.'],
   [ORDER.INVALID_STATUS_CHANGE]: ['الطلب ده اتحدّث من جهاز تاني. حدّثنا اللوحة.', 'This order was updated on another device. The board has been refreshed.'],
+  [KITCHEN.EMAIL_TAKEN]: ['في حساب تاني بالإيميل ده. استخدم إيميل مختلف.', 'Another account already uses this email. Use a different one.'],
+  [KITCHEN.KITCHEN_ACCOUNT_NOT_FOUND]: ['حساب المطبخ ده مش موجود.', 'This kitchen account no longer exists.'],
+  [KITCHEN.KITCHEN_ACCOUNT_LIMIT_REACHED]: [`أقصى عدد ${KITCHEN_LIMITS.accounts} حسابات مطبخ.`, `You can have up to ${KITCHEN_LIMITS.accounts} kitchen accounts.`],
   [ORDER.TABLE_LABEL_TAKEN]: ['في طاولة بنفس الاسم ده. اختار اسم تاني.', 'A table with this name already exists. Choose another name.'],
   [ORDER.TABLE_LIMIT_REACHED]: [`وصلت للحد الأقصى (${ORDER_LIMITS.tables} طاولة).`, `You reached the limit of ${ORDER_LIMITS.tables} tables.`],
+  [ORDER.ORDER_NOT_PAYABLE]: ['الطلب ده اترفض أو اتلغى، فمفيش عليه حساب.', 'This order was rejected or cancelled, so there is nothing to pay.'],
   [MENU.ORDER_MISMATCH]: ['المنيو اتغير من مكان تاني. حدّثنا الترتيب، جرّب تاني.', 'The menu changed elsewhere. We refreshed it; please try again.'],
 };
 

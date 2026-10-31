@@ -51,6 +51,7 @@ export const NOUNS = {
   item: [{ one: 'صنف واحد', two: 'صنفين', few: '{n} أصناف', many: '{n} صنف' }, { one: '{n} item', other: '{n} items' }],
   category: [{ one: 'قسم واحد', two: 'قسمين', few: '{n} أقسام', many: '{n} قسم' }, { one: '{n} category', other: '{n} categories' }],
   table: [{ one: 'طاولة واحدة', two: 'طاولتين', few: '{n} طاولات', many: '{n} طاولة' }, { one: '{n} table', other: '{n} tables' }],
+  seat: [{ one: 'فرد واحد', two: 'فردين', few: '{n} أفراد', many: '{n} فرد' }, { one: '{n} seat', other: '{n} seats' }],
   size: [{ one: 'حجم واحد', two: 'حجمين', few: '{n} أحجام', many: '{n} حجم' }, { one: '{n} size', other: '{n} sizes' }],
   step: [{ one: 'خطوة واحدة', two: 'خطوتين', few: '{n} خطوات', many: '{n} خطوة' }, { one: '{n} step', other: '{n} steps' }],
   result: [{ one: 'نتيجة واحدة', two: 'نتيجتين', few: '{n} نتايج', many: '{n} نتيجة' }, { one: '{n} result', other: '{n} results' }],

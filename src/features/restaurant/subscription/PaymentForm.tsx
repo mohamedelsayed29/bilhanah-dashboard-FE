@@ -36,7 +36,8 @@ type Props = {
 
 /**
  * Choose a plan and length, then pay online through Paymob (when offered) or by one of the
- * transfer methods, sending the transfer details for review.
+ * transfer methods, sending the transfer details for review. The steps run down the main column;
+ * the order summary and the online payment sit beside them, so the total is always in view.
  */
 export function PaymentForm({ summary, initial, ref }: Props) {
   const { text, number, language } = useLanguage();
@@ -65,7 +66,7 @@ export function PaymentForm({ summary, initial, ref }: Props) {
   const period = periodFrom(summary.nextPeriodStartsAt, months);
   const later = startsLater(summary.nextPeriodStartsAt);
   const noMethods = summary.availableMethods.length === 0;
-  const transferStep = summary.onlinePayment ? 4 : 3;
+  const transferStep = 3;
 
   const submit = useMutation({
     mutationFn: billingApi.submit,
@@ -92,8 +93,9 @@ export function PaymentForm({ summary, initial, ref }: Props) {
     }
   });
 
-  return <form className="card pay-flow" onSubmit={onSubmit} noValidate aria-labelledby="pay-title">
+  return <form className="pay-flow" onSubmit={onSubmit} noValidate aria-labelledby="pay-title">
     <h2 id="pay-title" className="visually-hidden">{text('ادفع أو جدّد', 'Pay or renew')}</h2>
+    <div className="card pay-main">
 
     <section className="pay-step" aria-labelledby="step-plan">
       <header>
@@ -128,24 +130,7 @@ export function PaymentForm({ summary, initial, ref }: Props) {
           {monthsLabel(option, text, number)}
         </label>)}
       </div>} />
-      <div className="order-summary" aria-live="polite" data-testid="order-summary">
-        <p className="order-total-line">
-          <span>{text('الإجمالي', 'Total')}</span>
-          <strong data-testid="order-total">{formatPrice(total, language)}</strong>
-          {plan && <small>{formatPrice(plan.priceMonthlyPiastres, language)} × {monthsLabel(months, text, number)}</small>}
-        </p>
-        <div className="order-period">
-          <p>
-            {text('اشتراكك الجديد هيبدأ من', 'Your new period would run from')} <strong>{formatDate(period.startsAt.toISOString(), language, { dateStyle: 'long' })}</strong> {text('لحد', 'to')} <strong>{formatDate(period.endsAt.toISOString(), language, { dateStyle: 'long' })}</strong>.
-            {later && <span className="period-note"> {summary.access.status === 'TRIAL'
-              ? text('بيبدأ بعد ما التجربة تخلص، فأيام التجربة الباقية محفوظة.', 'It starts after your trial, so your remaining trial days are kept.')
-              : text('بيبدأ بعد ما اشتراكك الحالي يخلص.', 'It starts when your current period ends.')}</span>}
-          </p>
-        </div>
-      </div>
     </section>
-
-    {summary.onlinePayment && <OnlinePayment planCode={planCode} months={months} total={total} buttonRef={onlineButton} />}
 
     {noMethods
       ? !summary.onlinePayment && <Alert kind="info" live={false} title={text('الدفع لسه مش متاح', 'Payments are not open yet')}>
@@ -202,6 +187,33 @@ export function PaymentForm({ summary, initial, ref }: Props) {
             </div>
           </section>
         </>}
+    </div>
+
+    <aside className="pay-summary" aria-labelledby="summary-title">
+      <div className="card pay-summary-card">
+        <div className="order-summary" aria-live="polite" data-testid="order-summary">
+          <h3 id="summary-title" className="pay-summary-title">{text('ملخص الطلب', 'Order summary')}</h3>
+          <dl className="pay-summary-lines">
+            <div><dt>{text('الباقة', 'Plan')}</dt><dd>{planName(planCode, text)}</dd></div>
+            <div><dt>{text('المدة', 'Length')}</dt><dd>{monthsLabel(months, text, number)}</dd></div>
+            {plan && <div><dt>{text('سعر الشهر', 'Per month')}</dt><dd>{formatPrice(plan.priceMonthlyPiastres, language)}</dd></div>}
+          </dl>
+          <p className="order-total-line">
+            <span>{text('الإجمالي', 'Total')}</span>
+            <strong data-testid="order-total">{formatPrice(total, language)}</strong>
+          </p>
+          <div className="order-period">
+            <p>
+              {text('اشتراكك الجديد هيبدأ من', 'Your new period would run from')} <strong>{formatDate(period.startsAt.toISOString(), language, { dateStyle: 'long' })}</strong> {text('لحد', 'to')} <strong>{formatDate(period.endsAt.toISOString(), language, { dateStyle: 'long' })}</strong>.
+              {later && <span className="period-note"> {summary.access.status === 'TRIAL'
+                ? text('بيبدأ بعد ما التجربة تخلص، فأيام التجربة الباقية محفوظة.', 'It starts after your trial, so your remaining trial days are kept.')
+                : text('بيبدأ بعد ما اشتراكك الحالي يخلص.', 'It starts when your current period ends.')}</span>}
+            </p>
+          </div>
+        </div>
+        {summary.onlinePayment && <OnlinePayment planCode={planCode} months={months} total={total} buttonRef={onlineButton} />}
+      </div>
+    </aside>
   </form>;
 }
 
@@ -223,12 +235,12 @@ function Instructions({ method, instructions, total }: { method: ManualPaymentMe
       <div className="instructions-row instructions-amount">
         <dt>{text('المبلغ المطلوب', 'Amount to send')}</dt>
         <dd><strong>{formatPrice(total, language)}</strong>
-          <CopyButton value={piastresToInput(total)} label={text('نسخ', 'Copy')} copiedMessage={copied} ariaLabel={text('انسخ المبلغ', 'Copy the amount')} /></dd>
+          <CopyButton value={piastresToInput(total)} label={text('نسخ', 'Copy')} copiedMessage={copied} ariaLabel={text('نسخ المبلغ', 'Copy the amount')} /></dd>
       </div>
       {rows.filter(row => row.value).map(row => <div className="instructions-row" key={row.label}>
         <dt>{row.label}</dt>
         <dd><span className="ltr">{row.value}</span>
-          {row.copy && <CopyButton value={row.value!} label={text('نسخ', 'Copy')} copiedMessage={copied} ariaLabel={text(`انسخ ${row.label}`, `Copy the ${row.label.toLowerCase()}`)} />}</dd>
+          {row.copy && <CopyButton value={row.value!} label={text('نسخ', 'Copy')} copiedMessage={copied} ariaLabel={text(`نسخ ${row.label}`, `Copy the ${row.label.toLowerCase()}`)} />}</dd>
       </div>)}
     </dl>
     {notes && <p className="instructions-notes">{notes}</p>}
@@ -258,13 +270,13 @@ function OnlinePayment({ planCode, months, total, buttonRef }: { planCode: PlanC
   });
   return <section className="pay-step online-pay" aria-labelledby="step-online" data-testid="online-payment">
     <header>
-      <h3 id="step-online" className="step-title"><span className="step-number" aria-hidden="true">{number(3)}</span>{text('ادفع أونلاين', 'Pay online')}</h3>
+      <h3 id="step-online" className="step-title">{text('ادفع أونلاين', 'Pay online')}</h3>
       <p>{text('أسرع طريقة: بتدفع بالكارت (فيزا، ماستركارد، ميزة) أو بالمحفظة على صفحة Paymob الآمنة، واشتراكك بيتفعّل أول ما الدفع يتأكد.',
         'The quickest way: pay by card (Visa, Mastercard, Meeza) or mobile wallet on Paymob’s secure page, and your plan is active as soon as the payment is confirmed.')}</p>
     </header>
     {start.isError && <Alert kind="error">{errorMessage(start.error, text)}</Alert>}
     <div className="online-pay-row">
-      <Button ref={buttonRef} loading={start.isPending || leaving} onClick={() => start.mutate()} icon={<CreditCardIcon size={19} aria-hidden="true" />} data-testid="pay-online">
+      <Button className="button-block" ref={buttonRef} loading={start.isPending || leaving} onClick={() => start.mutate()} icon={<CreditCardIcon size={19} aria-hidden="true" />} data-testid="pay-online">
         {text('ادفع', 'Pay')} <span data-testid="online-total">{formatPrice(total, language)}</span> {text('أونلاين', 'online')}
       </Button>
       <small className="online-pay-secure"><LockSimpleIcon size={14} aria-hidden="true" />{leaving

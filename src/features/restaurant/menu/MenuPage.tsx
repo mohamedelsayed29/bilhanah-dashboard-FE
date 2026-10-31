@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowSquareOutIcon, BowlFoodIcon, PlusIcon } from '@phosphor-icons/react';
+import { ArrowSquareOutIcon, BowlFoodIcon, EyeSlashIcon, PlusIcon } from '@phosphor-icons/react';
 import type { OwnerMenuCategory, OwnerMenuItem } from '@bilhanah/contracts';
 import { ErrorPanel } from '../../../components/ErrorBoundary';
 import { PageHeader } from '../../../components/PageHeader';
@@ -27,7 +27,7 @@ const SUGGESTIONS = [
 ];
 
 export function MenuPage() {
-  const { text, count } = useLanguage();
+  const { text, count, number, language } = useLanguage();
   usePageTitle('المنيو', 'Menu');
   const restaurant = useRestaurant();
   const menu = useMenuQuery();
@@ -39,6 +39,10 @@ export function MenuPage() {
   const { categories } = menu.data;
   const itemCount = categories.reduce((sum, category) => sum + category.items.length, 0);
   const localName = (category: OwnerMenuCategory) => text(category.nameAr, category.nameEn ?? category.nameAr);
+  const allItems = categories.flatMap(category => category.items);
+  const soldOut = allItems.filter(item => !item.isAvailable).length;
+  const hidden = allItems.filter(item => !item.isVisible).length + categories.filter(category => !category.isVisible).length;
+  const shownName = (category: OwnerMenuCategory) => (language === 'en' && category.nameEn ? category.nameEn : category.nameAr);
 
   return <div className="page">
     <PageHeader title={text('المنيو', 'Menu')}
@@ -62,17 +66,43 @@ export function MenuPage() {
           </div>
           <button type="button" className="button button-primary" onClick={() => setEditing({ kind: 'category' })}><PlusIcon size={18} weight="bold" aria-hidden="true" />{text('أضف قسم', 'Add a category')}</button>
         </section>
-      : <SortableList items={categories} nameOf={localName} onReorder={ids => reorderCategories.mutate(ids)}>
-          <ol className="category-list" aria-label={text('أقسام المنيو', 'Menu categories')}>
-            {categories.map(category => <CategoryCard key={category.id} category={category}
-              onRename={() => setEditing({ kind: 'category', category })}
-              onAddItem={() => setEditing({ kind: 'item', categoryId: category.id })}
-              onEditItem={item => setEditing({ kind: 'item', item, categoryId: category.id })} />)}
-          </ol>
-        </SortableList>}
-    {categories.length > 0 && <button type="button" className="button button-secondary add-category" onClick={() => setEditing({ kind: 'category' })}>
-      <PlusIcon size={18} weight="bold" aria-hidden="true" />{text('أضف قسم تاني', 'Add another category')}
-    </button>}
+      : <div className="menu-layout">
+          {/* A sticky index: the menu at a glance, and a jump to each category. */}
+          <aside className="menu-index card" aria-labelledby="menu-index-title">
+            <h2 id="menu-index-title" className="visually-hidden">{text('فهرس المنيو', 'Menu index')}</h2>
+            <dl className="menu-stats">
+              <div><dt>{text('الأصناف', 'Items')}</dt><dd>{number(itemCount)}</dd></div>
+              <div className={soldOut ? 'is-warn' : ''}><dt>{text('خلصان', 'Sold out')}</dt><dd>{number(soldOut)}</dd></div>
+              <div><dt>{text('مخفي', 'Hidden')}</dt><dd>{number(hidden)}</dd></div>
+            </dl>
+            <nav aria-label={text('اقفز لقسم', 'Jump to a category')}>
+              <ol className="menu-index-list">
+                {categories.map((category, index) => <li key={category.id}>
+                  <a href={`#category-${category.id}`} className={category.isVisible ? '' : 'is-hidden'}>
+                    <span className="menu-index-number" aria-hidden="true">{number(index + 1)}</span>
+                    <bdi className="menu-index-name">{shownName(category)}</bdi>
+                    {!category.isVisible && <EyeSlashIcon size={14} aria-label={text('مخفي', 'Hidden')} />}
+                    <span className="menu-index-count">{number(category.items.length)}</span>
+                  </a>
+                </li>)}
+              </ol>
+            </nav>
+            <button type="button" className="menu-index-add" onClick={() => setEditing({ kind: 'category' })}><PlusIcon size={16} weight="bold" aria-hidden="true" />{text('أضف قسم', 'Add a category')}</button>
+          </aside>
+          <div className="menu-main">
+            <SortableList items={categories} nameOf={localName} onReorder={ids => reorderCategories.mutate(ids)}>
+              <ol className="category-list" aria-label={text('أقسام المنيو', 'Menu categories')}>
+                {categories.map((category, index) => <CategoryCard key={category.id} category={category} position={index + 1}
+                  onRename={() => setEditing({ kind: 'category', category })}
+                  onAddItem={() => setEditing({ kind: 'item', categoryId: category.id })}
+                  onEditItem={item => setEditing({ kind: 'item', item, categoryId: category.id })} />)}
+              </ol>
+            </SortableList>
+            <button type="button" className="add-category" onClick={() => setEditing({ kind: 'category' })}>
+              <PlusIcon size={18} weight="bold" aria-hidden="true" />{text('أضف قسم تاني', 'Add another category')}
+            </button>
+          </div>
+        </div>}
     {editing?.kind === 'category' && <CategoryDialog category={editing.category} initialName={editing.initialName} onClose={() => setEditing(null)} />}
     {editing?.kind === 'item' && <ItemEditor item={editing.item} categoryId={editing.categoryId} categories={categories} onClose={() => setEditing(null)} />}
   </div>;

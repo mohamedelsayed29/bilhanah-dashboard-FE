@@ -15,7 +15,12 @@ export const queryKeys = {
   orderHistoryAll: ['orders', 'history'] as const,
   order: (id: string) => ['orders', 'detail', id] as const,
   tables: ['tables'] as const,
+  /** Which tables have guests right now (GET /v1/orders/floor). */
+  floor: ['orders', 'floor'] as const,
   stats: (days: StatsPeriod) => ['stats', days] as const,
+  kitchenAccounts: ['kitchen-accounts'] as const,
+  /** The kitchen screen's restaurant (kitchen accounts only). */
+  kitchenContext: ['kitchen', 'context'] as const,
 };
 
 export function useRestaurantQuery() {

@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
   /** Domain shown in the onboarding address preview, e.g. bilhanah.com. */
   readonly VITE_MENU_DOMAIN?: string;
+  /** Marketing site origin, e.g. https://bilhanah.com. */
+  readonly VITE_SITE_URL?: string;
 }
 
 interface ImportMeta {

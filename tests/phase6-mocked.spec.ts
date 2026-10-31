@@ -233,9 +233,9 @@ function standOrder(status: StandOrderStatus = 'NEW', changes: Partial<AdminStan
   return {
     id: ORDER_ID, reference: 'S-1042', status, paymentMethod: 'CASH_ON_DELIVERY', paymentStatus: 'UNPAID',
     lines: [
-      { id: 'line-1', shape: 'arch', nfc: true, design: 'forest', customColors: null, purpose: 'reviews', brand: 'كشري التحرير', caption: 'رأيك يهمّنا', url: 'https://g.page/r/tahrir/review',
+      { id: 'line-1', product: 'stand', shape: 'arch', nfc: true, design: 'forest', customColors: null, purpose: 'reviews', brand: 'كشري التحرير', caption: 'رأيك يهمّنا', url: 'https://g.page/r/tahrir/review',
         hasLogo: true, numbered: true, startNumber: 5, quantity: 20, notes: 'اللوجو في النص', unitPricePiastres: 45_000, lineTotalPiastres: 900_000 },
-      { id: 'line-2', shape: 'classic', nfc: false, design: 'signature', customColors: { background: '#112233', ink: '#FFFFFF' }, purpose: 'menu', brand: '', caption: '', url: 'https://tahrir.bilhanah.com/?src=qr',
+      { id: 'line-2', product: 'stand', shape: 'classic', nfc: false, design: 'signature', customColors: { background: '#112233', ink: '#FFFFFF' }, purpose: 'menu', brand: '', caption: '', url: 'https://tahrir.bilhanah.com/?src=qr',
         hasLogo: false, numbered: false, startNumber: 1, quantity: 2, notes: '', unitPricePiastres: 35_000, lineTotalPiastres: 70_000 },
     ],
     subtotalPiastres: 970_000, deliveryFeePiastres: 6_000, totalPiastres: 976_000, customerName: 'أحمد علي', city: 'القاهرة',

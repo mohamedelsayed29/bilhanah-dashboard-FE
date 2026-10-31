@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { LinkIcon, QrCodeIcon, StorefrontIcon, TableIcon, BagIcon } from '@phosphor-icons/react';
+import { BagIcon, ChartLineUpIcon, CoinsIcon, EyeIcon, LinkIcon, QrCodeIcon, ReceiptIcon, StorefrontIcon, TableIcon } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
 import type { RestaurantStats, StatsPeriod, VisitSource } from '@bilhanah/contracts';
 import { Alert } from '../../../components/Alert';
@@ -49,7 +49,7 @@ export function InsightsPage() {
 function InsightsSkeleton() {
   const { text } = useLanguage();
   return <div className="insights-body" role="status" aria-label={text('جاري التحميل', 'Loading')}>
-    <div className="card kpi-band">{[0, 1, 2, 3].map(index => <div className="kpi" key={index}><Skeleton width={110} height={14} /><Skeleton width={70} height={28} /></div>)}</div>
+    <div className="insights-kpis">{[0, 1, 2, 3].map(index => <div className="card kpi-card" key={index}><Skeleton width={40} height={40} radius={12} /><Skeleton width={110} height={14} /><Skeleton width={70} height={28} /></div>)}</div>
     <div className="skeleton-stack"><Skeleton width="30%" height={20} /><Skeleton height={220} /></div>
   </div>;
 }
@@ -58,11 +58,11 @@ function InsightsBody({ stats, days }: { stats: RestaurantStats; days: StatsPeri
   const { text, number, language } = useLanguage();
   const chartDays = statsDays(stats);
   const series: ChartSeries<(typeof chartDays)[number]>[] = [
-    { key: 'visits', label: text('الزيارات', 'Visits'), format: value => number(value), axisFormat: value => formatCompact(value, language) },
+    { key: 'visits', label: text('الزيارات', 'Visits'), format: value => number(value), axisFormat: value => formatCompact(value, language), total: number(stats.totals.visits) },
   ];
   if (stats.ordering) {
-    series.push({ key: 'orders', label: text('الطلبات', 'Orders'), format: value => number(value), axisFormat: value => formatCompact(value, language) });
-    series.push({ key: 'revenuePiastres', label: text('إيراد الطلبات', 'Order revenue'), format: value => formatPrice(value, language), axisFormat: value => formatCompactPrice(value, language) });
+    series.push({ key: 'orders', label: text('الطلبات', 'Orders'), format: value => number(value), axisFormat: value => formatCompact(value, language), total: number(stats.totals.orders) });
+    series.push({ key: 'revenuePiastres', label: text('إيراد الطلبات', 'Order revenue'), format: value => formatPrice(value, language), axisFormat: value => formatCompactPrice(value, language), total: formatPrice(stats.totals.revenuePiastres, language) });
   }
   const empty = !hasStats(stats);
   return <>
@@ -88,24 +88,26 @@ function InsightsBody({ stats, days }: { stats: RestaurantStats; days: StatsPeri
 function Kpis({ stats, days }: { stats: RestaurantStats; days: StatsPeriod }) {
   const { text, number, language } = useLanguage();
   const { totals } = stats;
-  const tiles: { key: string; value: string; label: string; hint: string }[] = [
-    { key: 'visits', value: number(totals.visits), label: text('زيارات المنيو', 'Menu visits'),
+  const tiles: { key: string; value: string; label: string; hint: string; icon: Icon }[] = [
+    { key: 'visits', icon: EyeIcon, value: number(totals.visits), label: text('زيارات المنيو', 'Menu visits'),
       hint: totals.visits / days < 1
         ? text('أقل من زيارة في اليوم', 'Less than one a day')
         : text(`حوالي ${number(Math.round(totals.visits / days))} في اليوم`, `About ${Math.round(totals.visits / days)} a day`) },
   ];
   if (stats.ordering) {
     tiles.push(
-      { key: 'orders', value: number(totals.orders), label: text('الطلبات', 'Orders'), hint: text('من غير المرفوض والملغي', 'Excluding rejected and cancelled') },
-      { key: 'revenue', value: formatPrice(totals.revenuePiastres, language), label: text('إيراد الطلبات', 'Order revenue'), hint: text('من الطلبات اللي اتعملت من المنيو', 'From orders placed on your menu') },
-      { key: 'average', value: formatPrice(totals.averageOrderPiastres, language), label: text('متوسط الطلب', 'Average order'), hint: text('الإيراد ÷ عدد الطلبات', 'Revenue ÷ orders') },
+      { key: 'orders', icon: ReceiptIcon, value: number(totals.orders), label: text('الطلبات', 'Orders'), hint: text('من غير المرفوض والملغي', 'Excluding rejected and cancelled') },
+      { key: 'revenue', icon: CoinsIcon, value: formatPrice(totals.revenuePiastres, language), label: text('إيراد الطلبات', 'Order revenue'), hint: text('من الطلبات اللي اتعملت من المنيو', 'From orders placed on your menu') },
+      { key: 'average', icon: ChartLineUpIcon, value: formatPrice(totals.averageOrderPiastres, language), label: text('متوسط الطلب', 'Average order'), hint: text('الإيراد ÷ عدد الطلبات', 'Revenue ÷ orders') },
     );
   }
   return <section aria-labelledby="insights-kpis">
     <h2 id="insights-kpis" className="visually-hidden">{text(`الأرقام، ${periodLabel(days, text, number)}`, `Key figures, ${periodLabel(days, text, number).toLowerCase()}`)}</h2>
-    <div className={`card kpi-band ${tiles.length === 1 ? 'kpi-band-2' : ''}`}>
-      {tiles.map(tile => <div key={tile.key} className="kpi" data-testid={`kpi-${tile.key}`}>
-        <span>{tile.label}</span>
+    {/* One card per figure; revenue, the figure owners watch most, is the featured one. */}
+    <div className={`insights-kpis ${tiles.length === 1 ? 'is-single' : ''}`}>
+      {tiles.map(tile => <div key={tile.key} className={`card kpi-card ${tile.key === 'revenue' ? 'is-featured' : ''}`} data-testid={`kpi-${tile.key}`}>
+        <span className="kpi-card-icon" aria-hidden="true"><tile.icon size={20} weight="bold" /></span>
+        <span className="kpi-card-label">{tile.label}</span>
         <strong>{tile.value}</strong>
         <small>{tile.hint}</small>
       </div>)}
@@ -160,7 +162,7 @@ function TopDishes({ stats }: { stats: RestaurantStats }) {
           <h3>{text('لسه مفيش أصناف اتطلبت', 'No dishes ordered yet')}</h3>
           <p>{text('أول ما الطلبات توصل من المنيو، هتشوف هنا الأصناف اللي الزباين بيحبوها.', 'Once orders arrive from your menu, the dishes diners love show up here.')}</p>
         </div>
-      : <div className="card list-card table-scroll"><table className="data-table top-dishes" data-testid="top-dishes">
+      : <div className="table-scroll top-dishes-wrap"><table className="data-table top-dishes" data-testid="top-dishes">
           <thead><tr>
             <th scope="col">#</th>
             <th scope="col">{text('الصنف', 'Dish')}</th>
@@ -168,7 +170,7 @@ function TopDishes({ stats }: { stats: RestaurantStats }) {
             <th scope="col">{text('الإيراد', 'Revenue')}</th>
           </tr></thead>
           <tbody>{stats.topItems.map((item, index) => <tr key={`${item.nameAr}-${index}`}>
-            <td className="cell-rank" data-label="#">{number(index + 1)}</td>
+            <td className="cell-rank" data-label="#"><span className={`dish-rank ${index === 0 ? 'is-first' : ''}`}>{number(index + 1)}</span></td>
             <td className="cell-primary" data-label={text('الصنف', 'Dish')}>{dishName(item, language)}
               <span className="bar-track dish-bar" aria-hidden="true"><span className="bar-fill" style={{ width: `${(item.quantity / max) * 100}%` }} /></span></td>
             <td data-label={text('الكمية', 'Quantity')} className="cell-nowrap">{number(item.quantity)}</td>

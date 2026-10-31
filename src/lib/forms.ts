@@ -44,6 +44,7 @@ const KNOWN_MESSAGES: Record<string, [string, string]> = {
   'Name each size.': ['اكتب اسم كل حجم.', 'Name each size.'],
   'Unknown time zone.': ['المنطقة الزمنية مش معروفة.', 'Unknown time zone.'],
   'Enter the 6-digit code.': ['اكتب الكود اللي فيه ٦ أرقام.', 'Enter the 6-digit code.'],
+  'Passwords do not match.': ['كلمتين السر مش زي بعض.', 'Passwords do not match.'],
 };
 
 /** The translated text of a react-hook-form error (or of a message key / raw text). */

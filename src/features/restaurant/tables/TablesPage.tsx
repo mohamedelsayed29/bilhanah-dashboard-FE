@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
 import {
-  ArrowsClockwiseIcon, CheckIcon, DownloadSimpleIcon, FileSvgIcon, ListNumbersIcon, PencilSimpleIcon, PlusIcon, PrinterIcon, TableIcon, TrashIcon, XIcon,
+  ArrowsClockwiseIcon, ChairIcon, CheckIcon, DownloadSimpleIcon, FileSvgIcon, ListNumbersIcon, PencilSimpleIcon, PlusIcon, PrinterIcon, TableIcon, TrashIcon, XIcon,
 } from '@phosphor-icons/react';
 import { ORDER_ERROR_CODES, ORDER_LIMITS, type RestaurantTable } from '@bilhanah/contracts';
 import { Alert } from '../../../components/Alert';
@@ -20,7 +20,9 @@ import { errorMessage } from '../../../lib/api/error-messages';
 import { useLanguage, usePageTitle } from '../../../lib/language';
 import { queryKeys, useRestaurant, useTablesQuery } from '../queries';
 import { downloadPng, downloadSvg, qrFilename } from './qr-download';
-import { AddRangeDialog, AddTableDialog } from './TableDialogs';
+import { AddRangeDialog, AddTableDialog, TABLE_SHAPE_OPTIONS, TableLayoutDialog } from './TableDialogs';
+import { TablesFloor, useFloorQuery } from './TablesFloor';
+import { TableShapeIcon } from './TableGraphic';
 
 const replaceTable = (tables: RestaurantTable[] | undefined, table: RestaurantTable) => tables?.map(entry => (entry.id === table.id ? table : entry));
 
@@ -76,10 +78,11 @@ function useTableMutations() {
 
 type Mutations = ReturnType<typeof useTableMutations>;
 
-function TableItem({ table, subdomain, mutations, onRegenerate, onDelete }: {
-  table: RestaurantTable; subdomain: string; mutations: Mutations; onRegenerate: () => void; onDelete: () => void;
+function TableItem({ table, subdomain, mutations, occupied, onLayout, onRegenerate, onDelete }: {
+  table: RestaurantTable; subdomain: string; mutations: Mutations; occupied: boolean | undefined; onLayout: () => void; onRegenerate: () => void; onDelete: () => void;
 }) {
-  const { text } = useLanguage();
+  const { text, count } = useLanguage();
+  const shape = TABLE_SHAPE_OPTIONS.find(option => option.value === table.shape) ?? TABLE_SHAPE_OPTIONS[1];
   const toast = useToast();
   const svgRef = useRef<SVGSVGElement>(null);
   const [editing, setEditing] = useState(false);
@@ -108,7 +111,8 @@ function TableItem({ table, subdomain, mutations, onRegenerate, onDelete }: {
     toast.success(text('نزل ملف SVG', 'SVG downloaded'));
   };
   const inputId = `table-${table.id}-label`;
-  return <li className={`card table-item ${table.isActive ? '' : 'is-off'}`} data-testid="table-item" data-label={table.label}>
+  const state = occupied === undefined ? '' : occupied ? 'is-busy' : 'is-free';
+  return <li className={`card table-item ${table.isActive ? '' : 'is-off'} ${state}`} data-testid="table-item" data-label={table.label}>
     <div className="table-item-main">
       <div className="table-item-qr">
         <QRCodeSVG ref={svgRef} value={table.qrUrl} size={104} level="M" marginSize={2} bgColor="#ffffff" fgColor="#111111"
@@ -126,10 +130,14 @@ function TableItem({ table, subdomain, mutations, onRegenerate, onDelete }: {
             <button type="button" className="icon-button" aria-label={text('إلغاء', 'Cancel')} onClick={() => { setEditing(false); setLabel(table.label); setError(null); }}><XIcon size={20} /></button>
             {error && <p className="field-error" id={`${inputId}-error`}>{error}</p>}
           </form>
-          : <div className="table-item-title">
+          : <>{state && <span className={`table-state ${state}`}>{occupied ? text('عليها ناس', 'Occupied') : text('فاضية', 'Free')}</span>}<div className="table-item-title">
             <h3><bdi>{table.label}</bdi></h3>
             <button type="button" className="icon-button" aria-label={text(`غيّر اسم ${table.label}`, `Rename ${table.label}`)} onClick={() => { setLabel(table.label); setEditing(true); }}><PencilSimpleIcon size={18} /></button>
-          </div>}
+          </div>
+          <button type="button" className="table-item-layout" onClick={onLayout} title={text('غيّر الشكل وعدد الأفراد', 'Change the shape and seats')}>
+            <TableShapeIcon shape={table.shape} size={16} />{text(shape.ar, shape.en)} · {count(table.seats, 'seat')}
+            <span className="visually-hidden">{text(`: غيّر شكل ${table.label}`, `: change ${table.label}`)}</span><PencilSimpleIcon size={14} aria-hidden="true" />
+          </button></>}
         <Switch checked={table.isActive} onChange={isActive => mutations.setActive.mutate({ table, isActive })}
           label={text('بتستقبل طلبات', 'Takes orders')}
           description={table.isActive ? text('الكود شغال', 'The code works') : text('الكود متوقف مؤقتًا', 'The code is switched off')} />
@@ -138,6 +146,7 @@ function TableItem({ table, subdomain, mutations, onRegenerate, onDelete }: {
     <div className="table-item-actions">
       <Button small variant="ghost" onClick={png} icon={<DownloadSimpleIcon size={16} aria-hidden="true" />} aria-label={text(`نزّل PNG لـ${table.label}`, `Download PNG for ${table.label}`)}>PNG</Button>
       <Button small variant="ghost" onClick={svg} icon={<FileSvgIcon size={16} aria-hidden="true" />} aria-label={text(`نزّل SVG لـ${table.label}`, `Download SVG for ${table.label}`)}>SVG</Button>
+      <Button small variant="ghost" onClick={onLayout} icon={<ChairIcon size={16} aria-hidden="true" />}>{text('الشكل', 'Layout')}</Button>
       <Button small variant="ghost" onClick={onRegenerate} icon={<ArrowsClockwiseIcon size={16} aria-hidden="true" />}>{text('كود جديد', 'New code')}</Button>
       <button type="button" className="icon-button icon-button-danger" onClick={onDelete} aria-label={text(`امسح ${table.label}`, `Delete ${table.label}`)}><TrashIcon size={18} /></button>
     </div>
@@ -150,8 +159,10 @@ export function TablesPage() {
   const restaurant = useRestaurant();
   const tables = useTablesQuery();
   const mutations = useTableMutations();
+  const floor = useFloorQuery(restaurant.ordering.included);
   const [adding, setAdding] = useState<'one' | 'range' | null>(null);
   const [confirm, setConfirm] = useState<{ kind: 'code' | 'delete'; table: RestaurantTable } | null>(null);
+  const [layoutId, setLayoutId] = useState<string | null>(null);
   const { ordering } = restaurant;
 
   if (tables.isPending) return <PageSkeleton blocks={2} />;
@@ -181,6 +192,8 @@ export function TablesPage() {
     </Alert>}
     {full && <Alert kind="warning" live={false}>{text(`وصلت للحد الأقصى (${count(ORDER_LIMITS.tables, 'table')}). امسح طاولة عشان تضيف غيرها.`, `You reached the limit of ${count(ORDER_LIMITS.tables, 'table')}. Delete one to add another.`)}</Alert>}
 
+    {ordering.included && list.length > 0 && <TablesFloor />}
+
     {list.length === 0
       ? <section className="card empty-state" aria-labelledby="tables-empty-title">
         <span className="empty-state-icon" aria-hidden="true"><TableIcon size={30} /></span>
@@ -198,12 +211,14 @@ export function TablesPage() {
         </div>
         <ul className="tables-grid">
           {list.map(table => <TableItem key={table.id} table={table} subdomain={restaurant.subdomain} mutations={mutations}
-            onRegenerate={() => setConfirm({ kind: 'code', table })} onDelete={() => setConfirm({ kind: 'delete', table })} />)}
+            occupied={table.isActive ? floor.data?.find(entry => entry.id === table.id)?.occupied : undefined}
+            onLayout={() => setLayoutId(table.id)} onRegenerate={() => setConfirm({ kind: 'code', table })} onDelete={() => setConfirm({ kind: 'delete', table })} />)}
         </ul>
       </section>}
 
     <AddTableDialog open={adding === 'one'} onClose={() => setAdding(null)} />
     <AddRangeDialog open={adding === 'range'} onClose={() => setAdding(null)} existing={list.length} />
+    <TableLayoutDialog table={list.find(table => table.id === layoutId) ?? null} onClose={() => setLayoutId(null)} />
     <ConfirmDialog open={confirm !== null} busy={busy} onCancel={() => setConfirm(null)}
       title={confirm?.kind === 'code' ? text(`كود جديد لـ«${confirm.table.label}»؟`, `New code for “${confirm?.table.label}”?`) : text(`امسح «${confirm?.table.label ?? ''}»؟`, `Delete “${confirm?.table.label ?? ''}”?`)}
       description={confirm?.kind === 'code'

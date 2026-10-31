@@ -7,17 +7,18 @@ import { useRestaurantQuery } from '../../features/restaurant/queries';
 import { OwnerLayout } from '../../layouts/OwnerLayout';
 import { Splash } from '../providers/SessionBootstrap';
 
-/** Where each role lands after signing in: administrators have their own console. */
+/** Where each role lands after signing in: administrators and kitchen screens have their own area. */
 export function roleHome(role: UserRole): string {
-  return role === 'ADMIN' ? '/admin' : '/';
+  return role === 'ADMIN' ? '/admin' : role === 'KITCHEN' ? '/kitchen' : '/';
 }
 
-const isAdminPath = (path: string) => path === '/admin' || path.startsWith('/admin/');
+const within = (path: string, area: string) => path === area || path.startsWith(`${area}/`);
+const pathRole = (path: string): UserRole => (within(path, '/admin') ? 'ADMIN' : within(path, '/kitchen') ? 'KITCHEN' : 'OWNER');
 
 /** Only same-app paths for the signed-in role are accepted as a post-login destination. */
 export function safeNext(value: string | null, role: UserRole = 'OWNER'): string {
   if (!value || !value.startsWith('/') || value.startsWith('//')) return roleHome(role);
-  return isAdminPath(value) === (role === 'ADMIN') ? value : roleHome(role);
+  return pathRole(value) === role ? value : roleHome(role);
 }
 
 /** Sends a signed-out visitor to `login`, coming back to the current page afterwards. */
@@ -27,12 +28,21 @@ function ToLogin({ login, home, expired }: { login: string; home: string; expire
   return <Navigate to={next === home ? login : `${login}?next=${encodeURIComponent(next)}`} replace state={{ expired }} />;
 }
 
-/** Signed-in owners only; others go to the login page and come back afterwards. Administrators go to their console. */
+/** Signed-in owners only; others go to the login page and come back afterwards. Administrators and kitchen screens go to their own area. */
 export function RequireAuth() {
   const session = useSession();
   if (session.status === 'loading') return <Splash />;
   if (session.status === 'anonymous') return <ToLogin login="/login" home="/" expired={session.reason === 'expired'} />;
-  if (session.user.role === 'ADMIN') return <Navigate to="/admin" replace />;
+  if (session.user.role !== 'OWNER') return <Navigate to={roleHome(session.user.role)} replace />;
+  return <Outlet />;
+}
+
+/** The kitchen screen: kitchen accounts only. They sign in on the owners' login page. */
+export function RequireKitchen() {
+  const session = useSession();
+  if (session.status === 'loading') return <Splash />;
+  if (session.status === 'anonymous') return <ToLogin login="/login" home="/kitchen" expired={session.reason === 'expired'} />;
+  if (session.user.role !== 'KITCHEN') return <Navigate to={roleHome(session.user.role)} replace />;
   return <Outlet />;
 }
 
@@ -41,7 +51,7 @@ export function RequireAdmin() {
   const session = useSession();
   if (session.status === 'loading') return <Splash />;
   if (session.status === 'anonymous') return <ToLogin login="/admin/login" home="/admin" expired={session.reason === 'expired'} />;
-  if (session.user.role !== 'ADMIN') return <Navigate to="/" replace />;
+  if (session.user.role !== 'ADMIN') return <Navigate to={roleHome(session.user.role)} replace />;
   return <Outlet />;
 }
 

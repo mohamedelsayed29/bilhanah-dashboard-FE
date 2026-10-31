@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { DesktopIcon, DeviceMobileIcon, SignOutIcon } from '@phosphor-icons/react';
@@ -7,6 +6,7 @@ import { AUTH_ERROR_CODES, type AuthSession, type Language, passwordSchema } fro
 import { z } from 'zod';
 import { Alert } from '../../../components/Alert';
 import { Button } from '../../../components/Button';
+import { useSignOut } from '../../../components/SignOutDialog';
 import { ErrorPanel } from '../../../components/ErrorBoundary';
 import { Field } from '../../../components/Field';
 import { PasswordInput } from '../../../components/PasswordInput';
@@ -39,6 +39,7 @@ export function AccountSettings() {
   usePageTitle('الحساب والأمان', 'Account and security');
   const session = useSession();
   const user = session.status === 'authenticated' ? session.user : null;
+  const signOut = useSignOut();
   return <div className="settings-grid">
     <div className="settings-main">
       <ChangePassword />
@@ -51,7 +52,8 @@ export function AccountSettings() {
         <div><dt>{text('الإيميل', 'Email')}</dt><dd className="ltr">{user?.email}</dd></div>
       </dl>
       {user && <EmailLanguage current={user.preferredLanguage} />}
-      <Link to="/logout" className="button button-secondary button-block"><SignOutIcon size={18} className="directional" aria-hidden="true" />{text('خروج من الجهاز ده', 'Sign out of this device')}</Link>
+      <Button variant="secondary" className="button-block" onClick={signOut.ask} icon={<SignOutIcon size={18} className="directional" aria-hidden="true" />}>{text('خروج من الجهاز ده', 'Sign out of this device')}</Button>
+      {signOut.dialog}
     </aside>
   </div>;
 }
@@ -163,6 +165,7 @@ function SessionRow({ session }: { session: AuthSession }) {
     },
     onError: error => toast.error(errorMessage(error, text)),
   });
+  const signOut = useSignOut();
   const Icon = device.mobile ? DeviceMobileIcon : DesktopIcon;
   const name = device.label || text('جهاز غير معروف', 'Unknown device');
   return <li className="session-row" data-testid="session-row">
@@ -175,7 +178,7 @@ function SessionRow({ session }: { session: AuthSession }) {
       </small>
     </div>
     {session.current
-      ? <Link to="/logout" className="button button-ghost button-small">{text('خروج', 'Sign out')}</Link>
+      ? <><Button variant="ghost" small onClick={signOut.ask}>{text('خروج', 'Sign out')}</Button>{signOut.dialog}</>
       : <Button variant="danger-outline" small loading={revoke.isPending} onClick={() => revoke.mutate()} aria-label={text(`خرّج ${name}`, `Sign out ${name}`)}>{text('خرّجه', 'Sign out')}</Button>}
   </li>;
 }

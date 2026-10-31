@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ReceiptIcon, XCircleIcon } from '@phosphor-icons/react';
+import { CalendarBlankIcon, ReceiptIcon, SparkleIcon, XCircleIcon } from '@phosphor-icons/react';
 import { BILLING_ERROR_CODES, type BillingSummary, type OwnerPayment, type OwnerRestaurant, type RestaurantAccess } from '@bilhanah/contracts';
 import { Alert } from '../../../components/Alert';
 import { Button } from '../../../components/Button';
@@ -78,20 +78,24 @@ export function SubscriptionPage() {
   </div>;
 }
 
+/** The current plan as a deep-teal banner: name and status, when it ends, and the days left in a ring. */
 function StatusCard({ access }: { access: RestaurantAccess }) {
-  const { text, count, language } = useLanguage();
+  const { text, number, language } = useLanguage();
   const days = accessDaysLeft(access);
   const end = access.status === 'TRIAL' ? access.trialEndsAt : access.status === 'PAID' ? access.currentPeriodEndsAt : null;
-  return <Section id="status-title" title={text('اشتراكك الحالي', 'Your current plan')} actions={<span className={`plan-status access-${access.status.toLowerCase()}`}>{accessStatusName(access.status, text)}</span>}
-    data-testid="subscription-status">
-    <div className="status-panel">
-      <div className="status-panel-main">
+  return <>
+    <section className={`plan-hero access-${access.status.toLowerCase()}`} aria-labelledby="status-title" data-testid="subscription-status">
+      <div className="plan-hero-main">
+        <div className="plan-hero-top">
+          <h2 id="status-title"><SparkleIcon size={15} weight="fill" aria-hidden="true" />{text('اشتراكك الحالي', 'Your current plan')}</h2>
+          <span className={`plan-status access-${access.status.toLowerCase()}`}>{accessStatusName(access.status, text)}</span>
+        </div>
         <p className="status-plan">{access.planCode ? planName(access.planCode, text) : text('من غير باقة', 'No plan')}</p>
-        {end && <p className="muted">{access.status === 'TRIAL' ? text('التجربة المجانية بتنتهي يوم', 'Your free trial ends on') : text('الاشتراك ساري لحد', 'Active until')} <strong className="status-date">{formatDate(end, language, { dateStyle: 'long' })}</strong></p>}
-        {access.status === 'TRIAL' && <p className="muted">{text('تقدر تدفع دلوقتي؛ المدة المدفوعة بتبدأ بعد ما التجربة تخلص، فمش هتخسر ولا يوم.', 'You can pay now: the paid period starts when your trial ends, so you keep every trial day.')}</p>}
+        {end && <p className="plan-hero-date"><CalendarBlankIcon size={16} aria-hidden="true" />{access.status === 'TRIAL' ? text('التجربة المجانية بتنتهي يوم', 'Your free trial ends on') : text('الاشتراك ساري لحد', 'Active until')} <strong className="status-date">{formatDate(end, language, { dateStyle: 'long' })}</strong></p>}
+        {access.status === 'TRIAL' && <p className="plan-hero-note">{text('تقدر تدفع دلوقتي؛ المدة المدفوعة بتبدأ بعد ما التجربة تخلص، فمش هتخسر ولا يوم.', 'You can pay now: the paid period starts when your trial ends, so you keep every trial day.')}</p>}
       </div>
-      {days !== null && <p className="status-days"><strong>{count(days, 'day')}</strong>{text(days === 1 ? 'فاضل' : 'فاضلين', 'left')}</p>}
-    </div>
+      {days !== null && <p className="plan-hero-days"><strong>{number(days)}</strong><span>{text(days >= 3 && days <= 10 ? 'أيام فاضلة' : 'يوم فاضل', days === 1 ? 'day left' : 'days left')}</span></p>}
+    </section>
     {access.status === 'INACTIVE' && <Alert kind="warning" live={false} title={text('المنيو العام متوقف مؤقتًا', 'Your public menu is paused')}>
       {text('اشتراكك مش فعّال، فالزباين بيشوفوا إن المنيو "مش متاح مؤقتًا". كل بياناتك محفوظة وتقدر تكمّل تعديل المنيو، وأول ما الدفع يتراجع المنيو يرجع يظهر على طول.',
         'Your subscription isn’t active, so diners see the menu as “temporarily unavailable”. All your data is kept and you can keep editing; the menu goes live again as soon as your payment is approved.')}
@@ -99,7 +103,7 @@ function StatusCard({ access }: { access: RestaurantAccess }) {
     {access.status === 'SUSPENDED' && <Alert kind="error" live={false} title={text('المطعم موقوف', 'Your restaurant is suspended')}>
       {text('المنيو العام مش ظاهر والتعديل متوقف، وبياناتك محفوظة. تواصل مع دعم بالهنا.', 'The public menu is hidden and editing is paused; your data is kept. Please contact Bilhanah support.')}
     </Alert>}
-  </Section>;
+  </>;
 }
 
 /** Facts of a payment as a description list. */

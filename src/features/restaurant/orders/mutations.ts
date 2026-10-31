@@ -7,7 +7,7 @@ import { errorMessage } from '../../../lib/api/error-messages';
 import { useLanguage } from '../../../lib/language';
 import { queryKeys } from '../queries';
 import { isActiveStatus, upsertOrder, withStatus } from './board';
-import { actionDone } from './labels';
+import { actionDone, orderNo } from './labels';
 
 /** Orders never move back to PLACED. */
 export type NextStatus = Exclude<OrderStatus, 'PLACED'>;
@@ -61,6 +61,26 @@ export function useOrdersPause() {
       toast.success(restaurant.ordering.paused
         ? text('وقّفنا استقبال الطلبات مؤقتًا', 'New orders are paused')
         : text('رجعنا نستقبل طلبات', 'Taking orders again'));
+    },
+    onError: error => toast.error(errorMessage(error, text)),
+  });
+}
+
+/** Marks an order's bill paid (or undoes it); a dine-in table frees up once all its orders are paid. */
+export function useOrderPayment() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const { text, number } = useLanguage();
+  return useMutation({
+    mutationFn: ({ order, paid }: { order: OwnerOrder; paid: boolean }) => ordersApi.setPaid(order.id, paid),
+    onSuccess: saved => {
+      queryClient.setQueryData<OwnerOrder[]>(queryKeys.board, current => (current ? upsertOrder(current, saved) : current));
+      queryClient.setQueryData(queryKeys.order(saved.id), saved);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.floor });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.orderHistoryAll });
+      toast.success(saved.paidAt
+        ? text(`طلب ${orderNo(saved.number, number)} اتدفع`, `Order #${saved.number} marked paid`)
+        : text(`طلب ${orderNo(saved.number, number)} رجع مش مدفوع`, `Order #${saved.number} marked unpaid`));
     },
     onError: error => toast.error(errorMessage(error, text)),
   });

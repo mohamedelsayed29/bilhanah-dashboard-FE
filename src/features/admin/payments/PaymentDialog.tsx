@@ -72,7 +72,7 @@ function PaymentView({ payment }: { payment: AdminPayment }) {
         <div><dt>{text('المدة', 'Length')}</dt><dd>{monthsLabel(payment.months, text, number)}</dd></div>
         <div><dt>{text('طريقة الدفع', 'Method')}</dt><dd>{methodName(payment.method, text)}</dd></div>
         <div><dt>{text('رقم العملية', 'Reference')}</dt><dd className="fact-copy"><span className="ltr">{payment.reference}</span>
-          <CopyButton variant="ghost" value={payment.reference} label={text('نسخ', 'Copy')} copiedMessage={text('اتنسخ', 'Copied')} ariaLabel={text('انسخ رقم العملية', 'Copy the reference')} /></dd></div>
+          <CopyButton variant="ghost" value={payment.reference} label={text('نسخ', 'Copy')} copiedMessage={text('اتنسخ', 'Copied')} ariaLabel={text('نسخ رقم العملية', 'Copy the reference')} /></dd></div>
         {!isOnlinePayment(payment) && <div><dt>{text('اسم المحوّل', 'Paid by')}</dt><dd>{payment.payerName ?? <span className="muted">—</span>}</dd></div>}
         <div><dt>{isOnlinePayment(payment) ? text('بدأ يوم', 'Started') : text('اتبعت يوم', 'Submitted')}</dt><dd>{formatDate(payment.createdAt, language, { dateStyle: 'medium', timeStyle: 'short' })}</dd></div>
       </dl>

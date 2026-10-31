@@ -1,8 +1,9 @@
 import { Outlet, useLocation } from 'react-router';
-import { CheckIcon, ShieldCheckIcon } from '@phosphor-icons/react';
+import { ArrowRightIcon, CheckIcon, ShieldCheckIcon } from '@phosphor-icons/react';
 import { Brand } from '../components/Brand';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { LanguageToggle } from '../components/LanguageToggle';
+import { SITE_URL } from '../lib/config';
 import { useLanguage } from '../lib/language';
 import { useRouteFocus } from '../lib/use-route-focus';
 
@@ -15,7 +16,7 @@ export function AuthLayout({ wide = false, variant = 'owner' }: { wide?: boolean
   return <div className={`auth-shell ${wide ? 'auth-shell-wide' : ''} ${admin ? 'auth-shell-admin' : ''}`}>
     <a className="skip-link" href="#main-content">{text('انتقل للمحتوى', 'Skip to content')}</a>
     <aside className="auth-visual" aria-hidden="true">
-      <img className="auth-photo" src="/media/auth-food.jpg" alt="" width="1280" height="720" />
+      <img className="auth-photo" src="/media/auth-restaurant.jpg" alt="" width="1600" height="1066" />
       <div className="auth-visual-inner">
         <img className="auth-visual-logo" src="/brand/bilhanah-logo-light.svg" alt="" width="1507" height="479" />
         {admin ? <div className="auth-visual-copy">
@@ -38,7 +39,10 @@ export function AuthLayout({ wide = false, variant = 'owner' }: { wide?: boolean
     </aside>
     <div className="auth-main">
       <header className="auth-header">
-        <Brand to={admin ? '/admin/login' : wide ? '/onboarding' : '/login'} />
+        <div className="auth-header-start">
+          <a href={SITE_URL} className="auth-back"><ArrowRightIcon size={16} weight="bold" className="directional" aria-hidden="true" /><span className="auth-back-label">{text('الرئيسية', 'Home')}</span></a>
+          <Brand to={admin ? '/admin/login' : wide ? '/onboarding' : '/login'} />
+        </div>
         <LanguageToggle />
       </header>
       <main id="main-content" tabIndex={-1} className="auth-content">
@@ -46,7 +50,7 @@ export function AuthLayout({ wide = false, variant = 'owner' }: { wide?: boolean
       </main>
       <footer className="auth-footer">
         <span>© {number(new Date().getFullYear(), { useGrouping: false })} {text('بالهنا', 'Bilhanah')}</span>
-        <a href="https://bilhanah.com" className="link-muted">{text('الموقع الرئيسي', 'Website')}</a>
+        <a href={SITE_URL} className="link-muted">{text('الموقع الرئيسي', 'Website')}</a>
       </footer>
     </div>
   </div>;
