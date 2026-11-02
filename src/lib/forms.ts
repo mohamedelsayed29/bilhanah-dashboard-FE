@@ -1,6 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { FieldError, FieldValues, Resolver } from 'react-hook-form';
 import type { z } from 'zod';
+import { ar } from '../locales/ar/translation';
+import { en } from '../locales/en/translation';
 
 type Text = (ar: string, en: string) => string;
 
@@ -36,6 +38,7 @@ export function schemaResolver<Schema extends z.ZodType<FieldValues, FieldValues
 /** Messages that contract schemas set themselves (they bypass the error map). */
 const KNOWN_MESSAGES: Record<string, [string, string]> = {
   'Enter a valid phone number.': ['اكتب رقم موبايل صحيح.', 'Enter a valid phone number.'],
+  'Use 2–40 lowercase letters, digits and single hyphens.': [ar.branchForm.slugInvalid, en.branchForm.slugInvalid],
   'Use 3–40 lowercase letters, digits and single hyphens.': ['استخدم من ٣ لـ ٤٠ حرف إنجليزي صغير أو رقم، وشرطة واحدة بينهم.', 'Use 3–40 lowercase letters, digits and single hyphens.'],
   'This address is reserved. Please choose another.': ['العنوان ده محجوز. اختار عنوان تاني.', 'This address is reserved. Please choose another.'],
   'Use 24-hour HH:MM.': ['اكتب الوقت بصيغة ٢٤ ساعة.', 'Use 24-hour HH:MM.'],

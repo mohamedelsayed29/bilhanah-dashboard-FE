@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type React from 'react';
 import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeftIcon, CheckCircleIcon, ClockIcon, UserIcon } from '@phosphor-icons/react';
@@ -15,14 +16,16 @@ import { useLanguage } from '../../../lib/language';
 import { minutesSince } from '../orders/board';
 import { elapsedLabel, OrderNo, OrderStatusBadge } from '../orders/labels';
 import { useNow } from '../orders/OrderCard';
+import { useWorkspace } from '../../branches/workspace';
 import { queryKeys } from '../queries';
 import { TableGraphic } from './TableGraphic';
 
 /** Live events refresh the floor; this catches tables whose unpaid orders aged out. */
 const REFRESH_MS = 60_000;
 
-export function useFloorQuery(enabled = true) {
-  return useQuery({ queryKey: queryKeys.floor, queryFn: ordersApi.floor, enabled, refetchInterval: REFRESH_MS, staleTime: 10_000 });
+/** One branch's tables and who is sitting at them. */
+export function useFloorQuery(branchId: string, enabled = true) {
+  return useQuery({ queryKey: queryKeys.floor(branchId), queryFn: () => ordersApi.floor(branchId), enabled, refetchInterval: REFRESH_MS, staleTime: 10_000 });
 }
 
 /**
@@ -30,9 +33,10 @@ export function useFloorQuery(enabled = true) {
  * A table with an unpaid order has guests (blue), the rest are free (white). Opening an
  * occupied table shows its bill and frees it once paid.
  */
-export function TablesFloor() {
+export function TablesFloor({ branchId, title, picker }: { branchId: string; title?: string; picker?: React.ReactNode }) {
   const { text, count, number, language } = useLanguage();
-  const floor = useFloorQuery();
+  const { to } = useWorkspace();
+  const floor = useFloorQuery(branchId);
   const [openId, setOpenId] = useState<string | null>(null);
   const now = useNow();
 
@@ -44,7 +48,7 @@ export function TablesFloor() {
   return <section className="card floor" aria-labelledby="floor-title" data-testid="tables-floor">
     <header className="floor-head">
       <div>
-        <h2 id="floor-title">{text('حالة الترابيزات', 'Tables now')}</h2>
+        <h2 id="floor-title">{title ?? text('حالة الترابيزات', 'Tables now')}</h2>
         <p>{text('الترابيزة اللي عليها طلب لسه مدفعش تبان مشغولة.', 'A table with an unpaid order shows as occupied.')}</p>
       </div>
       {tables.length > 0 && <ul className="floor-legend" aria-label={text('الملخص', 'Summary')}>
@@ -53,12 +57,13 @@ export function TablesFloor() {
         {occupied > 0 && <li className="is-seats"><UserIcon size={13} weight="bold" aria-hidden="true" />{text(`كراسي مشغولة: ${number(seated)}`, `${seated} seats taken`)}</li>}
       </ul>}
     </header>
+    {picker}
 
     {floor.isPending && <div className="floor-plan" aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <Skeleton key={index} width={96} height={96} />)}</div>}
     {floor.isError && <ErrorPanel error={floor.error} onRetry={() => void floor.refetch()} />}
     {floor.data && tables.length === 0 && <div className="floor-empty">
       <p>{text('ضيف طاولاتك واطبع أكوادها، وهتشوف هنا مين عليها ناس.', 'Add your tables and print their codes to see which ones have guests.')}</p>
-      <Link className="link-action" to="/tables">{text('ضيف طاولات', 'Add tables')}<ArrowLeftIcon size={14} className="directional" aria-hidden="true" /></Link>
+      <Link className="link-action" to={to('/tables')}>{text('ضيف طاولات', 'Add tables')}<ArrowLeftIcon size={14} className="directional" aria-hidden="true" /></Link>
     </div>}
     {tables.length > 0 && <ul className="floor-plan">
       {tables.map(table => <li key={table.id}>
@@ -81,20 +86,20 @@ export function TablesFloor() {
       </li>)}
     </ul>}
 
-    <TableBillDialog table={selected} onClose={() => setOpenId(null)} />
+    <TableBillDialog branchId={branchId} table={selected} onClose={() => setOpenId(null)} />
   </section>;
 }
 
 /** An occupied table's open orders and the button that frees it once the guests paid. */
-function TableBillDialog({ table, onClose }: { table: TableOccupancy | null; onClose: () => void }) {
+function TableBillDialog({ branchId, table, onClose }: { branchId: string; table: TableOccupancy | null; onClose: () => void }) {
   const { text, language } = useLanguage();
   const queryClient = useQueryClient();
   const toast = useToast();
   const settle = useMutation({
     mutationFn: (tableId: string) => ordersApi.settleTable(tableId),
     onSuccess: floor => {
-      queryClient.setQueryData(queryKeys.floor, floor);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.board });
+      queryClient.setQueryData(queryKeys.floor(branchId), floor);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.boards });
       void queryClient.invalidateQueries({ queryKey: queryKeys.orderHistoryAll });
       toast.success(text(`«${table?.label}» اتدفع حسابها وبقت فاضية`, `“${table?.label}” is paid and free`));
       onClose();

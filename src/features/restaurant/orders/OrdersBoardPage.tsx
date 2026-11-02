@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router';
 import { CheckCircleIcon, CookingPotIcon, type Icon, LockIcon, PowerIcon, ReceiptIcon, SpeakerHighIcon, SpeakerSlashIcon } from '@phosphor-icons/react';
-import type { OrderStatus, OwnerOrder } from '@bilhanah/contracts';
+import type { OrderStatus, OwnerBranch, OwnerOrder } from '@bilhanah/contracts';
 import { Alert } from '../../../components/Alert';
 import { Button } from '../../../components/Button';
 import { ErrorPanel } from '../../../components/ErrorBoundary';
 import { PageHeader } from '../../../components/PageHeader';
 import { Skeleton } from '../../../components/Skeleton';
 import { Switch } from '../../../components/Switch';
+import { fill, useCopy } from '../../../lib/copy';
 import { formatPrice } from '../../../lib/format';
 import { useLanguage, usePageTitle } from '../../../lib/language';
 import type { ConnectionState } from '../../../lib/realtime/owner-realtime';
-import { useRestaurant } from '../queries';
+import { useBranchScope } from '../../branches/BranchScope';
+import { useBranchList, useWorkspace } from '../../branches/workspace';
 import { COLUMNS, groupByColumn, needsReason, type Column } from './board';
 import { useBoardQuery, useOrdersLive } from './live';
 import { useOrderPayment, useOrdersPause, useOrderStatus } from './mutations';
@@ -27,10 +29,37 @@ const COLUMN_TEXT: Record<Column, { ar: string; en: string; emptyAr: string; emp
 /** Live board / history switch shared by both order pages. */
 export function OrdersTabs() {
   const { text } = useLanguage();
+  const { to } = useWorkspace();
   return <nav className="tabs" aria-label={text('أقسام الطلبات', 'Order sections')}>
-    <NavLink to="/orders" end className="tab">{text('اللوحة المباشرة', 'Live board')}</NavLink>
-    <NavLink to="/orders/history" className="tab">{text('الطلبات السابقة', 'History')}</NavLink>
+    <NavLink to={to('/orders')} end className="tab">{text('اللوحة المباشرة', 'Live board')}</NavLink>
+    <NavLink to={to('/orders/history')} className="tab">{text('الطلبات السابقة', 'History')}</NavLink>
   </nav>;
+}
+
+/**
+ * The branches a board shows and their ordering switches together: one branch when one is
+ * selected (or the restaurant has one), otherwise every active branch.
+ */
+export function useBoardBranches() {
+  const scope = useBranchScope();
+  const list = useBranchList();
+  const shown: OwnerBranch[] = scope.branch
+    ? list.branches.filter(branch => branch.id === scope.branch!.id)
+    : list.branches.filter(branch => branch.isActive);
+  const one = shown.length === 1 ? shown[0]! : null;
+  return {
+    scope: scope.selected,
+    /** The restaurant has several active branches (whatever is selected). */
+    multiRestaurant: list.branches.filter(branch => branch.isActive).length > 1,
+    shown,
+    /** The single branch on the board, or null for several. */
+    one,
+    /** Show which branch each order is for. */
+    labelled: shown.length > 1,
+    included: (shown[0] ?? list.branches[0])?.ordering.included ?? false,
+    enabled: shown.some(branch => branch.ordering.enabled),
+    paused: shown.filter(branch => branch.ordering.enabled && branch.ordering.paused),
+  };
 }
 
 export function ConnectionPill({ state }: { state: ConnectionState }) {
@@ -44,11 +73,13 @@ export function ConnectionPill({ state }: { state: ConnectionState }) {
 
 export function OrdersBoardPage() {
   const { text, number, count, language } = useLanguage();
+  const t = useCopy();
   usePageTitle('الطلبات', 'Orders');
-  const restaurant = useRestaurant();
-  const { ordering } = restaurant;
+  const workspace = useWorkspace();
+  const branches = useBoardBranches();
+  const { one, included, enabled } = branches;
   const live = useOrdersLive();
-  const board = useBoardQuery(ordering.included);
+  const board = useBoardQuery(branches.scope, included);
   const [announcement, setAnnouncement] = useState('');
   const status = useOrderStatus({ announce: setAnnouncement });
   const payment = useOrderPayment();
@@ -57,6 +88,10 @@ export function OrdersBoardPage() {
   const [closing, setClosing] = useState<{ order: OwnerOrder; status: 'REJECTED' | 'CANCELLED' } | null>(null);
   const [column, setColumn] = useState<Column>('new');
   const { markSeen, unseen } = live;
+  const owner = workspace.role === 'OWNER';
+  const { multiRestaurant } = branches;
+  // Single-branch owners keep the restaurant's ordering settings; otherwise each branch has its own.
+  const settingsPath = one ? (owner && !multiRestaurant ? '/settings/ordering' : workspace.branchSettings(one.id)) : owner ? '/branches' : '/manager/settings';
 
   // Touching the board (click or key) counts as having seen the new orders.
   useEffect(() => {
@@ -76,40 +111,45 @@ export function OrdersBoardPage() {
   };
 
   const header = <PageHeader title={text('الطلبات', 'Orders')}
-    actions={ordering.included && ordering.enabled ? <ConnectionPill state={live.connection} /> : undefined} />;
+    description={one && multiRestaurant ? fill(t.scope.showing, { name: one.name }) : undefined}
+    actions={included && enabled ? <ConnectionPill state={live.connection} /> : undefined} />;
 
-  if (!ordering.included) {
+  if (!included) {
     return <div className="page orders-page">
       {header}
       <section className="card empty-state upsell-card" aria-labelledby="upsell-title">
         <span className="empty-state-icon" aria-hidden="true"><LockIcon size={30} /></span>
         <h2 id="upsell-title">{text('استقبل الطلبات من الموبايل', 'Take orders from diners’ phones')}</h2>
-        <p>{text('باقتك الحالية فيها المنيو بس. اشترك في باقة «منيو وطلبات» عشان الزباين يطلبوا من الترابيزة أو تيك أواي، والطلبات توصلك هنا لحظة بلحظة.',
-          'Your current plan includes the menu only. Choose the “Menu & Orders” plan so diners can order from their table or for pickup, with orders arriving here live.')}</p>
-        <Link className="button button-primary" to="/subscription">{text('شوف الباقات', 'See plans')}</Link>
+        {owner
+          ? <><p>{text('باقتك الحالية فيها المنيو بس. اشترك في باقة «منيو وطلبات» عشان الزباين يطلبوا من الترابيزة أو تيك أواي، والطلبات توصلك هنا لحظة بلحظة.',
+            'Your current plan includes the menu only. Choose the “Menu & Orders” plan so diners can order from their table or for pickup, with orders arriving here live.')}</p>
+            <Link className="button button-primary" to="/subscription">{text('شوف الباقات', 'See plans')}</Link></>
+          : <p>{t.manager.planNoOrdering}</p>}
       </section>
     </div>;
   }
 
   const orders = board.data ?? [];
   const columns = groupByColumn(orders);
-  const soundPrompt = ordering.enabled && live.sound.on && live.sound.audio === 'locked';
+  const soundPrompt = enabled && live.sound.on && live.sound.audio === 'locked';
 
   return <div className="page orders-page">
     {header}
     <OrdersTabs />
-    {!ordering.enabled && <section className="card empty-state upsell-card" aria-labelledby="enable-title">
+    {!enabled && <section className="card empty-state upsell-card" aria-labelledby="enable-title">
       <span className="empty-state-icon" aria-hidden="true"><PowerIcon size={30} /></span>
-      <h2 id="enable-title">{text('شغّل الطلبات', 'Turn on ordering')}</h2>
+      <h2 id="enable-title">{one && multiRestaurant ? fill(t.ordersBranch.offTitle, { name: one.name }) : branches.shown.length > 1 ? t.ordersBranch.allOffTitle : text('شغّل الطلبات', 'Turn on ordering')}</h2>
       <p>{text('باقتك فيها الطلبات، بس لسه مش متشغّلة. شغّلها واختار صالة ولا تيك أواي، والزباين هيلاقوا زرار الطلب في المنيو.',
         'Your plan includes ordering, but it is switched off. Turn it on and choose dine-in and/or pickup; diners then see an order button on your menu.')}</p>
-      <Link className="button button-primary" to="/settings/ordering">{text('إعدادات الطلبات', 'Ordering settings')}</Link>
+      <Link className="button button-primary" to={settingsPath}>{one && (multiRestaurant || !owner) ? t.ordersBranch.branchSettings : text('إعدادات الطلبات', 'Ordering settings')}</Link>
     </section>}
 
-    {ordering.enabled && <div className="board-toolbar">
-      <Switch className="board-pause" checked={!ordering.paused} disabled={pause.isPending} onChange={accepting => pause.mutate(!accepting)}
-        label={ordering.paused ? text('الطلبات واقفة مؤقتًا', 'Orders paused') : text('بنستقبل طلبات', 'Taking orders')}
-        description={ordering.paused ? text('الزباين شايفين إنك مش بتستقبل طلبات دلوقتي.', 'Diners see that you are not taking orders right now.') : text('وقّفها مؤقتًا لو المطبخ زحمة.', 'Pause for a while if the kitchen is busy.')} />
+    {enabled && <div className="board-toolbar">
+      {one
+        ? <Switch className="board-pause" checked={!one.ordering.paused} disabled={pause.isPending} onChange={accepting => pause.mutate({ branchId: one.id, paused: !accepting })}
+          label={one.ordering.paused ? text('الطلبات واقفة مؤقتًا', 'Orders paused') : text('بنستقبل طلبات', 'Taking orders')}
+          description={one.ordering.paused ? text('الزباين شايفين إنك مش بتستقبل طلبات دلوقتي.', 'Diners see that you are not taking orders right now.') : text('وقّفها مؤقتًا لو المطبخ زحمة.', 'Pause for a while if the kitchen is busy.')} />
+        : <p className="board-scope-hint">{t.ordersBranch.allHint}</p>}
       <div className="board-sound">
         {soundPrompt && <p className="sound-locked" role="status">
           <span>{text('الصوت مقفول لحد ما تلمس الصفحة', 'Sound is off until you tap the page')}</span>
@@ -123,9 +163,14 @@ export function OrdersBoardPage() {
       </div>
     </div>}
 
-    {ordering.enabled && ordering.paused && <Alert kind="warning" title={text('استقبال الطلبات واقف مؤقتًا', 'New orders are paused')}
-      actions={<Button small variant="secondary" loading={pause.isPending} onClick={() => pause.mutate(false)}>{text('ارجع استقبل طلبات', 'Resume orders')}</Button>}>
+    {enabled && one && one.ordering.paused && <Alert kind="warning" title={text('استقبال الطلبات واقف مؤقتًا', 'New orders are paused')}
+      actions={<Button small variant="secondary" loading={pause.isPending} onClick={() => pause.mutate({ branchId: one.id, paused: false })}>{text('ارجع استقبل طلبات', 'Resume orders')}</Button>}>
       {text('الطلبات اللي على اللوحة كمّل فيها عادي، بس مفيش طلبات جديدة هتوصل.', 'Keep working on the orders below; no new ones can be placed.')}
+    </Alert>}
+    {enabled && !one && branches.paused.length > 0 && <Alert kind="warning" title={fill(t.ordersBranch.pausedAt, { names: branches.paused.map(branch => branch.name).join(text('، ', ', ')) })}
+      actions={branches.paused.map(branch => <Button key={branch.id} small variant="secondary" loading={pause.isPending && pause.variables?.branchId === branch.id}
+        onClick={() => pause.mutate({ branchId: branch.id, paused: false })}>{fill(t.ordersBranch.resume, { name: branch.name })}</Button>)}>
+      {t.ordersBranch.pausedAtBody}
     </Alert>}
 
     {board.isError && <ErrorPanel error={board.error} onRetry={() => void board.refetch()} />}
@@ -133,7 +178,7 @@ export function OrdersBoardPage() {
       {COLUMNS.map(key => <div className="board-column" key={key}><Skeleton height={24} width="40%" /><Skeleton height={200} radius={14} /></div>)}
     </div>}
 
-    {board.data && (ordering.enabled || orders.length > 0) && <>
+    {board.data && (enabled || orders.length > 0) && <>
       <div className="board-switch segmented" role="group" aria-label={text('اختار العمود', 'Choose a column')}>
         {COLUMNS.map(key => <button type="button" key={key} aria-pressed={column === key} onClick={() => setColumn(key)}>
           {text(COLUMN_TEXT[key].ar, COLUMN_TEXT[key].en)}
@@ -153,7 +198,8 @@ export function OrdersBoardPage() {
             {columns[key].length === 0
               ? <div className="board-empty"><EmptyIcon size={22} aria-hidden="true" /><p>{text(COLUMN_TEXT[key].emptyAr, COLUMN_TEXT[key].emptyEn)}</p></div>
               : <div className="board-cards">
-                {columns[key].map(order => <OrderCard key={order.id} order={order} now={now} isNew={live.unseen.has(order.id)} onAction={act} onPaid={paid => payment.mutate({ order: paid, paid: true })} />)}
+                {columns[key].map(order => <OrderCard key={order.id} order={order} now={now} isNew={live.unseen.has(order.id)} showBranch={branches.labelled}
+                  onAction={act} onPaid={paid => payment.mutate({ order: paid, paid: true })} />)}
               </div>}
           </section>;
         })}

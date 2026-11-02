@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { ClockIcon, CookingPotIcon, PaintBrushBroadIcon, ReceiptIcon, ShieldCheckIcon, StorefrontIcon } from '@phosphor-icons/react';
 import { PageHeader } from '../../../components/PageHeader';
+import { useCopy } from '../../../lib/copy';
 import { useLanguage } from '../../../lib/language';
 
 /** Scrolls a sideways tab strip so its current tab is fully visible, in either reading direction. */
@@ -16,6 +17,7 @@ export function scrollTabIntoView(strip: HTMLElement | null) {
 
 export function SettingsLayout() {
   const { text } = useLanguage();
+  const t = useCopy();
   const { pathname } = useLocation();
   const nav = useRef<HTMLElement>(null);
   // On phones the section list scrolls sideways; keep the current one in view.
@@ -26,7 +28,7 @@ export function SettingsLayout() {
     { to: '/settings/branding', icon: PaintBrushBroadIcon, label: text('الشكل والألوان', 'Branding'), hint: text('اللوجو والغلاف واللون', 'Logo, cover and colour') },
     { to: '/settings/hours', icon: ClockIcon, label: text('مواعيد الشغل', 'Opening hours'), hint: text('أيام وساعات الفتح', 'Days and hours you open') },
     { to: '/settings/ordering', icon: ReceiptIcon, label: text('الطلبات', 'Ordering'), hint: text('الصالة والتيك أواي', 'Dine-in and pickup') },
-    { to: '/settings/kitchen', icon: CookingPotIcon, label: text('المطبخ', 'Kitchen'), hint: text('حسابات شاشة المطبخ', 'Kitchen screen accounts') },
+    { to: '/settings/kitchen', icon: CookingPotIcon, label: t.settingsBranches.teamLabel, hint: t.settingsBranches.teamHint },
     { to: '/settings/account', icon: ShieldCheckIcon, label: text('الحساب والأمان', 'Account'), hint: text('كلمة السر والأجهزة', 'Password and devices') },
   ];
   // Each section is a row: an icon tile, its name, and a one-line summary (left out of the link's name).

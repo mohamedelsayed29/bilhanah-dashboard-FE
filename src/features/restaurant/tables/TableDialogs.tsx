@@ -66,7 +66,7 @@ function TableLayoutFields({ value, onChange, label }: { value: TableLayout; onC
 }
 
 /** Adds one table. TABLE_LABEL_TAKEN is shown on the field. */
-export function AddTableDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function AddTableDialog({ branchId, open, onClose }: { branchId: string; open: boolean; onClose: () => void }) {
   const { text } = useLanguage();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -75,9 +75,10 @@ export function AddTableDialog({ open, onClose }: { open: boolean; onClose: () =
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { if (open) { setLabel(''); setLayout(DEFAULT_LAYOUT); setError(null); } }, [open]);
   const create = useMutation({
-    mutationFn: (value: string) => tablesApi.create({ label: value, ...layout }),
+    mutationFn: (value: string) => tablesApi.create({ branchId, label: value, ...layout }),
     onSuccess: table => {
-      queryClient.setQueryData<RestaurantTable[]>(queryKeys.tables, current => [...(current ?? []), table]);
+      queryClient.setQueryData<RestaurantTable[]>(queryKeys.branchTables(branchId), current => [...(current ?? []), table]);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.branches });
       toast.success(text(`ضفنا «${table.label}»`, `“${table.label}” added`));
       onClose();
     },
@@ -108,7 +109,7 @@ export function AddTableDialog({ open, onClose }: { open: boolean; onClose: () =
 const PREFIXES = [['طاولة', 'Table'], ['ترابيزة', 'T-'], ['تراس', 'Terrace']] as const;
 
 /** Adds "{prefix} {from}" … "{prefix} {to}" at once; names that already exist are skipped by the API. */
-export function AddRangeDialog({ open, onClose, existing }: { open: boolean; onClose: () => void; existing: number }) {
+export function AddRangeDialog({ branchId, open, onClose, existing }: { branchId: string; open: boolean; onClose: () => void; existing: number }) {
   const { text, count: counted } = useLanguage();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -124,10 +125,13 @@ export function AddRangeDialog({ open, onClose, existing }: { open: boolean; onC
     setLayout(DEFAULT_LAYOUT);
   }, [open, text]);
   const create = useMutation({
-    mutationFn: (body: { from: number; to: number; prefix: string }) => tablesApi.createRange({ ...body, ...layout }),
-    onSuccess: tables => {
+    mutationFn: (body: { from: number; to: number; prefix: string }) => tablesApi.createRange({ branchId, ...body, ...layout }),
+    onSuccess: response => {
+      // The API answers with the tables the caller may see; keep this branch's.
+      const tables = response.filter(table => table.branchId === branchId);
       const added = tables.length - existing;
-      queryClient.setQueryData(queryKeys.tables, tables);
+      queryClient.setQueryData(queryKeys.branchTables(branchId), tables);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.branches });
       toast.success(added > 0 ? text(`ضفنا ${counted(added, 'table')}`, `${counted(added, 'table')} added`) : text('كل الطاولات دي موجودة بالفعل', 'All these tables already exist'));
       onClose();
     },
@@ -180,7 +184,7 @@ export function AddRangeDialog({ open, onClose, existing }: { open: boolean; onC
 }
 
 /** Changes a table's shape and seats; its name and QR code stay the same. */
-export function TableLayoutDialog({ table, onClose }: { table: RestaurantTable | null; onClose: () => void }) {
+export function TableLayoutDialog({ branchId, table, onClose }: { branchId: string; table: RestaurantTable | null; onClose: () => void }) {
   const { text } = useLanguage();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -189,8 +193,8 @@ export function TableLayoutDialog({ table, onClose }: { table: RestaurantTable |
   const save = useMutation({
     mutationFn: (target: RestaurantTable) => tablesApi.update(target.id, layout),
     onSuccess: updated => {
-      queryClient.setQueryData<RestaurantTable[]>(queryKeys.tables, tables => tables?.map(entry => (entry.id === updated.id ? updated : entry)));
-      void queryClient.invalidateQueries({ queryKey: queryKeys.floor });
+      queryClient.setQueryData<RestaurantTable[]>(queryKeys.branchTables(branchId), tables => tables?.map(entry => (entry.id === updated.id ? updated : entry)));
+      void queryClient.invalidateQueries({ queryKey: queryKeys.floors });
       toast.success(text(`اتحفظ شكل «${updated.label}»`, `“${updated.label}” updated`));
       onClose();
     },

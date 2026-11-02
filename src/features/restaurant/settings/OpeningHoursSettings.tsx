@@ -6,7 +6,9 @@ import { Button } from '../../../components/Button';
 import { Switch } from '../../../components/Switch';
 import { errorMessage } from '../../../lib/api/error-messages';
 import { useLanguage, usePageTitle } from '../../../lib/language';
+import { useBranchList } from '../../branches/workspace';
 import { useRestaurant } from '../queries';
+import { PerBranchNotice } from './PerBranchNotice';
 import { useSaveRestaurant } from './useSaveRestaurant';
 
 const DAY_NAMES: Record<Weekday, [string, string]> = {
@@ -28,28 +30,39 @@ function defaultHours(): OpeningHours {
   return Object.fromEntries(WEEKDAYS.map(day => [day, [{ ...DEFAULT_RANGE }]])) as OpeningHours;
 }
 
+/** The restaurant's hours (its main branch's); with several branches, each branch's are on its own page. */
 export function OpeningHoursSettings() {
-  const { text, number } = useLanguage();
   usePageTitle('مواعيد الشغل', 'Opening hours');
   const restaurant = useRestaurant();
+  const list = useBranchList();
   const save = useSaveRestaurant();
-  const [hours, setHours] = useState<OpeningHours | null>(restaurant.openingHours);
+  if (list.branches.filter(branch => branch.isActive).length > 1) return <PerBranchNotice kind="hours" />;
+  return <OpeningHoursEditor initial={restaurant.openingHours} saving={save.isPending} error={save.isError ? save.error : null}
+    onSave={openingHours => save.mutate({ openingHours })} />;
+}
+
+/** The week editor: up to three ranges a day, saved together. Used for the restaurant and for each branch. */
+export function OpeningHoursEditor({ initial, saving, error, onSave, title }: {
+  initial: OpeningHours | null; saving: boolean; error: unknown; onSave: (hours: OpeningHours | null) => void; title?: string;
+}) {
+  const { text, number } = useLanguage();
+  const [hours, setHours] = useState<OpeningHours | null>(initial);
   const [showErrors, setShowErrors] = useState(false);
   const validation = hours ? openingHoursSchema.safeParse(hours) : null;
   const invalid = new Set(validation && !validation.success ? validation.error.issues.map(issue => issue.path.slice(0, 2).join('.')) : []);
-  const dirty = JSON.stringify(hours) !== JSON.stringify(restaurant.openingHours);
+  const dirty = JSON.stringify(hours) !== JSON.stringify(initial);
 
   const updateDay = (day: Weekday, ranges: OpeningHours[Weekday]) => setHours(current => (current ? { ...current, [day]: ranges } : current));
   const submit = () => {
     if (validation && !validation.success) { setShowErrors(true); return; }
-    save.mutate({ openingHours: hours });
+    onSave(hours);
   };
 
   return <form className="settings-main hours-form" noValidate onSubmit={event => { event.preventDefault(); submit(); }}>
-    {save.isError && <Alert kind="error">{errorMessage(save.error, text)}</Alert>}
+    {error != null && <Alert kind="error">{errorMessage(error, text)}</Alert>}
     <section className="section" aria-labelledby="hours-title">
-        <div className="section-head"><div><h2 id="hours-title">{text('مواعيد الشغل', 'Opening hours')}</h2><p>{text('الزبون بيشوف إذا كنت فاتح دلوقتي حسب المواعيد دي وبتوقيت مطعمك.', 'Diners see whether you are open now, based on these hours in your restaurant’s time zone.')}</p></div></div>
-      <Switch checked={hours !== null} onChange={on => setHours(on ? restaurant.openingHours ?? defaultHours() : null)}
+        <div className="section-head"><div><h2 id="hours-title">{title ?? text('مواعيد الشغل', 'Opening hours')}</h2><p>{text('الزبون بيشوف إذا كنت فاتح دلوقتي حسب المواعيد دي وبتوقيت مطعمك.', 'Diners see whether you are open now, based on these hours in your restaurant’s time zone.')}</p></div></div>
+      <Switch checked={hours !== null} onChange={on => setHours(on ? initial ?? defaultHours() : null)}
         label={text('اعرض مواعيد الشغل في المنيو', 'Show opening hours on the menu')}
         description={hours ? text('حدد لكل يوم لحد ٣ فترات.', 'Set up to three time ranges per day.') : text('المواعيد مش ظاهرة للزباين.', 'Opening hours are hidden from diners.')} />
     </section>
@@ -102,8 +115,8 @@ export function OpeningHoursSettings() {
     </section>}
     <div className={`sticky-actions ${dirty ? 'is-dirty' : ''}`}>
       {dirty && <span className="muted">{text('في تغييرات مش محفوظة', 'You have unsaved changes')}</span>}
-      <Button variant="secondary" disabled={!dirty || save.isPending} onClick={() => { setHours(restaurant.openingHours); setShowErrors(false); }}>{text('تراجع', 'Discard')}</Button>
-      <Button type="submit" loading={save.isPending} disabled={!dirty}>{text('احفظ المواعيد', 'Save hours')}</Button>
+      <Button variant="secondary" disabled={!dirty || saving} onClick={() => { setHours(initial); setShowErrors(false); }}>{text('تراجع', 'Discard')}</Button>
+      <Button type="submit" loading={saving} disabled={!dirty}>{text('احفظ المواعيد', 'Save hours')}</Button>
     </div>
   </form>;
 }

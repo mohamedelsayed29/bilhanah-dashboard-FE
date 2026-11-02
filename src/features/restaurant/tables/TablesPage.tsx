@@ -17,8 +17,11 @@ import { useToast } from '../../../components/Toast';
 import { isApiError } from '../../../lib/api';
 import { tablesApi } from '../../../lib/api/endpoints';
 import { errorMessage } from '../../../lib/api/error-messages';
+import { fill, useCopy } from '../../../lib/copy';
 import { useLanguage, usePageTitle } from '../../../lib/language';
-import { queryKeys, useRestaurant, useTablesQuery } from '../queries';
+import { PageBranchPicker, usePageBranch } from '../../branches/BranchScope';
+import { useBranchList, useOwnerBranch, useWorkspace } from '../../branches/workspace';
+import { queryKeys, useTablesQuery } from '../queries';
 import { downloadPng, downloadSvg, qrFilename } from './qr-download';
 import { AddRangeDialog, AddTableDialog, TABLE_SHAPE_OPTIONS, TableLayoutDialog } from './TableDialogs';
 import { TablesFloor, useFloorQuery } from './TablesFloor';
@@ -26,10 +29,11 @@ import { TableShapeIcon } from './TableGraphic';
 
 const replaceTable = (tables: RestaurantTable[] | undefined, table: RestaurantTable) => tables?.map(entry => (entry.id === table.id ? table : entry));
 
-function useTableMutations() {
+function useTableMutations(branchId: string) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const { text } = useLanguage();
+  const key = queryKeys.branchTables(branchId);
   const onError = (error: unknown) => {
     toast.error(errorMessage(error, text));
     if (isApiError(error, ORDER_ERROR_CODES.TABLE_NOT_FOUND)) void queryClient.invalidateQueries({ queryKey: queryKeys.tables });
@@ -38,29 +42,29 @@ function useTableMutations() {
     mutationFn: ({ table, isActive }: { table: RestaurantTable; isActive: boolean }) => tablesApi.update(table.id, { isActive }),
     onMutate: ({ table, isActive }) => {
       const previous = table;
-      queryClient.setQueryData<RestaurantTable[]>(queryKeys.tables, tables => replaceTable(tables, { ...table, isActive }));
+      queryClient.setQueryData<RestaurantTable[]>(key, tables => replaceTable(tables, { ...table, isActive }));
       return { previous };
     },
     onError: (error, _vars, context) => {
-      if (context) queryClient.setQueryData<RestaurantTable[]>(queryKeys.tables, tables => replaceTable(tables, context.previous));
+      if (context) queryClient.setQueryData<RestaurantTable[]>(key, tables => replaceTable(tables, context.previous));
       onError(error);
     },
     onSuccess: table => {
-      queryClient.setQueryData<RestaurantTable[]>(queryKeys.tables, tables => replaceTable(tables, table));
+      queryClient.setQueryData<RestaurantTable[]>(key, tables => replaceTable(tables, table));
       toast.success(table.isActive ? text(`«${table.label}» شغالة`, `“${table.label}” is active`) : text(`«${table.label}» اتقفلت`, `“${table.label}” is turned off`));
     },
   });
   const rename = useMutation({
     mutationFn: ({ table, label }: { table: RestaurantTable; label: string }) => tablesApi.update(table.id, { label }),
     onSuccess: table => {
-      queryClient.setQueryData<RestaurantTable[]>(queryKeys.tables, tables => replaceTable(tables, table));
+      queryClient.setQueryData<RestaurantTable[]>(key, tables => replaceTable(tables, table));
       toast.success(text('اتغيّر اسم الطاولة', 'Table renamed'));
     },
   });
   const regenerate = useMutation({
     mutationFn: (table: RestaurantTable) => tablesApi.regenerateCode(table.id),
     onSuccess: table => {
-      queryClient.setQueryData<RestaurantTable[]>(queryKeys.tables, tables => replaceTable(tables, table));
+      queryClient.setQueryData<RestaurantTable[]>(key, tables => replaceTable(tables, table));
       toast.success(text(`كود جديد لـ«${table.label}». اطبعه تاني.`, `New code for “${table.label}”. Print it again.`));
     },
     onError,
@@ -68,7 +72,7 @@ function useTableMutations() {
   const remove = useMutation({
     mutationFn: (table: RestaurantTable) => tablesApi.remove(table.id),
     onSuccess: (_data, table) => {
-      queryClient.setQueryData<RestaurantTable[]>(queryKeys.tables, tables => tables?.filter(entry => entry.id !== table.id));
+      queryClient.setQueryData<RestaurantTable[]>(key, tables => tables?.filter(entry => entry.id !== table.id));
       toast.success(text(`مسحنا «${table.label}»`, `“${table.label}” deleted`));
     },
     onError,
@@ -78,8 +82,8 @@ function useTableMutations() {
 
 type Mutations = ReturnType<typeof useTableMutations>;
 
-function TableItem({ table, subdomain, mutations, occupied, onLayout, onRegenerate, onDelete }: {
-  table: RestaurantTable; subdomain: string; mutations: Mutations; occupied: boolean | undefined; onLayout: () => void; onRegenerate: () => void; onDelete: () => void;
+function TableItem({ table, filePrefix: subdomain, mutations, occupied, onLayout, onRegenerate, onDelete }: {
+  table: RestaurantTable; filePrefix: string; mutations: Mutations; occupied: boolean | undefined; onLayout: () => void; onRegenerate: () => void; onDelete: () => void;
 }) {
   const { text, count } = useLanguage();
   const shape = TABLE_SHAPE_OPTIONS.find(option => option.value === table.shape) ?? TABLE_SHAPE_OPTIONS[1];
@@ -154,16 +158,33 @@ function TableItem({ table, subdomain, mutations, occupied, onLayout, onRegenera
 }
 
 export function TablesPage() {
+  const page = usePageBranch();
+  if (!page.branchId) return <PageSkeleton blocks={2} />;
+  return <BranchTables key={page.branchId} branchId={page.branchId} page={page} />;
+}
+
+/** "bilhanah-cafe" for the main branch, "bilhanah-cafe-nasr-city" for others (QR download names). */
+export function tableFilePrefix(subdomain: string, branch: { slug: string; isMain: boolean } | null): string {
+  return branch && !branch.isMain ? `${subdomain}-${branch.slug}` : subdomain;
+}
+
+function BranchTables({ branchId, page }: { branchId: string; page: ReturnType<typeof usePageBranch> }) {
   const { text, count } = useLanguage();
+  const t = useCopy();
   usePageTitle('الطاولات', 'Tables');
-  const restaurant = useRestaurant();
-  const tables = useTablesQuery();
-  const mutations = useTableMutations();
-  const floor = useFloorQuery(restaurant.ordering.included);
+  const workspace = useWorkspace();
+  const branch = useOwnerBranch(branchId);
+  const multi = useBranchList().branches.filter(entry => entry.isActive).length > 1;
+  const tables = useTablesQuery(branchId);
+  const mutations = useTableMutations(branchId);
+  const ordering = branch?.ordering ?? { included: false, enabled: false, acceptsDineIn: false, acceptsPickup: false, paused: false };
+  const floor = useFloorQuery(branchId, ordering.included);
   const [adding, setAdding] = useState<'one' | 'range' | null>(null);
   const [confirm, setConfirm] = useState<{ kind: 'code' | 'delete'; table: RestaurantTable } | null>(null);
   const [layoutId, setLayoutId] = useState<string | null>(null);
-  const { ordering } = restaurant;
+  const owner = workspace.role === 'OWNER';
+  const orderingPath = owner && !multi ? '/settings/ordering' : workspace.branchSettings(branchId);
+  const printPath = `${workspace.to('/tables/print')}${page.needsPicker ? `?branch=${branchId}` : ''}`;
 
   if (tables.isPending) return <PageSkeleton blocks={2} />;
   if (tables.isError) return <div className="page"><ErrorPanel error={tables.error} onRetry={() => void tables.refetch()} /></div>;
@@ -171,28 +192,32 @@ export function TablesPage() {
   const active = list.filter(table => table.isActive).length;
   const full = list.length >= ORDER_LIMITS.tables;
   const busy = confirm?.kind === 'code' ? mutations.regenerate.isPending : mutations.remove.isPending;
+  const filePrefix = tableFilePrefix(workspace.restaurant.subdomain, branch);
 
   return <div className="page tables-page">
     <PageHeader title={text('الطاولات', 'Tables')}
-      description={text('كل طاولة ليها كود QR خاص بيها: الزبون يمسحه ويطلب، والطلب يوصلك عليه اسم الطاولة.', 'Each table has its own QR code: diners scan it to order, and the order reaches you with the table name.')}
+      description={multi && branch
+        ? fill(t.tablesBranch.description, { name: branch.name })
+        : text('كل طاولة ليها كود QR خاص بيها: الزبون يمسحه ويطلب، والطلب يوصلك عليه اسم الطاولة.', 'Each table has its own QR code: diners scan it to order, and the order reaches you with the table name.')}
       actions={<>
-        {list.length > 0 && <Link className="button button-secondary" to="/tables/print"><PrinterIcon size={18} aria-hidden="true" />{text('اطبع الأكواد', 'Print QR codes')}</Link>}
+        {list.length > 0 && <Link className="button button-secondary" to={printPath}><PrinterIcon size={18} aria-hidden="true" />{text('اطبع الأكواد', 'Print QR codes')}</Link>}
         <Button variant="secondary" disabled={full} onClick={() => setAdding('range')} icon={<ListNumbersIcon size={18} aria-hidden="true" />}>{text('ضيف كذا طاولة', 'Add several')}</Button>
         <Button disabled={full} onClick={() => setAdding('one')} icon={<PlusIcon size={18} aria-hidden="true" />}>{text('ضيف طاولة', 'Add table')}</Button>
       </>} />
+    <PageBranchPicker page={page} />
 
     {!ordering.included && <Alert kind="info" live={false} title={text('الطلب من الطاولة محتاج باقة فيها طلبات', 'Ordering from tables needs a plan with ordering')}
-      actions={<Link className="link-action" to="/subscription">{text('شوف الباقات', 'See plans')}</Link>}>
+      actions={owner ? <Link className="link-action" to="/subscription">{text('شوف الباقات', 'See plans')}</Link> : undefined}>
       {text('تقدر تجهّز طاولاتك وأكوادها دلوقتي، والزباين هيقدروا يطلبوا منها أول ما تشترك في «منيو وطلبات».', 'You can set up tables and codes now; diners can order from them once you are on “Menu & Orders”.')}
     </Alert>}
     {ordering.included && (!ordering.enabled || !ordering.acceptsDineIn) && <Alert kind="warning" live={false}
       title={!ordering.enabled ? text('الطلبات مش متشغّلة', 'Ordering is switched off') : text('طلبات الصالة مقفولة', 'Dine-in orders are switched off')}
-      actions={<Link className="link-action" to="/settings/ordering">{text('إعدادات الطلبات', 'Ordering settings')}</Link>}>
-      {text('الزبون اللي يمسح كود الطاولة هيشوف المنيو بس، من غير طلب.', 'Diners who scan a table code will see the menu but cannot order.')}
+      actions={<Link className="link-action" to={orderingPath}>{multi || !owner ? t.ordersBranch.branchSettings : text('إعدادات الطلبات', 'Ordering settings')}</Link>}>
+      {multi ? t.tablesBranch.dineInOff : text('الزبون اللي يمسح كود الطاولة هيشوف المنيو بس، من غير طلب.', 'Diners who scan a table code will see the menu but cannot order.')}
     </Alert>}
     {full && <Alert kind="warning" live={false}>{text(`وصلت للحد الأقصى (${count(ORDER_LIMITS.tables, 'table')}). امسح طاولة عشان تضيف غيرها.`, `You reached the limit of ${count(ORDER_LIMITS.tables, 'table')}. Delete one to add another.`)}</Alert>}
 
-    {ordering.included && list.length > 0 && <TablesFloor />}
+    {ordering.included && list.length > 0 && <TablesFloor branchId={branchId} title={multi && branch ? fill(t.tablesBranch.floorTitle, { name: branch.name }) : undefined} />}
 
     {list.length === 0
       ? <section className="card empty-state" aria-labelledby="tables-empty-title">
@@ -210,15 +235,15 @@ export function TablesPage() {
           <p data-testid="tables-count">{text(`${count(list.length, 'table')} · ${count(active, [{ one: 'واحدة شغالة', two: 'اتنين شغالين', few: '{n} شغالة', many: '{n} شغالة', zero: 'مفيش ولا واحدة شغالة' }, { one: '{n} active', other: '{n} active' }])}`, `${count(list.length, 'table')} · ${active} active`)}</p>
         </div>
         <ul className="tables-grid">
-          {list.map(table => <TableItem key={table.id} table={table} subdomain={restaurant.subdomain} mutations={mutations}
+          {list.map(table => <TableItem key={table.id} table={table} filePrefix={filePrefix} mutations={mutations}
             occupied={table.isActive ? floor.data?.find(entry => entry.id === table.id)?.occupied : undefined}
             onLayout={() => setLayoutId(table.id)} onRegenerate={() => setConfirm({ kind: 'code', table })} onDelete={() => setConfirm({ kind: 'delete', table })} />)}
         </ul>
       </section>}
 
-    <AddTableDialog open={adding === 'one'} onClose={() => setAdding(null)} />
-    <AddRangeDialog open={adding === 'range'} onClose={() => setAdding(null)} existing={list.length} />
-    <TableLayoutDialog table={list.find(table => table.id === layoutId) ?? null} onClose={() => setLayoutId(null)} />
+    <AddTableDialog branchId={branchId} open={adding === 'one'} onClose={() => setAdding(null)} />
+    <AddRangeDialog branchId={branchId} open={adding === 'range'} onClose={() => setAdding(null)} existing={list.length} />
+    <TableLayoutDialog branchId={branchId} table={list.find(table => table.id === layoutId) ?? null} onClose={() => setLayoutId(null)} />
     <ConfirmDialog open={confirm !== null} busy={busy} onCancel={() => setConfirm(null)}
       title={confirm?.kind === 'code' ? text(`كود جديد لـ«${confirm.table.label}»؟`, `New code for “${confirm?.table.label}”?`) : text(`امسح «${confirm?.table.label ?? ''}»؟`, `Delete “${confirm?.table.label ?? ''}”?`)}
       description={confirm?.kind === 'code'

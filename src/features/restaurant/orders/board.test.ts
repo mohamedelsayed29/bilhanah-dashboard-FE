@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { OwnerOrder } from '@bilhanah/contracts';
-import { groupByColumn, minutesSince, orderActions, upsertOrder, withStatus } from './board';
+import { groupByColumn, inScope, mergeIntoBoard, minutesSince, orderActions, scopeOfKey, upsertOrder, withStatus } from './board';
 
-const order = (id: string, number: number, status: OwnerOrder['status'], placedAt: string): OwnerOrder => ({
+const order = (id: string, number: number, status: OwnerOrder['status'], placedAt: string, branchId = 'main'): OwnerOrder => ({
   id, number, status, placedAt, type: 'PICKUP', tableLabel: null, customerName: 'Mona', customerPhone: '01000000000', notifiesDiner: false,
+  branchId, branchName: branchId === 'main' ? 'Downtown' : 'Nasr City',
   subtotalPiastres: 5000, note: null, items: [], acceptedAt: null, readyAt: null, completedAt: null, closedAt: null, rejectionReason: null, paidAt: null, updatedAt: placedAt,
 });
 
@@ -55,5 +56,24 @@ describe('order board', () => {
     const now = new Date('2026-10-23T10:07:59.000Z').getTime();
     expect(minutesSince(a.placedAt, now)).toBe(7);
     expect(minutesSince('2026-10-23T10:09:00.000Z', now)).toBe(0);
+  });
+
+  it('keeps each branch board to its own branch, and the all-branches board to every order', () => {
+    const nasr = order('n', 1, 'PLACED', '2026-10-23T10:01:00.000Z', 'nasr');
+    expect(mergeIntoBoard([a], nasr, 'main').map(entry => entry.id)).toEqual(['a']);
+    expect(mergeIntoBoard([a], nasr, 'nasr').map(entry => entry.id)).toEqual(['a', 'n']);
+    expect(mergeIntoBoard([a], nasr, 'all').map(entry => entry.id)).toEqual(['a', 'n']);
+    // An order that does not belong (e.g. left from another scope) is taken off rather than updated.
+    expect(mergeIntoBoard([a, nasr], { ...nasr, status: 'ACCEPTED' }, 'main').map(entry => entry.id)).toEqual(['a']);
+    // Closing still removes it from the boards that show it.
+    expect(mergeIntoBoard([a, nasr], { ...nasr, status: 'COMPLETED' }, 'nasr').map(entry => entry.id)).toEqual(['a']);
+    expect(inScope('all', nasr)).toBe(true);
+    expect(inScope('main', nasr)).toBe(false);
+  });
+
+  it('reads the branch scope from a board cache key', () => {
+    expect(scopeOfKey(['orders', 'board', 'nasr'])).toBe('nasr');
+    expect(scopeOfKey(['orders', 'board', 'all'])).toBe('all');
+    expect(scopeOfKey(['orders', 'board'])).toBe('all');
   });
 });

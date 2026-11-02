@@ -61,6 +61,9 @@ export const NOUNS = {
   visit: [{ one: 'زيارة واحدة', two: 'زيارتين', few: '{n} زيارات', many: '{n} زيارة' }, { one: '{n} visit', other: '{n} visits' }],
   second: [{ one: 'ثانية واحدة', two: 'ثانيتين', few: '{n} ثواني', many: '{n} ثانية' }, { one: '{n} second', other: '{n} seconds' }],
   character: [{ one: 'حرف واحد', two: 'حرفين', few: '{n} حروف', many: '{n} حرف' }, { one: '{n} character', other: '{n} characters' }],
+  branch: [{ one: 'فرع واحد', two: 'فرعين', few: '{n} فروع', many: '{n} فرع' }, { one: '{n} branch', other: '{n} branches' }],
+  account: [{ one: 'حساب واحد', two: 'حسابين', few: '{n} حسابات', many: '{n} حساب' }, { one: '{n} account', other: '{n} accounts' }],
+  minute: [{ one: 'دقيقة واحدة', two: 'دقيقتين', few: '{n} دقايق', many: '{n} دقيقة' }, { one: '{n} min', other: '{n} min' }],
 } satisfies Record<string, [ArabicForms, EnglishForms]>;
 
 export type Noun = keyof typeof NOUNS;

@@ -6,6 +6,7 @@ import { Skeleton } from '../../../components/Skeleton';
 import { ordersApi } from '../../../lib/api/endpoints';
 import { formatDate, formatPrice } from '../../../lib/format';
 import { useLanguage } from '../../../lib/language';
+import { useCopy } from '../../../lib/copy';
 import { queryKeys } from '../queries';
 import { OrderNo, OrderStatusBadge } from './labels';
 import { useOrderPayment } from './mutations';
@@ -14,6 +15,7 @@ import { OrderLines, OrderWhere, PaymentBadge } from './OrderCard';
 /** One order in full (GET /v1/orders/:id): when each step happened, the dishes and the reason if it was closed early. */
 export function OrderDetailDialog({ orderId, onClose }: { orderId: string | null; onClose: () => void }) {
   const { text, number, language } = useLanguage();
+  const t = useCopy();
   const order = useQuery({ queryKey: queryKeys.order(orderId ?? ''), queryFn: () => ordersApi.get(orderId!), enabled: Boolean(orderId) });
   const data = order.data;
   const payment = useOrderPayment();
@@ -34,6 +36,7 @@ export function OrderDetailDialog({ orderId, onClose }: { orderId: string | null
       {data.rejectionReason && <p className="order-reason"><strong>{data.status === 'REJECTED' ? text('سبب الرفض: ', 'Rejection reason: ') : text('سبب الإلغاء: ', 'Cancellation reason: ')}</strong>{data.rejectionReason}</p>}
       <OrderWhere order={data} />
       <dl className="facts facts-compact">
+        <div><dt>{t.ordersBranch.branchLabel}</dt><dd><bdi>{data.branchName}</bdi></dd></div>
         <div><dt>{text('اتطلب', 'Placed')}</dt><dd>{when(data.placedAt)}</dd></div>
         {data.acceptedAt && <div><dt>{text('اتقبل', 'Accepted')}</dt><dd>{when(data.acceptedAt)}</dd></div>}
         {data.readyAt && <div><dt>{text('جهز', 'Ready')}</dt><dd>{when(data.readyAt)}</dd></div>}

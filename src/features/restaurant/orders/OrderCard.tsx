@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { BellRingingIcon, CheckCircleIcon, ClockIcon, ForkKnifeIcon, PhoneIcon, ShoppingBagIcon } from '@phosphor-icons/react';
+import { BellRingingIcon, CheckCircleIcon, ClockIcon, ForkKnifeIcon, PhoneIcon, ShoppingBagIcon, StorefrontIcon } from '@phosphor-icons/react';
 import type { OrderStatus, OwnerOrder } from '@bilhanah/contracts';
 import { Button } from '../../../components/Button';
+import { useCopy } from '../../../lib/copy';
 import { formatDate, formatPrice } from '../../../lib/format';
 import { useLanguage } from '../../../lib/language';
 import { minutesSince, needsReason, orderActions } from './board';
@@ -89,14 +90,25 @@ type Props = {
   onPaid?: (order: OwnerOrder) => void;
   /** The kitchen screen: what to cook only, without prices, payment or the diner's phone. */
   kitchen?: boolean;
+  /** The board shows several branches: say which one the order is for. */
+  showBranch?: boolean;
 };
+
+/** Which branch an order is for, on boards that show several. */
+export function OrderBranch({ order }: { order: OwnerOrder }) {
+  const t = useCopy();
+  return <p className="order-branch" data-testid="order-branch">
+    <StorefrontIcon size={14} weight="bold" aria-hidden="true" />
+    <span className="visually-hidden">{t.ordersBranch.branchLabel}: </span><bdi>{order.branchName}</bdi>
+  </p>;
+}
 
 /**
  * One order on the board, read at a glance from across a kitchen: the number and how long it has
  * waited, where it goes, what to make, the note, and one primary action. A strip on the card's
  * edge carries its column's color; the waiting time turns red once the order is late.
  */
-export function OrderCard({ order, now, isNew, onAction, onPaid, kitchen = false }: Props) {
+export function OrderCard({ order, now, isNew, onAction, onPaid, kitchen = false, showBranch = false }: Props) {
   const { text, number, language } = useLanguage();
   const minutes = minutesSince(order.placedAt, now);
   const late = minutes >= (LATE_MINUTES[order.status] ?? Infinity);
@@ -116,6 +128,7 @@ export function OrderCard({ order, now, isNew, onAction, onPaid, kitchen = false
         <span className="order-clock">{formatDate(order.placedAt, language, { timeStyle: 'short' })}</span>
       </p>
     </header>
+    {showBranch && <OrderBranch order={order} />}
     <OrderWhere order={order} phone={!kitchen} />
     <OrderLines order={order} prices={!kitchen} />
     {!kitchen && <div className="order-bill">

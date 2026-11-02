@@ -60,3 +60,25 @@ export function orderActions(status: OrderStatus): { primary: OrderStatus | null
 export function minutesSince(iso: string, now: number): number {
   return Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60_000));
 }
+
+/** Which orders a board shows: every branch the viewer may see, or one branch (its id). */
+export type BoardScope = 'all' | (string & {});
+
+/** Whether `order` belongs on a board of `scope`. */
+export const inScope = (scope: BoardScope, order: Pick<OwnerOrder, 'branchId'>) => scope === 'all' || order.branchId === scope;
+
+/**
+ * `upsertOrder` for a board that shows one scope: an order of another branch is never added
+ * (and is taken off if it was there, e.g. after a cache was filled under another scope).
+ */
+export function mergeIntoBoard(board: readonly OwnerOrder[], order: OwnerOrder, scope: BoardScope, force = false): OwnerOrder[] {
+  if (!inScope(scope, order)) return board.some(entry => entry.id === order.id) ? board.filter(entry => entry.id !== order.id) : [...board];
+  return upsertOrder(board, order, force);
+}
+
+/** The scope a board cache key (['orders', 'board', scope]) was made for; 'all' for older keys. */
+export function scopeOfKey(key: readonly unknown[]): BoardScope {
+  const scope = key[2];
+  return typeof scope === 'string' && scope ? scope : 'all';
+}
+

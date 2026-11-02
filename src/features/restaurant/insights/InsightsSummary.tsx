@@ -3,12 +3,15 @@ import { ArrowLeftIcon } from '@phosphor-icons/react';
 import { formatPrice } from '../../../lib/format';
 import { useLanguage } from '../../../lib/language';
 import { Skeleton } from '../../../components/Skeleton';
+import { useBranchScope } from '../../branches/BranchScope';
 import { useStatsQuery } from '../queries';
 
 /** The last 7 days on the overview as plain figures (visits, and orders and revenue with ordering); the charts live on the insights page. */
 export function InsightsSummary() {
   const { text, number, language } = useLanguage();
-  const stats = useStatsQuery(7);
+  const scope = useBranchScope();
+  // Orders of the branch being worked on (visits are always the whole restaurant's).
+  const stats = useStatsQuery(7, scope.multi && scope.branch ? scope.branch.id : null);
   const data = stats.data;
   return <div className="figures-group" data-testid="insights-summary">
     <div className="figures-head">

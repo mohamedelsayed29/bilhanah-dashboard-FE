@@ -1,15 +1,21 @@
-import { Fragment, useEffect, useRef } from 'react';
+import { Fragment, useEffect, useMemo, useRef } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { ArrowSquareOutIcon, BellIcon, ChartBarIcon, CreditCardIcon, ForkKnifeIcon, GearSixIcon, HouseIcon, QrCodeIcon, ReceiptIcon, SignOutIcon, TableIcon } from '@phosphor-icons/react';
+import { ArrowSquareOutIcon, BellIcon, ChartBarIcon, CreditCardIcon, ForkKnifeIcon, GearSixIcon, HouseIcon, QrCodeIcon, ReceiptIcon, SignOutIcon, StorefrontIcon, TableIcon } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
 import type { OwnerRestaurant } from '@bilhanah/contracts';
 import { Brand } from '../components/Brand';
-import { ErrorBoundary } from '../components/ErrorBoundary';
+import { ErrorBoundary, ErrorPanel } from '../components/ErrorBoundary';
 import { LanguageToggle } from '../components/LanguageToggle';
 import { useSignOut } from '../components/SignOutDialog';
-import { OrdersLiveProvider, useOrdersLive } from '../features/restaurant/orders/live';
+import { Splash } from '../app/providers/SessionBootstrap';
+import { BranchScopeProvider, BranchSwitcher } from '../features/branches/BranchScope';
+import { toOption } from '../features/branches/scope';
+import { ownerWorkspace, WorkspaceProvider } from '../features/branches/workspace';
+import { LiveForScope, useOrdersLive } from '../features/restaurant/orders/live';
+import { useBranchesQuery } from '../features/restaurant/queries';
 import { fallInto } from '../lib/drop-motion';
 import { useLanguage } from '../lib/language';
+import { useSession } from '../lib/session';
 import { useRouteFocus } from '../lib/use-route-focus';
 
 /** `phone`: also in the bottom tab bar (five fit at 390 px; insights, the QR code and subscription are linked from the overview). */
@@ -24,6 +30,7 @@ const NAV_GROUPS: { ar: string; en: string; items: NavItem[] }[] = [
   ] },
   { ar: 'إعداد المطعم', en: 'Your restaurant', items: [
     { to: '/menu', icon: ForkKnifeIcon, ar: 'المنيو', en: 'Menu', phone: true },
+    { to: '/branches', icon: StorefrontIcon, ar: 'الفروع', en: 'Branches' },
     { to: '/qr-codes', icon: QrCodeIcon, ar: 'كود QR', en: 'QR code' },
     { to: '/subscription', icon: CreditCardIcon, ar: 'الاشتراك', en: 'Subscription' },
     { to: '/settings', icon: GearSixIcon, ar: 'الإعدادات', en: 'Settings', phone: true },
@@ -51,10 +58,28 @@ export function RestaurantAvatar({ restaurant, size = 40 }: { restaurant: OwnerR
   </span>;
 }
 
-/** Owner shell: sidebar on desktop; top bar and bottom tab bar on phones. The order board stays live on every page. */
+/**
+ * Owner shell: sidebar on desktop; top bar and bottom tab bar on phones. The order board stays live on every page.
+ * The branches load with the shell: every page works on the branch chosen in the header (or all of them).
+ */
 export function OwnerLayout({ restaurant }: { restaurant: OwnerRestaurant }) {
-  return <OrdersLiveProvider enabled={restaurant.ordering.included}><OwnerShell restaurant={restaurant} /></OrdersLiveProvider>;
+  const session = useSession();
+  const branches = useBranchesQuery();
+  const options = useMemo(() => branches.data?.branches.map(toOption) ?? [], [branches.data]);
+  const workspace = useMemo(() => ownerWorkspace({
+    name: restaurant.name, subdomain: restaurant.subdomain, brandColor: restaurant.brandColor,
+    logoUrl: restaurant.logo?.sources[0]?.url ?? restaurant.logo?.url ?? null,
+  }), [restaurant.name, restaurant.subdomain, restaurant.brandColor, restaurant.logo]);
+  if (branches.isPending) return <Splash />;
+  if (branches.isError) return <main className="state-page"><ErrorPanel error={branches.error} onRetry={() => void branches.refetch()} /></main>;
+  const userId = session.status === 'authenticated' ? session.user.id : 'owner';
+  return <WorkspaceProvider value={workspace}>
+    <BranchScopeProvider branches={options} storageKey={`bilhanah:branch:v1:${userId}`}>
+      <LiveForScope enabled={restaurant.ordering.included}><OwnerShell restaurant={restaurant} /></LiveForScope>
+    </BranchScopeProvider>
+  </WorkspaceProvider>;
 }
+
 
 function OwnerShell({ restaurant }: { restaurant: OwnerRestaurant }) {
   const { text } = useLanguage();
@@ -107,6 +132,7 @@ function OwnerShell({ restaurant }: { restaurant: OwnerRestaurant }) {
     </header>
     <main id="main-content" tabIndex={-1} className="owner-main">
       <div className="owner-content">
+        <BranchSwitcher className="owner-branch-switch" />
         <ErrorBoundary resetKey={pathname}><Outlet /></ErrorBoundary>
       </div>
     </main>

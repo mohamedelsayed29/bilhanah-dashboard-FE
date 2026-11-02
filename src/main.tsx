@@ -11,6 +11,7 @@ import './styles/pages.css';
 import './styles/billing-admin.css';
 import './styles/orders.css';
 import './styles/insights-shop.css';
+import './styles/branches.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

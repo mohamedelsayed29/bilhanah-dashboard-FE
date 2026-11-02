@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { ArrowSquareOutIcon, BowlFoodIcon, EyeSlashIcon, PlusIcon } from '@phosphor-icons/react';
+import { Link } from 'react-router';
+import { ArrowLeftIcon, ArrowSquareOutIcon, BowlFoodIcon, EyeSlashIcon, PlusIcon } from '@phosphor-icons/react';
 import type { OwnerMenuCategory, OwnerMenuItem } from '@bilhanah/contracts';
 import { ErrorPanel } from '../../../components/ErrorBoundary';
 import { PageHeader } from '../../../components/PageHeader';
 import { PageSkeleton } from '../../../components/Skeleton';
+import { useCopy } from '../../../lib/copy';
 import { useLanguage, usePageTitle } from '../../../lib/language';
+import { useBranchList } from '../../branches/workspace';
 import { AccessNoticeCompact } from './AccessNoticeCompact';
 import { CategoryCard } from './CategoryCard';
 import { CategoryDialog } from './CategoryDialog';
@@ -33,6 +36,8 @@ export function MenuPage() {
   const menu = useMenuQuery();
   const { reorderCategories } = useMenuMutations();
   const [editing, setEditing] = useState<Editing>(null);
+  const t = useCopy();
+  const multi = useBranchList().branches.filter(branch => branch.isActive).length > 1;
 
   if (menu.isPending) return <PageSkeleton blocks={3} />;
   if (menu.isError) return <ErrorPanel error={menu.error} onRetry={() => void menu.refetch()} />;
@@ -54,6 +59,10 @@ export function MenuPage() {
         <button type="button" className="button button-primary" onClick={() => setEditing({ kind: 'category' })}><PlusIcon size={18} weight="bold" aria-hidden="true" />{text('قسم جديد', 'New category')}</button>
       </>} />
     <AccessNoticeCompact access={restaurant.access} />
+    {multi && <p className="menu-branch-note" data-testid="menu-branch-note">
+      <span>{t.branchMenu.sharedMenuHint}</span>
+      <Link className="link-action" to="/branches/menu">{t.branchMenu.sharedMenuLink}<ArrowLeftIcon size={14} className="directional" aria-hidden="true" /></Link>
+    </p>}
     {categories.length === 0
       ? <section className="card empty-state menu-empty">
           <span className="empty-state-icon" aria-hidden="true"><BowlFoodIcon size={32} /></span>

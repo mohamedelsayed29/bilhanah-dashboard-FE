@@ -1,4 +1,5 @@
 import {
+  BRANCH_ERROR_CODES as BRANCH,
   ADMIN_ERROR_CODES as ADMIN,
   AUTH_ERROR_CODES as AUTH,
   BILLING_ERROR_CODES as BILLING,
@@ -13,7 +14,12 @@ import {
   ORDER_LIMITS,
   RESTAURANT_ERROR_CODES as RESTAURANT,
   SHOP_ERROR_CODES as SHOP,
+  STAFF_LIMITS,
 } from '@bilhanah/contracts';
+import { ar } from '../../locales/ar/translation';
+import { en } from '../../locales/en/translation';
+import { fill } from '../copy';
+import { countText, NOUNS } from '../plural';
 import { ApiError, CLIENT_ERROR_CODES as CLIENT } from './api-error';
 
 type Text = (ar: string, en: string) => string;
@@ -61,7 +67,19 @@ const MESSAGES: Record<string, [ar: string, en: string]> = {
   [ORDER.INVALID_STATUS_CHANGE]: ['الطلب ده اتحدّث من جهاز تاني. حدّثنا اللوحة.', 'This order was updated on another device. The board has been refreshed.'],
   [KITCHEN.EMAIL_TAKEN]: ['في حساب تاني بالإيميل ده. استخدم إيميل مختلف.', 'Another account already uses this email. Use a different one.'],
   [KITCHEN.KITCHEN_ACCOUNT_NOT_FOUND]: ['حساب المطبخ ده مش موجود.', 'This kitchen account no longer exists.'],
-  [KITCHEN.KITCHEN_ACCOUNT_LIMIT_REACHED]: [`أقصى عدد ${KITCHEN_LIMITS.accounts} حسابات مطبخ.`, `You can have up to ${KITCHEN_LIMITS.accounts} kitchen accounts.`],
+  [KITCHEN.KITCHEN_ACCOUNT_LIMIT_REACHED]: [
+    fill(ar.branchErrors.STAFF_LIMIT, { kitchens: new Intl.NumberFormat('ar-EG').format(KITCHEN_LIMITS.accounts), total: new Intl.NumberFormat('ar-EG').format(STAFF_LIMITS.accounts) }),
+    fill(en.branchErrors.STAFF_LIMIT, { kitchens: KITCHEN_LIMITS.accounts, total: STAFF_LIMITS.accounts }),
+  ],
+  [BRANCH.BRANCH_NOT_FOUND]: [ar.branchErrors.BRANCH_NOT_FOUND, en.branchErrors.BRANCH_NOT_FOUND],
+  [BRANCH.BRANCH_LIMIT_REACHED]: [ar.branchErrors.BRANCH_LIMIT_REACHED, en.branchErrors.BRANCH_LIMIT_REACHED],
+  [BRANCH.BRANCH_SLUG_TAKEN]: [ar.branchErrors.BRANCH_SLUG_TAKEN, en.branchErrors.BRANCH_SLUG_TAKEN],
+  [BRANCH.MAIN_BRANCH_LOCKED]: [ar.branchErrors.MAIN_BRANCH_LOCKED, en.branchErrors.MAIN_BRANCH_LOCKED],
+  [BRANCH.BRANCH_HAS_ORDERS]: [ar.branchErrors.BRANCH_HAS_ORDERS, en.branchErrors.BRANCH_HAS_ORDERS],
+  [BRANCH.BRANCH_HAS_STAFF]: [ar.branchErrors.BRANCH_HAS_STAFF, en.branchErrors.BRANCH_HAS_STAFF],
+  [BRANCH.BRANCH_ARCHIVED]: [ar.branchErrors.BRANCH_ARCHIVED, en.branchErrors.BRANCH_ARCHIVED],
+  [BRANCH.BRANCH_FORBIDDEN]: [ar.branchErrors.BRANCH_FORBIDDEN, en.branchErrors.BRANCH_FORBIDDEN],
+  [BRANCH.VARIANT_MISMATCH]: [ar.branchErrors.VARIANT_MISMATCH, en.branchErrors.VARIANT_MISMATCH],
   [ORDER.TABLE_LABEL_TAKEN]: ['في طاولة بنفس الاسم ده. اختار اسم تاني.', 'A table with this name already exists. Choose another name.'],
   [ORDER.TABLE_LIMIT_REACHED]: [`وصلت للحد الأقصى (${ORDER_LIMITS.tables} طاولة).`, `You reached the limit of ${ORDER_LIMITS.tables} tables.`],
   [ORDER.ORDER_NOT_PAYABLE]: ['الطلب ده اترفض أو اتلغى، فمفيش عليه حساب.', 'This order was rejected or cancelled, so there is nothing to pay.'],
@@ -76,8 +94,27 @@ export function errorMessage(error: unknown, text: Text): string {
       const arabic = new Intl.NumberFormat('ar-EG').format(minutes);
       return text(`محاولات كتير. جرّب تاني بعد ${arabic} دقيقة.`, `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`);
     }
+    const counted = detailMessage(error, text);
+    if (counted) return counted;
     const message = MESSAGES[error.code];
     if (message) return text(...message);
   }
   return text('حصلت مشكلة غير متوقعة. جرّب تاني.', 'Something unexpected happened. Please try again.');
+}
+
+/** Messages that name a number from the error's details (the plan's branch allowance, staff still at a branch, owner-only fields). */
+function detailMessage(error: ApiError, text: Text): string | null {
+  const details = (error.details ?? {}) as { limit?: unknown; count?: unknown; fields?: unknown };
+  const language = text('ar', 'en') as 'ar' | 'en';
+  const digits = (value: number) => new Intl.NumberFormat(language === 'ar' ? 'ar-EG' : 'en-EG').format(value);
+  const copy = language === 'ar' ? ar : en;
+  const counted = (value: number, noun: keyof typeof NOUNS) => countText(language, value, NOUNS[noun][0], NOUNS[noun][1], digits);
+  if (error.code === BRANCH.BRANCH_LIMIT_REACHED && typeof details.limit === 'number') {
+    return fill(copy.branchErrors.BRANCH_LIMIT_REACHED_COUNT, { limit: counted(details.limit, 'branch') });
+  }
+  if (error.code === BRANCH.BRANCH_HAS_STAFF && typeof details.count === 'number') {
+    return fill(copy.branchErrors.BRANCH_HAS_STAFF_COUNT, { count: counted(details.count, 'account') });
+  }
+  if (error.code === COMMON.FORBIDDEN && Array.isArray(details.fields) && details.fields.length > 0) return copy.branchErrors.ownerOnly;
+  return null;
 }

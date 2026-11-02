@@ -53,7 +53,7 @@ function setup(options: { refresh?: () => Promise<boolean> } = {}) {
     refresh: async () => { const result = await refresh(); return result; },
     onOrderCreated: order => created.push(order),
     onOrderUpdated: () => undefined,
-    onRestaurantUpdated: ordering => settings.push(ordering),
+    onRestaurantUpdated: event => settings.push(event),
     onResync: resyncs,
     onStateChange: state => states.push(state),
     createSocket: (_url, auth) => (socket = new FakeSocket(auth)),
@@ -79,8 +79,8 @@ describe('owner realtime', () => {
     expect(t.resyncs).toHaveBeenCalledTimes(1);
     t.socket.emit('order.created', { order: { id: 'o1' } });
     expect(t.created.map(order => order.id)).toEqual(['o1']);
-    t.socket.emit('restaurant.updated', { ordering: { paused: true } });
-    expect(t.settings).toEqual([{ paused: true }]);
+    t.socket.emit('restaurant.updated', { branchId: 'nasr', ordering: { paused: true } });
+    expect(t.settings).toEqual([{ branchId: 'nasr', ordering: { paused: true } }]);
     // A network drop: Socket.IO reconnects by itself; the board refetches afterwards.
     t.socket.emit('disconnect', 'transport close');
     expect(t.realtime.getState()).toBe('reconnecting');

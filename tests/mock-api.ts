@@ -1,5 +1,5 @@
 import type { Page, Request } from '@playwright/test';
-import type { AuthUser, OwnerRestaurant, SessionResponse } from '@bilhanah/contracts';
+import type { AuthUser, BranchList, OwnerRestaurant, SessionResponse } from '@bilhanah/contracts';
 
 /**
  * A fake API for specs that must not depend on bilhanah-BE (features it has not shipped yet):
@@ -85,18 +85,32 @@ export function restaurant(changes: Partial<OwnerRestaurant> = {}): OwnerRestaur
   return {
     id: 'r-1', name: 'كشري التحرير', subdomain: 'tahrir', publicUrl: 'https://tahrir.bilhanah.com', contactName: 'منى', phone: '01098765432', city: 'طنطا', address: '٥ شارع البحر',
     defaultLanguage: 'ar', timezone: 'Africa/Cairo', whatsappNumber: null, websiteUrl: null, facebookUrl: null, instagramUrl: null, createdAt: '2026-09-01T09:00:00.000Z',
-    access: { status: 'PAID', planCode: 'ORDERS', features: { menu: true, ordering: true, readyAlerts: false }, currentPeriodEndsAt: '2026-12-01T00:00:00.000Z', trialEndsAt: null },
+    access: { status: 'PAID', planCode: 'ORDERS', features: { menu: true, ordering: true, readyAlerts: false, branches: 3 }, currentPeriodEndsAt: '2026-12-01T00:00:00.000Z', trialEndsAt: null },
     // The board and its socket stay off in mocked runs.
     ordering: { included: false, enabled: false, acceptsDineIn: true, acceptsPickup: true, paused: false },
-    logo: null, cover: null, brandColor: null, openingHours: null, menuTheme: 'classic',
+    logo: null, cover: null, brandColor: null, openingHours: null, menuTheme: 'classic', mainBranchId: 'b-main', branchCount: 1,
     ...changes,
+  };
+}
+
+/** The restaurant's single (main) branch, mirroring its details. */
+export function branchList(owner: OwnerRestaurant): BranchList {
+  return {
+    limit: owner.access.features.branches, used: 1,
+    branches: [{
+      id: owner.mainBranchId, name: owner.name, slug: 'main', isMain: true, isActive: true, phone: owner.phone, whatsappNumber: owner.whatsappNumber,
+      city: owner.city, address: owner.address, mapUrl: null, openingHours: owner.openingHours, ordering: owner.ordering, publicUrl: owner.publicUrl,
+      tableCount: 0, staffCount: 0, activeOrders: 0, createdAt: owner.createdAt,
+    }],
   };
 }
 
 /** A signed-in owner with a restaurant and an empty menu. */
 export function ownerApi(changes: Partial<OwnerRestaurant> = {}) {
+  const owner = restaurant(changes);
   return signedIn(new MockApi(), ownerUser)
-    .on('GET', '/v1/restaurants/mine', { json: restaurant(changes) })
+    .on('GET', '/v1/restaurants/mine', { json: owner })
+    .on('GET', '/v1/branches', { json: branchList(owner) })
     .on('GET', '/v1/menu', { json: { categories: [] } });
 }
 

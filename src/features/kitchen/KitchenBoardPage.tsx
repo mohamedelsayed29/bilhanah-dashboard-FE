@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
-import { LockIcon, PowerIcon, SpeakerHighIcon, SpeakerSlashIcon } from '@phosphor-icons/react';
+import { LockIcon, PowerIcon, ProhibitIcon, SpeakerHighIcon, SpeakerSlashIcon } from '@phosphor-icons/react';
 import type { OrderStatus, OwnerOrder } from '@bilhanah/contracts';
 import { Alert } from '../../components/Alert';
 import { Button } from '../../components/Button';
 import { ErrorPanel } from '../../components/ErrorBoundary';
 import { Skeleton } from '../../components/Skeleton';
+import { useCopy } from '../../lib/copy';
 import { useLanguage, usePageTitle } from '../../lib/language';
+import { useBranchScope } from '../branches/BranchScope';
+import { SoldOutDialog } from '../branches/SoldOutDialog';
+import { useBranchesQuery } from '../restaurant/queries';
 import { COLUMNS, groupByColumn, needsReason, type Column } from '../restaurant/orders/board';
 import { useBoardQuery, useOrdersLive } from '../restaurant/orders/live';
 import { useOrderStatus } from '../restaurant/orders/mutations';
@@ -23,10 +27,16 @@ const COLUMN_TEXT: Record<Column, { ar: string; en: string; emptyAr: string; emp
 /** The kitchen display: every active order, large and live, with the steps the kitchen takes. No prices or settings. */
 export function KitchenBoardPage() {
   const { text, number, count } = useLanguage();
+  const t = useCopy();
   usePageTitle('المطبخ', 'Kitchen');
-  const { ordering } = useKitchenContext();
+  const context = useKitchenContext();
+  const scope = useBranchScope();
+  // The chosen branch's own switches when known (all-branch screens); the context's otherwise.
+  const branches = useBranchesQuery();
+  const ordering = (scope.branch && branches.data?.branches.find(branch => branch.id === scope.branch!.id)?.ordering) || context.ordering;
   const live = useOrdersLive();
-  const board = useBoardQuery(ordering.included);
+  const board = useBoardQuery(scope.selected, ordering.included);
+  const [soldOutOpen, setSoldOutOpen] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   const status = useOrderStatus({ announce: setAnnouncement });
   const now = useNow();
@@ -72,6 +82,9 @@ export function KitchenBoardPage() {
     <h1 className="visually-hidden">{text('شاشة المطبخ', 'Kitchen screen')}</h1>
     <div className="board-toolbar kitchen-toolbar">
       <ConnectionPill state={live.connection} />
+      <Button variant="secondary" small onClick={() => setSoldOutOpen(true)} icon={<ProhibitIcon size={17} weight="bold" aria-hidden="true" />} data-testid="kitchen-sold-out">
+        {t.branchMenu.soldOutTitle}
+      </Button>
       <div className="board-sound">
         {soundPrompt && <p className="sound-locked" role="status">
           <span>{text('الصوت مقفول لحد ما تلمس الشاشة', 'Sound is off until you tap the screen')}</span>
@@ -110,13 +123,14 @@ export function KitchenBoardPage() {
           {columns[key].length === 0
             ? <p className="board-empty">{text(COLUMN_TEXT[key].emptyAr, COLUMN_TEXT[key].emptyEn)}</p>
             : <div className="board-cards">
-              {columns[key].map(order => <OrderCard key={order.id} kitchen order={order} now={now} isNew={live.unseen.has(order.id)} onAction={act} />)}
+              {columns[key].map(order => <OrderCard key={order.id} kitchen order={order} now={now} isNew={live.unseen.has(order.id)} showBranch={scope.selected === 'all' && scope.choices.length > 1} onAction={act} />)}
             </div>}
         </section>)}
       </div>
     </>}
 
     <p className="visually-hidden" aria-live="polite" data-testid="board-announcement">{announcement}</p>
+    <SoldOutDialog branch={scope.branch} open={soldOutOpen} onClose={() => setSoldOutOpen(false)} />
     <ReasonDialog order={closing?.order ?? null} status={closing?.status ?? 'REJECTED'} onClose={() => setClosing(null)}
       onConfirm={reason => { if (closing) status.mutate({ order: closing.order, status: closing.status, reason }); setClosing(null); }} />
   </div>;

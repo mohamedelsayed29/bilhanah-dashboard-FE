@@ -1,11 +1,17 @@
 import { useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { QRCodeCanvas, QRCodeSVG } from 'qrcode.react';
-import { ArrowSquareOutIcon, CheckIcon, DownloadSimpleIcon, FileSvgIcon, LinkSimpleIcon, PrinterIcon } from '@phosphor-icons/react';
+import { ArrowSquareOutIcon, CheckIcon, DownloadSimpleIcon, FileSvgIcon, LinkSimpleIcon, PrinterIcon, TableIcon } from '@phosphor-icons/react';
 import { CopyButton } from '../../../components/CopyButton';
 import { PageHeader } from '../../../components/PageHeader';
+import { Skeleton } from '../../../components/Skeleton';
 import { useToast } from '../../../components/Toast';
+import { fill, useCopy } from '../../../lib/copy';
 import { useLanguage, usePageTitle } from '../../../lib/language';
-import { useRestaurant } from '../queries';
+import { PageBranchPicker, usePageBranch } from '../../branches/BranchScope';
+import { useBranchList, useOwnerBranch } from '../../branches/workspace';
+import { useRestaurant, useTablesQuery } from '../queries';
+import { tableFilePrefix } from '../tables/TablesPage';
 import { menuQrUrl } from './qr-url';
 
 const COLORS = [
@@ -25,16 +31,25 @@ function download(href: string, filename: string) {
   link.remove();
 }
 
+/** How many table codes the QR page previews before linking to the print page. */
+const TABLE_PREVIEW = 8;
+
 export function QrCodesPage() {
   const { text } = useLanguage();
+  const t = useCopy();
   usePageTitle('كود QR', 'QR code');
   const restaurant = useRestaurant();
+  const page = usePageBranch();
+  const branch = useOwnerBranch(page.branchId);
+  const multi = useBranchList().branches.filter(entry => entry.isActive).length > 1;
   const toast = useToast();
   const [color, setColor] = useState<(typeof COLORS)[number]['id']>('black');
   const svgRef = useRef<SVGSVGElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fg = COLORS.find(entry => entry.id === color)!.value;
-  const filename = `bilhanah-${restaurant.subdomain}-qr`;
+  const filename = `bilhanah-${tableFilePrefix(restaurant.subdomain, branch)}-qr`;
+  // Each branch has its own menu link (the main branch's is the restaurant's).
+  const publicUrl = branch?.publicUrl ?? restaurant.publicUrl;
 
   const downloadSvg = () => {
     const svg = svgRef.current;
@@ -63,9 +78,9 @@ export function QrCodesPage() {
     }, 'image/png');
   };
 
-  const host = restaurant.publicUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const host = publicUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
   // Scans of this code count as "QR code" in the insights; the same link goes into every download.
-  const qrUrl = menuQrUrl(restaurant.publicUrl);
+  const qrUrl = menuQrUrl(publicUrl);
   const tips = [
     text('خلّي الكود ٣ سم على الأقل، و٥ سم أحسن على الترابيزة.', 'Print the code at least 3 cm wide; 5 cm is better on tables.'),
     text('سيب مساحة بيضا حوالين الكود، ومتحطش عليه لوجو أو كلام.', 'Keep a white margin around the code and don’t print over it.'),
@@ -77,11 +92,17 @@ export function QrCodesPage() {
   // The code on a deep-teal stage as it will look printed; downloads, the link and print tips beside it.
   return <div className="page qr-page">
     <PageHeader title={text('كود QR', 'QR code')} description={text('الزبون يوجّه كاميرا موبايله على الكود ويفتح المنيو على طول، من غير ما ينزّل أي تطبيق.', 'Diners point their phone camera at the code and your menu opens instantly, no app needed.')} />
+    <PageBranchPicker page={page} />
+    {multi && branch && <p className="qr-branch-note" data-testid="qr-branch-note">
+      <strong>{fill(t.qrBranch.title, { name: branch.name })}</strong>
+      <span>{branch.isMain ? t.qrBranch.mainNote : fill(t.qrBranch.branchNote, { name: branch.name })}</span>
+    </p>}
     <div className="qr-layout">
       <section className="qr-stage" aria-labelledby="qr-title">
         <h2 id="qr-title" className="qr-stage-title">{text('معاينة الكارت', 'Card preview')}</h2>
         <div className="table-card" style={{ ['--qr-accent' as string]: restaurant.brandColor ?? '#075e54' }}>
           <strong className="table-card-name"><bdi>{restaurant.name}</bdi></strong>
+          {multi && branch && !branch.isMain && <span className="table-card-branch"><bdi>{branch.name}</bdi></span>}
           <span className="table-card-hint">{text('امسح الكود وشوف المنيو', 'Scan to see the menu')}</span>
           <div className="table-card-qr">
             <QRCodeSVG ref={svgRef} value={qrUrl} size={220} level="M" marginSize={2} fgColor={fg} bgColor="#ffffff"
@@ -128,12 +149,14 @@ export function QrCodesPage() {
           <div className="qr-link-box">
             <p className="public-url ltr">{host}</p>
             <div className="qr-link-actions">
-              <CopyButton value={restaurant.publicUrl} label={text('انسخ اللينك', 'Copy link')} />
-              <a className="button button-ghost button-small" href={restaurant.publicUrl} target="_blank" rel="noreferrer"><ArrowSquareOutIcon size={17} aria-hidden="true" />{text('افتح المنيو', 'Open menu')}</a>
+              <CopyButton value={publicUrl} label={text('انسخ اللينك', 'Copy link')} />
+              <a className="button button-ghost button-small" href={publicUrl} target="_blank" rel="noreferrer"><ArrowSquareOutIcon size={17} aria-hidden="true" />{text('افتح المنيو', 'Open menu')}</a>
             </div>
           </div>
           <p className="qr-url-hint">{text('الكود فيه نفس اللينك وزيادة ‎?src=qr عشان مسح الكود يتحسب لوحده في الإحصائيات:', 'The code holds the same link plus ?src=qr, so scans are counted separately in your insights:')} <span className="ltr" data-testid="qr-url">{qrUrl}</span></p>
         </section>
+
+        {page.branchId && <BranchTableCodes branchId={page.branchId} name={branch?.name ?? ''} multi={multi} />}
 
         <section className="card qr-card" aria-labelledby="tips-title">
           <header className="qr-card-head">
@@ -147,4 +170,37 @@ export function QrCodesPage() {
       </div>
     </div>
   </div>;
+}
+
+/** The chosen branch's table codes at a glance, with the way to print and manage them. */
+function BranchTableCodes({ branchId, name, multi }: { branchId: string; name: string; multi: boolean }) {
+  const { text, number } = useLanguage();
+  const t = useCopy();
+  const tables = useTablesQuery(branchId);
+  const active = (tables.data ?? []).filter(table => table.isActive);
+  const shown = active.slice(0, TABLE_PREVIEW);
+  const branchQuery = `?branch=${branchId}`;
+  return <section className="card qr-card" aria-labelledby="table-codes-title" data-testid="qr-table-codes">
+    <header className="qr-card-head">
+      <span className="qr-card-icon" aria-hidden="true"><TableIcon size={20} weight="bold" /></span>
+      <div>
+        <h2 id="table-codes-title">{multi ? fill(t.qrBranch.tablesTitle, { name }) : text('أكواد الطاولات', 'Table codes')}</h2>
+        <p>{t.qrBranch.tablesHint}</p>
+      </div>
+    </header>
+    {tables.isPending && <div className="qr-table-codes" aria-hidden="true">{[0, 1, 2, 3].map(index => <Skeleton key={index} width={84} height={104} />)}</div>}
+    {tables.data && active.length === 0 && <p className="muted">{t.qrBranch.tablesEmpty}</p>}
+    {shown.length > 0 && <ul className="qr-table-codes">
+      {shown.map(table => <li key={table.id}>
+        <QRCodeSVG value={table.qrUrl} size={72} level="M" marginSize={1} fgColor="#111111" bgColor="#ffffff"
+          title={text(`كود QR لـ${table.label}`, `QR code for ${table.label}`)} role="img" />
+        <bdi>{table.label}</bdi>
+      </li>)}
+    </ul>}
+    {active.length > TABLE_PREVIEW && <p className="muted small">{fill(t.qrBranch.tablesMore, { count: number(active.length - TABLE_PREVIEW) })}</p>}
+    <div className="qr-link-actions">
+      {active.length > 0 && <Link className="button button-secondary button-small" to={`/tables/print${branchQuery}`}><PrinterIcon size={17} aria-hidden="true" />{t.qrBranch.tablesPrint}</Link>}
+      <Link className="button button-ghost button-small" to={`/tables${branchQuery}`}><TableIcon size={17} aria-hidden="true" />{t.qrBranch.tablesManage}</Link>
+    </div>
+  </section>;
 }

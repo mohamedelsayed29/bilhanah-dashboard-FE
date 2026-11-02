@@ -7,13 +7,13 @@ import { useRestaurantQuery } from '../../features/restaurant/queries';
 import { OwnerLayout } from '../../layouts/OwnerLayout';
 import { Splash } from '../providers/SessionBootstrap';
 
-/** Where each role lands after signing in: administrators and kitchen screens have their own area. */
+/** Where each role lands after signing in: administrators, kitchen screens and branch managers have their own area. */
 export function roleHome(role: UserRole): string {
-  return role === 'ADMIN' ? '/admin' : role === 'KITCHEN' ? '/kitchen' : '/';
+  return role === 'ADMIN' ? '/admin' : role === 'KITCHEN' ? '/kitchen' : role === 'MANAGER' ? '/manager' : '/';
 }
 
 const within = (path: string, area: string) => path === area || path.startsWith(`${area}/`);
-const pathRole = (path: string): UserRole => (within(path, '/admin') ? 'ADMIN' : within(path, '/kitchen') ? 'KITCHEN' : 'OWNER');
+const pathRole = (path: string): UserRole => (within(path, '/admin') ? 'ADMIN' : within(path, '/kitchen') ? 'KITCHEN' : within(path, '/manager') ? 'MANAGER' : 'OWNER');
 
 /** Only same-app paths for the signed-in role are accepted as a post-login destination. */
 export function safeNext(value: string | null, role: UserRole = 'OWNER'): string {
@@ -43,6 +43,15 @@ export function RequireKitchen() {
   if (session.status === 'loading') return <Splash />;
   if (session.status === 'anonymous') return <ToLogin login="/login" home="/kitchen" expired={session.reason === 'expired'} />;
   if (session.user.role !== 'KITCHEN') return <Navigate to={roleHome(session.user.role)} replace />;
+  return <Outlet />;
+}
+
+/** The branch manager's dashboard: manager accounts only. They sign in on the owners' login page. */
+export function RequireManager() {
+  const session = useSession();
+  if (session.status === 'loading') return <Splash />;
+  if (session.status === 'anonymous') return <ToLogin login="/login" home="/manager" expired={session.reason === 'expired'} />;
+  if (session.user.role !== 'MANAGER') return <Navigate to={roleHome(session.user.role)} replace />;
   return <Outlet />;
 }
 

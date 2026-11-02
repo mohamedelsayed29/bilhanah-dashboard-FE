@@ -12,7 +12,7 @@ import { LogoutPage } from '../features/auth/LogoutPage';
 import { OverviewPage } from '../features/restaurant/overview/OverviewPage';
 import { NotFoundPage } from './NotFoundPage';
 import { Splash } from './providers/SessionBootstrap';
-import { OnboardingGate, RequireAdmin, RequireAuth, RequireGuest, RequireKitchen, RestaurantGate } from './router/guards';
+import { OnboardingGate, RequireAdmin, RequireAuth, RequireGuest, RequireKitchen, RequireManager, RestaurantGate } from './router/guards';
 
 const page = <T,>(load: () => Promise<T>, pick: (module: T) => React.ComponentType) => async () => ({ Component: pick(await load()) });
 
@@ -59,6 +59,9 @@ export const router = createBrowserRouter([
               { path: 'tables', lazy: page(() => import('../features/restaurant/tables/TablesPage'), module => module.TablesPage) },
               { path: 'tables/print', lazy: page(() => import('../features/restaurant/tables/TablesPrintPage'), module => module.TablesPrintPage) },
               { path: 'insights', lazy: page(() => import('../features/restaurant/insights/InsightsPage'), module => module.InsightsPage) },
+              { path: 'branches', lazy: page(() => import('../features/branches/BranchesPage'), module => module.BranchesPage) },
+              { path: 'branches/menu', lazy: page(() => import('../features/branches/BranchMenuPage'), module => module.BranchMenuPage) },
+              { path: 'branches/:branchId', lazy: page(() => import('../features/branches/BranchSettingsPage'), module => module.OwnerBranchPage) },
               { path: 'subscription', lazy: page(() => import('../features/restaurant/subscription/SubscriptionPage'), module => module.SubscriptionPage) },
               {
                 path: 'settings',
@@ -83,6 +86,23 @@ export const router = createBrowserRouter([
         children: [{
           lazy: page(() => import('../features/kitchen/KitchenLayout'), module => module.KitchenLayout),
           children: [{ index: true, lazy: page(() => import('../features/kitchen/KitchenBoardPage'), module => module.KitchenBoardPage) }],
+        }],
+      },
+      // Branch managers (staff accounts made by the owner): their branch's orders, tables, menu changes, settings and insights.
+      {
+        path: 'manager',
+        element: <RequireManager />,
+        children: [{
+          lazy: page(() => import('../features/manager/ManagerLayout'), module => module.ManagerLayout),
+          children: [
+            { index: true, lazy: page(() => import('../features/restaurant/orders/OrdersBoardPage'), module => module.OrdersBoardPage) },
+            { path: 'orders/history', lazy: page(() => import('../features/restaurant/orders/OrderHistoryPage'), module => module.OrderHistoryPage) },
+            { path: 'tables', lazy: page(() => import('../features/restaurant/tables/TablesPage'), module => module.TablesPage) },
+            { path: 'tables/print', lazy: page(() => import('../features/restaurant/tables/TablesPrintPage'), module => module.TablesPrintPage) },
+            { path: 'menu', lazy: page(() => import('../features/branches/BranchMenuPage'), module => module.BranchMenuPage) },
+            { path: 'insights', lazy: page(() => import('../features/restaurant/insights/InsightsPage'), module => module.InsightsPage) },
+            { path: 'settings', lazy: page(() => import('../features/branches/BranchSettingsPage'), module => module.ManagerBranchPage) },
+          ],
         }],
       },
       // Platform administrators (password + authenticator code); the console loads on demand.

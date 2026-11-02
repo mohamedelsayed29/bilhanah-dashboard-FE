@@ -7,7 +7,10 @@ import { Alert } from '../../../components/Alert';
 import { CopyButton } from '../../../components/CopyButton';
 import { PageHeader } from '../../../components/PageHeader';
 import { Skeleton } from '../../../components/Skeleton';
+import { fill, useCopy } from '../../../lib/copy';
 import { formatDate } from '../../../lib/format';
+import { BranchPicker, usePageBranch } from '../../branches/BranchScope';
+import { useBranchList, useOwnerBranch } from '../../branches/workspace';
 import { TablesFloor } from '../tables/TablesFloor';
 import { useLanguage, usePageTitle } from '../../../lib/language';
 import { accessDaysLeft, accessStatusName, PLAN_NAMES } from '../access';
@@ -40,15 +43,50 @@ export function OverviewPage() {
           <Suspense fallback={<div className="figures-group" aria-hidden="true"><Skeleton width={120} height={16} /><Skeleton width={220} height={30} /></div>}><InsightsSummary /></Suspense>
           {menu.data ? <MenuFigures menu={menu.data} /> : <div className="figures-group" aria-hidden="true"><Skeleton width={80} height={16} /><Skeleton width={260} height={30} /></div>}
         </section>
-        {restaurant.ordering.included && <TablesFloor />}
+        {restaurant.ordering.included && <OverviewFloor />}
         {menu.data && <Checklist restaurant={restaurant} menu={menu.data} />}
       </div>
       <div className="overview-side">
+        <BranchesCard />
         <MenuLink restaurant={restaurant} />
         <Plan restaurant={restaurant} />
       </div>
     </div>
   </div>;
+}
+
+/** The floor of the branch being worked on; with every branch selected, a branch picker on the card. */
+function OverviewFloor() {
+  const t = useCopy();
+  const page = usePageBranch();
+  const branch = useOwnerBranch(page.branchId);
+  const multi = useBranchList().branches.filter(entry => entry.isActive).length > 1;
+  if (!page.branchId) return null;
+  return <TablesFloor branchId={page.branchId} title={multi && branch ? fill(t.tablesBranch.floorTitle, { name: branch.name }) : undefined}
+    picker={page.needsPicker ? <BranchPicker value={page.branchId} onChange={page.pick} /> : undefined} />;
+}
+
+/** The restaurant's branches and the plan's allowance, with a way to the Branches page. */
+function BranchesCard() {
+  const t = useCopy();
+  const { number, count } = useLanguage();
+  const list = useBranchList();
+  const active = list.branches.filter(branch => branch.isActive);
+  return <section className="card section overview-card" aria-labelledby="branches-card-title" data-testid="overview-branches">
+    <div className="section-head">
+      <h2 id="branches-card-title">{t.branches.title}</h2>
+      <p>{fill(t.branches.usage, { used: number(list.used), limit: count(list.limit, 'branch') })}</p>
+    </div>
+    {active.length > 1 && <ul className="overview-branches">
+      {active.map(branch => <li key={branch.id}>
+        <bdi>{branch.name}</bdi>
+        {branch.isMain && <span className="badge badge-muted">{t.scope.main}</span>}
+        <span className="muted small">{fill(t.branches.activeOrdersShort, { count: number(branch.activeOrders) })}</span>
+      </li>)}
+    </ul>}
+    {active.length <= 1 && <p className="muted">{t.branches.single}</p>}
+    <Link className="link-action" to="/branches">{t.branches.manage}<ArrowLeftIcon size={14} className="directional" aria-hidden="true" /></Link>
+  </section>;
 }
 
 /** New orders nobody has accepted yet: the most urgent thing on the page. */

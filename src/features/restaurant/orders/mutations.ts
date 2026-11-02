@@ -1,12 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ORDER_ERROR_CODES, type OrderStatus, type OwnerOrder, type OwnerRestaurant } from '@bilhanah/contracts';
+import { type BranchList, ORDER_ERROR_CODES, type OrderStatus, type OwnerBranch, type OwnerOrder, type OwnerRestaurant } from '@bilhanah/contracts';
 import { useToast } from '../../../components/Toast';
 import { isApiError } from '../../../lib/api';
-import { ordersApi, restaurantApi } from '../../../lib/api/endpoints';
+import { branchesApi, ordersApi } from '../../../lib/api/endpoints';
 import { errorMessage } from '../../../lib/api/error-messages';
+import { fill, useCopy } from '../../../lib/copy';
 import { useLanguage } from '../../../lib/language';
 import { queryKeys } from '../queries';
-import { isActiveStatus, upsertOrder, withStatus } from './board';
+import { isActiveStatus, mergeIntoBoard, withStatus } from './board';
+import { updateBoards } from './board-cache';
 import { actionDone, orderNo } from './labels';
 
 /** Orders never move back to PLACED. */
@@ -24,21 +26,21 @@ export function useOrderStatus({ announce }: { announce?: (message: string) => v
   return useMutation({
     mutationFn: ({ order, status, reason }: Change) => ordersApi.updateStatus(order.id, { status, reason: reason ?? null }),
     onMutate: async ({ order, status, reason }: Change) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.board });
-      queryClient.setQueryData<OwnerOrder[]>(queryKeys.board, current => (current ? withStatus(current, order.id, status, reason ?? null) : current));
+      await queryClient.cancelQueries({ queryKey: queryKeys.boards });
+      updateBoards(queryClient, current => withStatus(current, order.id, status, reason ?? null));
     },
     onError: (error, { order }) => {
       // Only this card goes back; other live changes on the board stay.
-      queryClient.setQueryData<OwnerOrder[]>(queryKeys.board, current => (current ? upsertOrder(current, order, true) : current));
+      updateBoards(queryClient, (current, scope) => mergeIntoBoard(current, order, scope, true));
       if (isApiError(error, ORDER_ERROR_CODES.INVALID_STATUS_CHANGE) || isApiError(error, ORDER_ERROR_CODES.ORDER_NOT_FOUND)) {
         toast.error(text('الطلب ده اتحدّث من جهاز تاني، وحدّثنا اللوحة.', 'This order was updated on another device; the board has been refreshed.'));
-        void queryClient.invalidateQueries({ queryKey: queryKeys.board });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.boards });
       } else {
         toast.error(errorMessage(error, text));
       }
     },
     onSuccess: (saved, { status }) => {
-      queryClient.setQueryData<OwnerOrder[]>(queryKeys.board, current => (current ? upsertOrder(current, saved) : current));
+      updateBoards(queryClient, (current, scope) => mergeIntoBoard(current, saved, scope));
       queryClient.setQueryData(queryKeys.order(saved.id), saved);
       if (!isActiveStatus(saved.status)) void queryClient.invalidateQueries({ queryKey: queryKeys.orderHistoryAll });
       // The card moving is the visible confirmation; screen readers hear it (no toast pile-up on a busy board).
@@ -49,18 +51,25 @@ export function useOrderStatus({ announce }: { announce?: (message: string) => v
   });
 }
 
-/** Pause or resume taking orders (diners see "not taking orders right now"). */
+/** Keeps the cached branch list, the owner's restaurant (main branch mirror) and the kitchen context in step with a saved branch. */
+export function storeBranch(queryClient: ReturnType<typeof useQueryClient>, branch: OwnerBranch) {
+  queryClient.setQueryData<BranchList>(queryKeys.branches, list => (list ? { ...list, branches: list.branches.map(entry => (entry.id === branch.id ? branch : entry)) } : list));
+  queryClient.setQueryData<OwnerRestaurant>(queryKeys.restaurant, current => (current && current.mainBranchId === branch.id
+    ? { ...current, ordering: branch.ordering, openingHours: branch.openingHours } : current));
+}
+
+/** Pause or resume taking orders at a branch (diners see "not taking orders right now"). */
 export function useOrdersPause() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const { text } = useLanguage();
+  const t = useCopy();
   return useMutation({
-    mutationFn: (paused: boolean) => restaurantApi.update({ ordersPaused: paused }),
-    onSuccess: (restaurant: OwnerRestaurant) => {
-      queryClient.setQueryData(queryKeys.restaurant, restaurant);
-      toast.success(restaurant.ordering.paused
-        ? text('وقّفنا استقبال الطلبات مؤقتًا', 'New orders are paused')
-        : text('رجعنا نستقبل طلبات', 'Taking orders again'));
+    mutationFn: ({ branchId, paused }: { branchId: string; paused: boolean }) => branchesApi.update(branchId, { ordersPaused: paused }),
+    onSuccess: branch => {
+      storeBranch(queryClient, branch);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenContext });
+      toast.success(fill(branch.ordering.paused ? t.ordersBranch.pausedToast : t.ordersBranch.resumedToast, { name: branch.name }));
     },
     onError: error => toast.error(errorMessage(error, text)),
   });
@@ -74,9 +83,9 @@ export function useOrderPayment() {
   return useMutation({
     mutationFn: ({ order, paid }: { order: OwnerOrder; paid: boolean }) => ordersApi.setPaid(order.id, paid),
     onSuccess: saved => {
-      queryClient.setQueryData<OwnerOrder[]>(queryKeys.board, current => (current ? upsertOrder(current, saved) : current));
+      updateBoards(queryClient, (current, scope) => mergeIntoBoard(current, saved, scope));
       queryClient.setQueryData(queryKeys.order(saved.id), saved);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.floor });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.floors });
       void queryClient.invalidateQueries({ queryKey: queryKeys.orderHistoryAll });
       toast.success(saved.paidAt
         ? text(`طلب ${orderNo(saved.number, number)} اتدفع`, `Order #${saved.number} marked paid`)

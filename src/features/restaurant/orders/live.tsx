@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { KitchenContext, OwnerOrder, OwnerRestaurant } from '@bilhanah/contracts';
+import type { BranchList, KitchenContext, OwnerOrder, OwnerRestaurant } from '@bilhanah/contracts';
 import { useToast } from '../../../components/Toast';
 import { apiClient } from '../../../lib/api';
 import { ordersApi } from '../../../lib/api/endpoints';
@@ -9,8 +9,11 @@ import { API_URL } from '../../../lib/config';
 import { useLanguage } from '../../../lib/language';
 import type { ConnectionState, OwnerRealtime } from '../../../lib/realtime/owner-realtime';
 import { sessionStore } from '../../../lib/session';
+import { useBranchScope } from '../../branches/BranchScope';
+import { contextFollowsBranch, withBranchOrdering } from '../../branches/scope';
 import { queryKeys } from '../queries';
-import { isActiveStatus, upsertOrder } from './board';
+import { type BoardScope, isActiveStatus, mergeIntoBoard } from './board';
+import { updateBoards } from './board-cache';
 import { getAudioState, playChime, subscribeAudio, unlockAudio, type AudioState } from './chime';
 import { orderNo } from './labels';
 
@@ -23,6 +26,8 @@ const BOARD_PAGE_SIZE = 100;
 type LiveValue = {
   /** Ordering is part of the plan, so the board is loaded and kept live. */
   enabled: boolean;
+  /** The branch (or every branch) whose orders the board, alerts and count follow. */
+  scope: BoardScope;
   connection: ConnectionState;
   /** Orders that arrived since the owner last interacted with the board. */
   unseen: ReadonlySet<string>;
@@ -36,10 +41,12 @@ type LiveValue = {
 
 const LiveContext = createContext<LiveValue | null>(null);
 
-export const fetchBoard = async (): Promise<OwnerOrder[]> => (await ordersApi.list({ view: 'active', pageSize: BOARD_PAGE_SIZE })).items;
+export const fetchBoard = async (scope: BoardScope): Promise<OwnerOrder[]> =>
+  (await ordersApi.list({ view: 'active', pageSize: BOARD_PAGE_SIZE, branchId: scope === 'all' ? null : scope })).items;
 
-export function useBoardQuery(enabled = true) {
-  return useQuery({ queryKey: queryKeys.board, queryFn: fetchBoard, enabled, staleTime: 15_000 });
+/** The live board of one branch, or of every branch the viewer may see. */
+export function useBoardQuery(scope: BoardScope, enabled = true) {
+  return useQuery({ queryKey: queryKeys.board(scope), queryFn: () => fetchBoard(scope), enabled, staleTime: 15_000 });
 }
 
 function readSoundPreference(): boolean {
@@ -65,14 +72,15 @@ function useTitleCount(count: number) {
 
 /**
  * Keeps the board live across the owner shell (or the kitchen screen): the Socket.IO feed,
- * the new-order alert (sound, toast, tab title) and the count for the navigation.
+ * the new-order alert (sound, toast, tab title) and the count for the navigation, for the
+ * branch scope being worked on (a device at one branch does not ring for another's orders).
  * `enabled`: ordering is part of the plan.
  */
-export function OrdersLiveProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
+export function OrdersLiveProvider({ enabled, scope, children }: { enabled: boolean; scope: BoardScope; children: ReactNode }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const { text, number } = useLanguage();
-  const board = useBoardQuery(enabled);
+  const board = useBoardQuery(scope, enabled);
   const [connection, setConnection] = useState<ConnectionState>('stopped');
   const [unseen, setUnseen] = useState<ReadonlySet<string>>(() => new Set());
   const [arrivals, setArrivals] = useState(0);
@@ -94,23 +102,27 @@ export function OrdersLiveProvider({ enabled, children }: { enabled: boolean; ch
         url: API_URL,
         getToken: () => sessionStore.accessToken(),
         refresh: () => apiClient.refreshSession(),
+        // Owners and all-branch staff hear about every branch: each board keeps its own branch's orders.
         onOrderCreated: order => {
-          queryClient.setQueryData<OwnerOrder[]>(queryKeys.board, current => upsertOrder(current ?? [], order));
-          if (order.type === 'DINE_IN') void queryClient.invalidateQueries({ queryKey: queryKeys.floor });
+          updateBoards(queryClient, (current, boardScope) => mergeIntoBoard(current, order, boardScope));
+          if (order.type === 'DINE_IN') void queryClient.invalidateQueries({ queryKey: queryKeys.floors });
         },
         onOrderUpdated: order => {
-          if (order.type === 'DINE_IN') void queryClient.invalidateQueries({ queryKey: queryKeys.floor });
-          queryClient.setQueryData<OwnerOrder[]>(queryKeys.board, current => (current ? upsertOrder(current, order) : current));
+          if (order.type === 'DINE_IN') void queryClient.invalidateQueries({ queryKey: queryKeys.floors });
+          updateBoards(queryClient, (current, boardScope) => mergeIntoBoard(current, order, boardScope));
           queryClient.setQueryData(queryKeys.order(order.id), order);
           if (!isActiveStatus(order.status)) void queryClient.invalidateQueries({ queryKey: queryKeys.orderHistoryAll });
         },
-        onRestaurantUpdated: ordering => {
-          queryClient.setQueryData<OwnerRestaurant>(queryKeys.restaurant, current => (current ? { ...current, ordering } : current));
-          queryClient.setQueryData<KitchenContext>(queryKeys.kitchenContext, current => (current ? { ...current, ordering } : current));
+        // One branch's ordering switches changed (e.g. paused on another device).
+        onRestaurantUpdated: event => {
+          queryClient.setQueryData<BranchList>(queryKeys.branches, current => (current ? withBranchOrdering(current, event) : current));
+          queryClient.setQueryData<OwnerRestaurant>(queryKeys.restaurant, current => (current && current.mainBranchId === event.branchId ? { ...current, ordering: event.ordering } : current));
+          queryClient.setQueryData<KitchenContext>(queryKeys.kitchenContext, current => (current && contextFollowsBranch(current, event.branchId) ? { ...current, ordering: event.ordering } : current));
         },
         onResync: () => {
-          void queryClient.invalidateQueries({ queryKey: queryKeys.board });
-          void queryClient.invalidateQueries({ queryKey: queryKeys.floor });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.boards });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.floors });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.branches });
         },
         onStateChange: setConnection,
       });
@@ -123,18 +135,20 @@ export function OrdersLiveProvider({ enabled, children }: { enabled: boolean; ch
   }, [enabled, queryClient]);
 
   // New orders, however they arrived (live event or a refetch after reconnecting), alert once.
-  const known = useRef<Set<string> | null>(null);
+  const known = useRef<{ scope: BoardScope; ids: Set<string> } | null>(null);
   useEffect(() => {
     const orders = board.data;
     if (!orders) return;
     const placed = orders.filter(order => order.status === 'PLACED');
-    if (known.current === null) {
-      // The first load is not news.
-      known.current = new Set(orders.map(order => order.id));
+    if (known.current === null || known.current.scope !== scope) {
+      // The first load (and the first one after switching branch) is not news.
+      known.current = { scope, ids: new Set(orders.map(order => order.id)) };
+      setUnseen(current => (current.size === 0 ? current : new Set()));
       return;
     }
-    const fresh = placed.filter(order => !known.current!.has(order.id));
-    for (const order of orders) known.current.add(order.id);
+    const seenIds = known.current.ids;
+    const fresh = placed.filter(order => !seenIds.has(order.id));
+    for (const order of orders) seenIds.add(order.id);
     setUnseen(current => {
       const stillNew = [...current].filter(id => placed.some(order => order.id === id));
       const next = new Set([...stillNew, ...fresh.map(order => order.id)]);
@@ -147,7 +161,7 @@ export function OrdersLiveProvider({ enabled, children }: { enabled: boolean; ch
     notify.success(fresh.length === 1
       ? t(`طلب جديد ${orderNo(fresh[0]!.number, n)}`, `New order #${fresh[0]!.number}`)
       : t(`${n(fresh.length)} طلبات جديدة`, `${fresh.length} new orders`));
-  }, [board.data]);
+  }, [board.data, scope]);
 
   // Repeat the sound while new orders are waiting to be seen.
   useEffect(() => {
@@ -179,9 +193,9 @@ export function OrdersLiveProvider({ enabled, children }: { enabled: boolean; ch
 
   const newCount = board.data?.filter(order => order.status === 'PLACED').length ?? 0;
   const value = useMemo<LiveValue>(() => ({
-    enabled, connection, unseen, markSeen, newCount, arrivals,
+    enabled, scope, connection, unseen, markSeen, newCount, arrivals,
     sound: { on: soundOn, setOn: setSoundOn, audio, unlock: unlockAudio },
-  }), [enabled, connection, unseen, markSeen, newCount, arrivals, soundOn, setSoundOn, audio]);
+  }), [enabled, scope, connection, unseen, markSeen, newCount, arrivals, soundOn, setSoundOn, audio]);
   return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>;
 }
 
@@ -189,4 +203,10 @@ export function useOrdersLive(): LiveValue {
   const context = useContext(LiveContext);
   if (!context) throw new Error('OrdersLiveProvider is required');
   return context;
+}
+
+/** The live board of the branch chosen in the shell (or every branch). */
+export function LiveForScope({ enabled, children }: { enabled: boolean; children: ReactNode }) {
+  const { selected } = useBranchScope();
+  return <OrdersLiveProvider enabled={enabled} scope={selected}>{children}</OrdersLiveProvider>;
 }

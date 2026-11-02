@@ -1,4 +1,14 @@
 import type {
+  BranchComparison,
+  BranchList,
+  BranchMenu,
+  BranchMenuCopy,
+  BranchMenuItem,
+  BranchMenuReset,
+  createBranchSchema,
+  OwnerBranch,
+  setBranchItemSchema,
+  updateBranchSchema,
   AdminStandOrder,
   OnlineCheckout,
   PlatformStats,
@@ -88,8 +98,11 @@ export const restaurantApi = {
   mine: () => request<OwnerRestaurant>('/v1/restaurants/mine'),
   update: (body: z.output<typeof updateRestaurantSchema>) => request<OwnerRestaurant>('/v1/restaurants/mine', { method: 'PATCH', body }),
   publicMenu: (subdomain: string) => request<PublicMenuResponse>(`/v1/public/restaurants/${encodeURIComponent(subdomain)}/menu`, { auth: false }),
-  /** Visits and orders per day, in the restaurant's time zone. */
-  stats: (days: StatsPeriod, signal?: AbortSignal) => request<RestaurantStats>(`/v1/restaurants/mine/stats?days=${days}`, { signal }),
+  /** Visits and orders per day, in the restaurant's time zone; orders of one branch when `branchId` is set (visits stay restaurant-wide). */
+  stats: (days: StatsPeriod, branchId?: string | null, signal?: AbortSignal) =>
+    request<RestaurantStats>(`/v1/restaurants/mine/stats${query({ days, branchId })}`, { signal }),
+  /** One row per branch over the period (owners only). */
+  branchStats: (days: StatsPeriod, signal?: AbortSignal) => request<BranchComparison>(`/v1/restaurants/mine/stats/branches${query({ days })}`, { signal }),
 };
 
 export const menuApi = {
@@ -180,20 +193,22 @@ export const adminApi = {
 /** The live order board, order history and status changes. */
 export const ordersApi = {
   /** active: the board, oldest first. history: closed orders, newest first. */
-  list: (params: { view: 'active' | 'history'; page?: number; pageSize?: number }) => request<Paginated<OwnerOrder>>(`/v1/orders${query(params)}`),
+  /** `branchId`: one branch; every branch the caller may see when omitted. */
+  list: (params: { view: 'active' | 'history'; page?: number; pageSize?: number; branchId?: string | null }) => request<Paginated<OwnerOrder>>(`/v1/orders${query(params)}`),
   get: (orderId: string) => request<OwnerOrder>(`/v1/orders/${id(orderId)}`),
   updateStatus: (orderId: string, body: z.output<typeof updateOrderStatusSchema>) =>
     request<OwnerOrder>(`/v1/orders/${id(orderId)}/status`, { method: 'PATCH', body }),
   setPaid: (orderId: string, paid: boolean) => request<OwnerOrder>(`/v1/orders/${id(orderId)}/payment`, { method: 'PATCH', body: { paid } }),
   /** Active tables and whether guests (an unpaid order) are at each. */
-  floor: () => request<TableOccupancy[]>('/v1/orders/floor'),
+  floor: (branchId?: string | null) => request<TableOccupancy[]>(`/v1/orders/floor${query({ branchId })}`),
   /** Marks every open order on the table paid; returns the whole floor. */
   settleTable: (tableId: string) => request<TableOccupancy[]>(`/v1/orders/tables/${id(tableId)}/settle`, { method: 'POST' }),
 };
 
 /** Tables and the QR codes printed on them. */
 export const tablesApi = {
-  list: () => request<RestaurantTable[]>('/v1/tables'),
+  /** One branch's tables, or every table the caller may see when `branchId` is omitted. */
+  list: (branchId?: string | null) => request<RestaurantTable[]>(`/v1/tables${query({ branchId })}`),
   create: (body: z.input<typeof createTableSchema>) => request<RestaurantTable>('/v1/tables', { method: 'POST', body }),
   /** Returns every table after creating the range. */
   createRange: (body: z.input<typeof bulkCreateTablesSchema>) => request<RestaurantTable[]>('/v1/tables/range', { method: 'POST', body }),
@@ -212,6 +227,25 @@ export const kitchenAccountsApi = {
   /** Signs the account's screens out. */
   setPassword: (accountId: string, password: string) => post(`/v1/kitchen-accounts/${id(accountId)}/password`, { password }),
   remove: (accountId: string) => request<void>(`/v1/kitchen-accounts/${id(accountId)}`, { method: 'DELETE' }),
+};
+
+/** Branches: locations of the restaurant, with their own hours, ordering switches, tables, staff and menu overrides. */
+export const branchesApi = {
+  list: () => request<BranchList>('/v1/branches'),
+  get: (branchId: string) => request<OwnerBranch>(`/v1/branches/${id(branchId)}`),
+  create: (body: z.output<typeof createBranchSchema>) => request<OwnerBranch>('/v1/branches', { method: 'POST', body }),
+  /** Managers may not send name, slug or isActive. */
+  update: (branchId: string, body: z.output<typeof updateBranchSchema>) => request<OwnerBranch>(`/v1/branches/${id(branchId)}`, { method: 'PATCH', body }),
+  /** Only branches without orders or staff; archive the others (isActive: false). */
+  remove: (branchId: string) => request<void>(`/v1/branches/${id(branchId)}`, { method: 'DELETE' }),
+  makeMain: (branchId: string) => request<BranchList>(`/v1/branches/${id(branchId)}/main`, { method: 'POST' }),
+  reorder: (ids: string[]) => request<BranchList>('/v1/branches/reorder', { method: 'POST', body: { ids } }),
+  menu: (branchId: string) => request<BranchMenu>(`/v1/branches/${id(branchId)}/menu`),
+  /** Kitchen screens may only send `available`. */
+  setItem: (branchId: string, itemId: string, body: z.output<typeof setBranchItemSchema>) =>
+    request<BranchMenuItem>(`/v1/branches/${id(branchId)}/menu/items/${id(itemId)}`, { method: 'PUT', body }),
+  resetMenu: (branchId: string) => request<BranchMenuReset>(`/v1/branches/${id(branchId)}/menu/reset`, { method: 'POST' }),
+  copyMenu: (branchId: string, sourceId: string) => request<BranchMenuCopy>(`/v1/branches/${id(branchId)}/menu/copy-from/${id(sourceId)}`, { method: 'POST' }),
 };
 
 /** What the kitchen screen reads about its restaurant. */
