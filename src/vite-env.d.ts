@@ -7,6 +7,10 @@ interface ImportMetaEnv {
   readonly VITE_MENU_DOMAIN?: string;
   /** Marketing site origin, e.g. https://bilhanah.com. */
   readonly VITE_SITE_URL?: string;
+  /** "admin" builds the platform admin console (its own origin and session); anything else the restaurants' dashboard. */
+  readonly VITE_APP?: string;
+  /** Where the admin console lives, e.g. https://admin.bilhanah.com. */
+  readonly VITE_ADMIN_URL?: string;
 }
 
 interface ImportMeta {

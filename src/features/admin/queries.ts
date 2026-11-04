@@ -1,5 +1,6 @@
 import { keepPreviousData, useQuery, type QueryClient } from '@tanstack/react-query';
-import type { AdminStandOrder, PaymentStatus, StatsPeriod } from '@bilhanah/contracts';
+import type {
+  AuditScope, AdminStandOrder, PaymentStatus, StatsPeriod } from '@bilhanah/contracts';
 import { adminApi, type AdminRestaurantsQuery, type AdminStandOrdersQuery } from '../../lib/api/endpoints';
 
 export const adminKeys = {
@@ -13,7 +14,7 @@ export const adminKeys = {
   restaurant: (id: string) => ['admin', 'restaurants', 'detail', id] as const,
   settings: ['admin', 'settings'] as const,
   audit: ['admin', 'audit'] as const,
-  auditPage: (page: number) => ['admin', 'audit', page] as const,
+  auditPage: (page: number, scope: AuditScope | 'all' = 'all') => ['admin', 'audit', scope, page] as const,
   standOrders: ['admin', 'stand-orders'] as const,
   standOrderList: (params: AdminStandOrdersQuery) => ['admin', 'stand-orders', 'list', params] as const,
   standOrder: (id: string) => ['admin', 'stand-orders', 'detail', id] as const,
@@ -50,8 +51,8 @@ export function useAdminSettingsQuery() {
   return useQuery({ queryKey: adminKeys.settings, queryFn: adminApi.settings });
 }
 
-export function useAuditQuery(page: number) {
-  return useQuery({ queryKey: adminKeys.auditPage(page), queryFn: () => adminApi.audit(page), placeholderData: keepPreviousData });
+export function useAuditQuery(page: number, scope?: AuditScope) {
+  return useQuery({ queryKey: adminKeys.auditPage(page, scope), queryFn: () => adminApi.audit(page, scope), placeholderData: keepPreviousData });
 }
 
 export function useStandOrdersQuery(params: AdminStandOrdersQuery) {

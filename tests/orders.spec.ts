@@ -136,26 +136,30 @@ test('tables: add one, add a range, rename, switch off, new code, delete', async
   await rangeDialog.getByRole('button', { name: 'ضيف ٦ طاولات' }).click();
   await expect(rangeDialog).toBeHidden();
   await expect(page.getByTestId('table-item')).toHaveCount(7);
-  await expect(page.getByTestId('tables-count')).toHaveText('٧ طاولات · ٧ شغالة');
+  await expect(page.getByTestId('summary-total')).toContainText('٧ شغالة');
+  // Each table's actions sit in its "⋮" menu in the side list.
+  const action = async (label: string, name: string) => {
+    await page.getByRole('button', { name: `إجراءات ${label}`, exact: true }).click();
+    await page.getByRole('menuitem', { name }).click();
+  };
 
-  // Rename inline.
-  const terrace = page.locator('[data-testid="table-item"][data-label="التراس"]');
-  await terrace.getByRole('button', { name: 'غيّر اسم التراس' }).click();
-  await terrace.getByLabel('اسم الطاولة').fill('تراس ١');
-  await terrace.getByRole('button', { name: 'احفظ الاسم' }).click();
+  // Rename from the edit dialog.
+  await action('التراس', 'تعديل');
+  const editDialog = page.getByRole('dialog', { name: 'تعديل «التراس»' });
+  await editDialog.getByLabel('اسم الطاولة').fill('تراس ١');
+  await editDialog.getByRole('button', { name: 'احفظ' }).click();
+  await expect(editDialog).toBeHidden();
   const renamed = page.locator('[data-testid="table-item"][data-label="تراس ١"]');
-  await expect(renamed.getByRole('heading', { name: 'تراس ١' })).toBeVisible();
+  await expect(renamed).toBeVisible();
 
   // Switch one off; it is left out of the print sheet.
-  const six = page.locator('[data-testid="table-item"][data-label="طاولة 6"]');
-  await six.getByRole('switch', { name: 'بتستقبل طلبات' }).click();
-  await expect(six.getByRole('switch', { name: 'بتستقبل طلبات' })).toHaveAttribute('aria-checked', 'false');
-  await expect(page.getByTestId('tables-count')).toHaveText('٧ طاولات · ٦ شغالة');
+  await action('طاولة 6', 'وقّفها مؤقتًا');
+  await expect(page.locator('[data-testid="table-item"][data-label="طاولة 6"]')).toContainText('متوقفة');
+  await expect(page.getByTestId('summary-total')).toContainText('٦ شغالة');
 
   // New code: the old QR link stops working.
   const before = (await tables()).find(table => table.label === 'طاولة 5')!;
-  const five = page.locator('[data-testid="table-item"][data-label="طاولة 5"]');
-  await five.getByRole('button', { name: 'كود جديد' }).click();
+  await action('طاولة 5', 'كود جديد');
   const confirmCode = page.getByRole('dialog', { name: 'كود جديد لـ«طاولة 5»؟' });
   await expect(confirmCode).toContainText('هيبطل يشتغل');
   await confirmCode.getByRole('button', { name: 'اعمل كود جديد' }).click();
@@ -166,15 +170,18 @@ test('tables: add one, add a range, rename, switch off, new code, delete', async
   expect((await api.get(`${API_URL}/v1/public/restaurants/${owner.subdomain}/tables/${after.publicCode}`)).ok()).toBe(true);
 
   // Delete.
-  await page.getByRole('button', { name: 'امسح طاولة 4' }).click();
+  await action('طاولة 4', 'امسح');
   await page.getByRole('dialog', { name: 'امسح «طاولة 4»؟' }).getByRole('button', { name: 'امسح' }).click();
   await expect(page.locator('[data-testid="table-item"][data-label="طاولة 4"]')).toHaveCount(0);
   await expect(page.getByTestId('table-item')).toHaveCount(6);
 
   // Single table QR download.
   const download = page.waitForEvent('download');
-  await renamed.getByRole('button', { name: 'نزّل PNG لـتراس ١' }).click();
+  await action('تراس ١', 'كود QR');
+  await page.getByRole('dialog', { name: 'كود «تراس ١»' }).getByRole('button', { name: 'نزّل PNG لـتراس ١' }).click();
   expect((await download).suggestedFilename()).toBe(`bilhanah-${owner.subdomain}-تراس-١.png`);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'كود «تراس ١»' })).toBeHidden();
 
   await expectAccessible(page, 'tables');
   await screenshot(page, 'tables-ar');

@@ -2,6 +2,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from '@pla
 import type { AdminSettings, PublicMenuResponse, PublicPlan } from '@bilhanah/contracts';
 import {
   API_URL, authenticator, createAdmin, expectAccessible, expectNoOverflow, makeJpeg, registerOwner, screenshot, uniqueSuffix,
+  ADMIN_URL,
 } from './helpers';
 
 // One owner and one administrator per run (registrations and admin sign-ins are rate-limited), shared by the steps below.
@@ -29,8 +30,9 @@ const errors: string[] = [];
 
 const arPrice = (piastres: number) => `${new Intl.NumberFormat('ar-EG', { maximumFractionDigits: 2 }).format(piastres / 100)} ج.م`;
 
-async function newPage(browser: Browser) {
-  const context = await browser.newContext();
+/** `baseURL`: ADMIN_URL for the admin console (its own app and session). */
+async function newPage(browser: Browser, baseURL?: string) {
+  const context = await browser.newContext(baseURL ? { baseURL } : {});
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
   return { context, page };
@@ -42,9 +44,9 @@ function apiCall(page: Page, method: string, path: RegExp) {
 
 test.beforeAll(async ({ browser }) => {
   ({ context: ownerContext, page: ownerPage } = await newPage(browser));
-  ({ context: adminContext, page: adminPage } = await newPage(browser));
+  ({ context: adminContext, page: adminPage } = await newPage(browser, ADMIN_URL));
   adminPage.on('response', async response => {
-    if (/\/v1\/auth\/(admin\/login|refresh)$/.test(new URL(response.url()).pathname) && response.ok()) {
+    if (/\/v1\/auth\/admin\/(login|refresh)$/.test(new URL(response.url()).pathname) && response.ok()) {
       adminToken = ((await response.json()) as { accessToken: string }).accessToken;
     }
   });
@@ -313,7 +315,7 @@ test('searches restaurants, suspends and unsuspends one, and grants a paid perio
     await expect(adminPage.getByTestId('restaurant-row')).toHaveCount(1);
   });
 
-  await adminPage.getByRole('link', { name: owner.restaurant }).click();
+  await adminPage.getByRole('link', { name: owner.restaurant, exact: true }).click();
   await expect(adminPage.getByRole('heading', { level: 1, name: owner.restaurant })).toBeVisible();
   await expect(adminPage.getByTestId('restaurant-payment-row')).toHaveCount(3);
   await expect(adminPage.getByTestId('entitlement')).toHaveCount(2); // the trial and the approved period
@@ -371,6 +373,9 @@ test('edits payment details and a plan price, then puts them back', async () => 
   await adminPage.getByRole('button', { name: 'احفظ بيانات الدفع' }).click();
   await expect(adminPage.getByRole('button', { name: 'احفظ بيانات الدفع' })).toBeDisabled();
 
+  // Plan prices are their own section.
+  await adminPage.getByRole('link', { name: /أسعار الباقات/ }).click();
+  await expect(adminPage).toHaveURL(/\/admin\/settings\/plans$/);
   const menuPrice = adminPage.getByTestId('plan-price-MENU');
   const original = prices['MENU']!;
   await menuPrice.getByRole('textbox').fill(String(original / 100 + 15.5));
@@ -390,24 +395,28 @@ test('the audit log lists every change in readable words', async () => {
   await adminPage.locator('.sidebar').getByRole('link', { name: 'سجل المراجعة' }).click();
   await expect(adminPage.getByRole('heading', { level: 1, name: 'سجل المراجعة' })).toBeVisible();
   const mine = adminPage.getByTestId('audit-row').filter({ hasText: admin.email });
-  for (const label of ['قبول تحويل', 'رفض تحويل', 'إيقاف مطعم', 'إرجاع مطعم', 'إضافة مدة مدفوعة', 'تعديل بيانات الدفع', 'تغيير سعر باقة']) {
-    await expect(mine.filter({ hasText: label }).first()).toBeVisible();
+  const action = (name: string) => mine.and(adminPage.locator(`[data-action="${name}"]`));
+  // Each change reads as a sentence: who, what, and the facts.
+  for (const [name, verb] of [['payment.approve', 'قبل تحويل'], ['payment.reject', 'رفض تحويل'], ['restaurant.suspend', 'وقّف'], ['restaurant.unsuspend', 'رجّع'],
+    ['entitlement.grant', 'ضاف مدة مدفوعة'], ['settings.payment', 'عدّل بيانات الدفع'], ['plan.price', 'غيّر سعر']] as const) {
+    await expect(action(name).first()).toContainText(verb);
   }
-  await expect(mine.filter({ hasText: 'رفض تحويل' })).toContainText('مفيش تحويل بالرقم ده');
-  await expect(mine.filter({ hasText: 'إيقاف مطعم' })).toContainText('اختبار الإيقاف التلقائي');
+  await expect(action('payment.reject').first()).toContainText('مفيش تحويل بالرقم ده');
+  await expect(action('restaurant.suspend').first()).toContainText('اختبار الإيقاف التلقائي');
+  await expect(adminPage.getByTestId('audit-row').first()).not.toContainText('{"');
   await captureLayouts(adminPage, 'admin-audit', async () => {
     await expect(adminPage.getByTestId('audit-row').first()).toBeVisible();
   });
 });
 
-test('routes follow the role: owners stay out of the console, administrators out of the owner dashboard', async ({ browser }) => {
+test('the console is its own app: owners never reach it, administrators never reach the restaurant dashboard', async ({ browser }) => {
+  // The restaurant dashboard has no admin pages; it points to the console instead.
   await ownerPage.goto('/admin');
-  await expect(ownerPage).toHaveURL(/127\.0\.0\.1:\d+\/$/);
+  await expect(ownerPage.getByRole('heading', { level: 1, name: 'لوحة الإدارة في مكان تاني' })).toBeVisible();
   await ownerPage.goto('/admin/payments');
-  await expect(ownerPage.getByRole('heading', { level: 1, name: owner.restaurant })).toBeVisible();
-  await ownerPage.goto('/admin/login');
-  await expect(ownerPage).toHaveURL(/127\.0\.0\.1:\d+\/$/);
+  await expect(ownerPage.getByRole('heading', { level: 1, name: 'لوحة الإدارة في مكان تاني' })).toBeVisible();
 
+  // The console has no restaurant pages.
   await adminPage.goto('/menu');
   await expect(adminPage).toHaveURL(/\/admin$/);
   await adminPage.goto('/subscription');
@@ -415,19 +424,19 @@ test('routes follow the role: owners stay out of the console, administrators out
   await adminPage.goto('/login');
   await expect(adminPage).toHaveURL(/\/admin$/);
 
-  // Signed out: the owner sign-in links to the team sign-in and rejects administrators.
-  const { context, page } = await newPage(browser);
+  // Signed out: the console asks for the team sign-in; the restaurant sign-in rejects administrators.
+  const { context, page } = await newPage(browser, ADMIN_URL);
   await page.goto('/admin/restaurants');
   await expect(page).toHaveURL(/\/admin\/login\?next=%2Fadmin%2Frestaurants$/);
-  await page.goto('/login');
-  await page.getByRole('link', { name: 'ادخل من هنا' }).click();
-  await expect(page).toHaveURL(/\/admin\/login$/);
-  await page.goto('/login');
-  await page.getByLabel('الإيميل').fill(admin.email);
-  await page.getByLabel('كلمة السر', { exact: true }).fill(admin.password);
-  await page.getByRole('button', { name: 'دخول' }).click();
-  await expect(page.getByRole('alert')).toContainText('الإيميل أو كلمة السر مش صح.');
   await context.close();
+  const restaurant = await newPage(browser);
+  await restaurant.page.goto('/login');
+  await expect(restaurant.page.getByRole('link', { name: 'ادخل من هنا' })).toHaveCount(0);
+  await restaurant.page.getByLabel('الإيميل').fill(admin.email);
+  await restaurant.page.getByLabel('كلمة السر', { exact: true }).fill(admin.password);
+  await restaurant.page.getByRole('button', { name: 'دخول' }).click();
+  await expect(restaurant.page.getByRole('alert')).toContainText('الإيميل أو كلمة السر مش صح.');
+  await restaurant.context.close();
 
   // Signing out of the console returns to the team sign-in.
   await adminPage.locator('.sidebar').getByRole('button', { name: 'تسجيل الخروج' }).click();

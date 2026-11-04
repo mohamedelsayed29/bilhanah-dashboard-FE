@@ -20,6 +20,7 @@ import { useLanguage } from '../../../lib/language';
 import { queryKeys } from '../queries';
 import { upsertItem } from './menu-cache';
 import { useMenuMutations } from './menu-mutations';
+import { StationField } from './StationField';
 
 const priceText = z.string();
 const itemFormSchema = z.object({
@@ -82,6 +83,7 @@ export function ItemEditor({ item, categoryId, categories, onClose }: { item?: O
   const [uploading, setUploading] = useState(false);
   const [saveError, setSaveError] = useState<unknown>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [stationId, setStationId] = useState<string | null>(item?.stationId ?? null);
   const { register, control, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<ItemForm>({
     resolver: schemaResolver(itemFormSchema),
     defaultValues: defaults(item, categoryId),
@@ -105,6 +107,7 @@ export function ItemEditor({ item, categoryId, categories, onClose }: { item?: O
       imageId: image?.id ?? null,
       isAvailable: values.isAvailable,
       isVisible: values.isVisible,
+      stationId,
       variants,
     };
     try {
@@ -194,6 +197,8 @@ export function ItemEditor({ item, categoryId, categories, onClose }: { item?: O
                 {categories.map(category => <option key={category.id} value={category.id}>{language === 'en' && category.nameEn ? category.nameEn : category.nameAr}</option>)}
               </select>
             </Field>
+            <StationField value={stationId} onChange={setStationId} inheritLabel={text('زي القسم', 'Same as its category')}
+              hint={text('الشاشة اللي الصنف بيظهر عليها في المطبخ.', 'The kitchen screen this dish shows on.')} />
             <div className="toggles">
               <Switch checked={isAvailable} onChange={value => setValue('isAvailable', value, { shouldDirty: true })} label={text('متاح للطلب', 'Available')}
                 description={isAvailable ? text('بيظهر عادي في المنيو.', 'Shown as available.') : text('بيظهر إنه "خلص" لحد ما ترجّعه.', 'Shown as sold out until you switch it back.')} />

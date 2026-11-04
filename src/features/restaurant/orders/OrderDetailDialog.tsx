@@ -8,9 +8,10 @@ import { formatDate, formatPrice } from '../../../lib/format';
 import { useLanguage } from '../../../lib/language';
 import { useCopy } from '../../../lib/copy';
 import { queryKeys } from '../queries';
-import { OrderNo, OrderStatusBadge } from './labels';
+import { OrderNo, OrderStatusBadge, statusName } from './labels';
 import { useOrderPayment } from './mutations';
 import { OrderLines, OrderWhere, PaymentBadge } from './OrderCard';
+import { useWorkspace } from '../../branches/workspace';
 
 /** One order in full (GET /v1/orders/:id): when each step happened, the dishes and the reason if it was closed early. */
 export function OrderDetailDialog({ orderId, onClose }: { orderId: string | null; onClose: () => void }) {
@@ -19,7 +20,9 @@ export function OrderDetailDialog({ orderId, onClose }: { orderId: string | null
   const order = useQuery({ queryKey: queryKeys.order(orderId ?? ''), queryFn: () => ordersApi.get(orderId!), enabled: Boolean(orderId) });
   const data = order.data;
   const payment = useOrderPayment();
-  const payable = data && data.type === 'DINE_IN' && data.status !== 'REJECTED' && data.status !== 'CANCELLED';
+  const { can } = useWorkspace();
+  // Marking paid takes payments.process; marking a paid bill unpaid again is a refund.
+  const payable = data && data.type === 'DINE_IN' && data.status !== 'REJECTED' && data.status !== 'CANCELLED' && can(data.paidAt ? 'payments.refund' : 'payments.process');
   const when = (iso: string | null) => (iso ? formatDate(iso, language, { dateStyle: 'medium', timeStyle: 'short' }) : null);
   return <Dialog open={Boolean(orderId)} onClose={onClose}
     title={data ? <>{text('طلب ', 'Order ')}<OrderNo number={data.number} /></> : text('تفاصيل الطلب', 'Order details')}
@@ -43,7 +46,20 @@ export function OrderDetailDialog({ orderId, onClose }: { orderId: string | null
         {data.completedAt && <div><dt>{text('اتسلّم', 'Completed')}</dt><dd>{when(data.completedAt)}</dd></div>}
         {data.paidAt && <div><dt>{text('اتدفع', 'Paid')}</dt><dd>{when(data.paidAt)}</dd></div>}
         {data.closedAt && !data.completedAt && <div><dt>{text('اتقفل', 'Closed')}</dt><dd>{when(data.closedAt)}</dd></div>}
+        {data.estimatedReadyAt && <div><dt>{text('كان متوقع يجهز', 'Expected ready')}</dt><dd>{when(data.estimatedReadyAt)}</dd></div>}
       </dl>
+      {data.history.length > 0 && <section aria-labelledby="detail-history" className="order-history">
+        <h3 id="detail-history">{text('سجل الطلب', 'Order history')}</h3>
+        <ol>
+          {data.history.map((step, index) => <li key={`${step.status}-${index}`} className={`order-history-step is-${step.status.toLowerCase()}`} data-testid="order-history-step">
+            <span className="order-history-dot" aria-hidden="true" />
+            <strong>{statusName(step.status, text)}</strong>
+            <time dateTime={step.at}>{formatDate(step.at, language, { timeStyle: 'short' })}</time>
+            <span className="muted"><bdi>{step.actorName ?? (step.status === 'PLACED' ? text('الزبون', 'The diner') : text('المطعم', 'The restaurant'))}</bdi></span>
+            {step.reason && <span className="order-history-reason"><bdi>{step.reason}</bdi></span>}
+          </li>)}
+        </ol>
+      </section>}
       <section aria-labelledby="detail-items" className="order-detail-items">
         <h3 id="detail-items">{text('الأصناف', 'Items')}</h3>
         <OrderLines order={data} prices />

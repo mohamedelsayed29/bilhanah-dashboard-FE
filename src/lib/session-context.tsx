@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { AuthUser, LoginRequest, SessionResponse } from '@bilhanah/contracts';
 import { api, onSessionEnded, refreshSession, setAccessToken } from './api-client';
 import { hasLanguagePreference, setLanguage } from './i18n';
+import { SESSION_ROUTES } from './config';
 
 type SessionState =
   | { status: 'loading' }
@@ -62,7 +63,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await api('/v1/auth/logout', { method: 'POST', authenticated: false });
+      await api(SESSION_ROUTES.logout, { method: 'POST', authenticated: false });
     } finally {
       endSession();
     }

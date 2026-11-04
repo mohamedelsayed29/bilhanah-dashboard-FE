@@ -90,7 +90,7 @@ export function useMenuMutations() {
 
   /** Create or rename; waits for the server (a new category needs its id). */
   const saveCategory = useMutation({
-    mutationFn: async ({ id, values }: { id?: string; values: { nameAr: string; nameEn?: string | null; isVisible?: boolean } }) => {
+    mutationFn: async ({ id, values }: { id?: string; values: { nameAr: string; nameEn?: string | null; isVisible?: boolean; stationId?: string | null } }) => {
       if (!id) return menuApi.createCategory(values);
       await menuApi.updateCategory(id, values);
       return null;

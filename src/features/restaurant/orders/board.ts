@@ -48,9 +48,9 @@ export function groupByColumn(board: readonly OwnerOrder[]): Record<Column, Owne
   };
 }
 
-/** The card's main step forward, and the other allowed changes (closing ones last). */
-export function orderActions(status: OrderStatus): { primary: OrderStatus | null; secondary: OrderStatus[] } {
-  const allowed = ORDER_TRANSITIONS[status];
+/** The card's main step forward, and the other allowed changes (closing ones last), of those the viewer may make. */
+export function orderActions(status: OrderStatus, permitted: (next: OrderStatus) => boolean = () => true): { primary: OrderStatus | null; secondary: OrderStatus[] } {
+  const allowed = ORDER_TRANSITIONS[status].filter(permitted);
   const forward = allowed.filter(next => !needsReason(next));
   const closing = allowed.filter(needsReason);
   return { primary: forward[0] ?? null, secondary: [...forward.slice(1), ...closing] };

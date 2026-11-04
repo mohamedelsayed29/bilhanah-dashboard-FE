@@ -89,6 +89,23 @@ html[dir='rtl'] .order-card::before { border-radius: 3px 0 0 3px; }
 .order-actions .order-primary { order: 2; flex: 1.6 1 0; min-width: 0; }
 .order-actions .order-secondary { order: 1; flex: 1 1 0; min-width: 0; }
 .order-actions .button-danger-outline { border-color: var(--line-strong); background: var(--white); }
+.order-actions:has(> .order-prep) .order-primary { order: 2; flex-basis: 0; }
+/* Accepting: how long the diner is told to wait, on its own row above the buttons. */
+.order-prep { order: 0; display: flex; flex-basis: 100%; align-items: center; justify-content: space-between; gap: var(--space-2); font-size: var(--text-xs); font-weight: 700; color: var(--muted); }
+.order-prep > span { display: inline-flex; align-items: center; gap: var(--space-1); }
+.order-prep .select { width: auto; min-height: 34px; padding-block: 0; font-size: var(--text-xs); }
+.order-estimate { display: inline-flex; align-items: center; gap: var(--space-1); justify-self: start; width: fit-content; margin: 0; padding: 2px var(--space-2); border-radius: 999px; background: var(--teal-soft); color: var(--teal-deep); font-size: var(--text-xs); font-weight: 700; }
+.order-estimate.is-late { background: var(--danger-soft); color: var(--danger); }
+/* The order's history in its details: each step, when, and who. */
+.order-history h3 { margin: 0 0 var(--space-2); font-size: var(--text-sm); }
+.order-history ol { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.order-history-step { position: relative; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); padding-inline-start: var(--space-4); font-size: var(--text-sm); }
+.order-history-step time { font-variant-numeric: tabular-nums; color: var(--muted); }
+.order-history-step .muted { font-size: var(--text-xs); }
+.order-history-dot { position: absolute; inset-inline-start: 0; top: 0.45em; width: 9px; height: 9px; border-radius: 50%; background: var(--teal); }
+.order-history-step:not(:last-child) .order-history-dot::after { content: ''; position: absolute; inset-inline-start: 3.5px; top: 11px; width: 2px; height: calc(100% + var(--space-2)); background: var(--line); }
+.order-history-step.is-rejected .order-history-dot, .order-history-step.is-cancelled .order-history-dot { background: var(--danger); }
+.order-history-reason { flex-basis: 100%; color: var(--muted); font-size: var(--text-xs); }
 
 /* Reason and range dialogs */
 .reason-chips, .range-chips { justify-content: flex-start; }
@@ -229,3 +246,9 @@ html[dir='rtl'] .order-card::before { border-radius: 3px 0 0 3px; }
   .kitchen-bar-user { display: none; }
   .kitchen-main { padding: var(--space-3) var(--space-4) var(--space-5); }
 }
+
+/* A dish's step on the kitchen display, on the orders board. */
+.order-line-prep { display: inline-block; margin-inline-start: 8px; padding: 0 8px; border-radius: var(--radius-pill); font-size: var(--text-xs); font-weight: 750; vertical-align: 2px; }
+.order-line-prep.is-preparing { background: var(--warning-soft); color: var(--warning); }
+.order-line-prep.is-ready { background: var(--success-soft); color: var(--success); }
+.order-line-prep.is-cancelled { background: var(--danger-soft); color: var(--danger); text-decoration: line-through; }

@@ -1,4 +1,34 @@
 import type {
+  AttendanceCorrection,
+  AttendanceKiosk,
+  AttendanceOverview,
+  AttendancePolicies,
+  AttendancePolicyInput,
+  AttendanceRecord,
+  AttendanceSummaryRow,
+  Employee,
+  EmployeePin,
+  KioskActivationCode,
+  ManualAttendanceResult,
+  MyAttendance,
+  PunchResult,
+  Shift,
+  createEmployeeSchema,
+  createShiftsSchema,
+  createCorrectionSchema,
+  manualRecordSchema,
+  updateEmployeeSchema,
+  updateRecordSchema,
+  AuditScope,
+  createKitchenStationSchema,
+  KitchenStation,
+  KitchenStationList,
+  KitchenStats,
+  OrderItemEvent,
+  OrderItemStatus,
+  OrderPriority,
+  KitchenReadyRule,
+  updateKitchenStationSchema,
   BranchComparison,
   BranchList,
   BranchMenu,
@@ -28,12 +58,30 @@ import type {
   BillingSummary,
   createKitchenAccountSchema,
   KitchenAccount,
+  StaffAuditEntry,
+  StaffOptions,
   KitchenContext,
   updateKitchenAccountSchema,
   bulkCreateTablesSchema,
+  createReservationSchema,
+  createTableAreaSchema,
   createTableSchema,
   OwnerOrder,
+  OrderTrackingStats,
+  Reservation,
   RestaurantTable,
+  RecommendationRule,
+  RecommendationStats,
+  createRecommendationSchema,
+  updateRecommendationSchema,
+  OwnerServiceRequest,
+  ServiceRequestStaff,
+  ServiceRequestStats,
+  listServiceRequestsQuerySchema,
+  updateServiceRequestSchema,
+  TableArea,
+  updateReservationSchema,
+  updateTableAreaSchema,
   TableOccupancy,
   updateOrderStatusSchema,
   updateTableSchema,
@@ -171,7 +219,8 @@ export const adminApi = {
   updateTrialSettings: (body: z.output<typeof updateTrialSettingsSchema>) => request<AdminSettings>('/v1/admin/settings/trial', { method: 'PUT', body }),
   updatePlanPrice: (code: PlanCode, priceMonthlyPiastres: number) =>
     request<AdminSettings>(`/v1/admin/plans/${code}`, { method: 'PUT', body: { priceMonthlyPiastres } }),
-  audit: (page: number) => request<Paginated<AuditEntry>>(`/v1/admin/audit${query({ page })}`),
+  /** `scope`: the admin console's own changes, or restaurants'; both when omitted. */
+  audit: (page: number, scope?: AuditScope) => request<Paginated<AuditEntry>>(`/v1/admin/audit${query({ page, scope })}`),
   /** Daily platform figures in Cairo time. */
   stats: (days: StatsPeriod, signal?: AbortSignal) => request<PlatformStats>(`/v1/admin/stats?days=${days}`, { signal }),
   shopSettings: () => request<ShopSettings>('/v1/admin/settings/shop'),
@@ -203,6 +252,23 @@ export const ordersApi = {
   floor: (branchId?: string | null) => request<TableOccupancy[]>(`/v1/orders/floor${query({ branchId })}`),
   /** Marks every open order on the table paid; returns the whole floor. */
   settleTable: (tableId: string) => request<TableOccupancy[]>(`/v1/orders/tables/${id(tableId)}/settle`, { method: 'POST' }),
+  /** Tracking page use, ready alerts delivered, on-time estimates and status enquiries. */
+  trackingStats: (days: number, branchId?: string | null) => request<OrderTrackingStats>(`/v1/orders/tracking-stats${query({ days, branchId })}`),
+  /** Kitchen display: moves dishes of one order (repeats change nothing). */
+  updateItems: (orderId: string, itemIds: string[], status: OrderItemStatus) =>
+    request<OwnerOrder>(`/v1/orders/${id(orderId)}/items/status`, { method: 'PATCH', body: { itemIds, status } }),
+  setPriority: (orderId: string, priority: OrderPriority) => request<OwnerOrder>(`/v1/orders/${id(orderId)}/priority`, { method: 'PATCH', body: { priority } }),
+  kitchenHistory: (orderId: string) => request<OrderItemEvent[]>(`/v1/orders/${id(orderId)}/kitchen-history`),
+};
+
+/** Preparation stations and the kitchen display's settings. */
+export const kitchenStationsApi = {
+  list: () => request<KitchenStationList>('/v1/kitchen-stations'),
+  create: (body: z.input<typeof createKitchenStationSchema>) => request<KitchenStation>('/v1/kitchen-stations', { method: 'POST', body }),
+  update: (stationId: string, body: z.input<typeof updateKitchenStationSchema>) => request<KitchenStationList>(`/v1/kitchen-stations/${id(stationId)}`, { method: 'PATCH', body }),
+  remove: (stationId: string) => request<void>(`/v1/kitchen-stations/${id(stationId)}`, { method: 'DELETE' }),
+  setReadyRule: (readyRule: KitchenReadyRule) => request<KitchenStationList>('/v1/kitchen-stations/settings', { method: 'PUT', body: { readyRule } }),
+  stats: (days: number, branchId?: string | null) => request<KitchenStats>(`/v1/kitchen-stations/stats${query({ days, branchId })}`),
 };
 
 /** Tables and the QR codes printed on them. */
@@ -218,6 +284,39 @@ export const tablesApi = {
   regenerateCode: (tableId: string) => request<RestaurantTable>(`/v1/tables/${id(tableId)}/code`, { method: 'POST' }),
 };
 
+/** Upselling and cross-selling rules (owners). */
+export const recommendationsApi = {
+  list: () => request<RecommendationRule[]>('/v1/recommendations'),
+  stats: (days: number) => request<RecommendationStats>(`/v1/recommendations/stats${query({ days })}`),
+  create: (body: z.input<typeof createRecommendationSchema>) => request<RecommendationRule>('/v1/recommendations', { method: 'POST', body }),
+  update: (ruleId: string, body: z.input<typeof updateRecommendationSchema>) => request<RecommendationRule>(`/v1/recommendations/${id(ruleId)}`, { method: 'PATCH', body }),
+  remove: (ruleId: string) => request<void>(`/v1/recommendations/${id(ruleId)}`, { method: 'DELETE' }),
+};
+
+/** Table service requests (call a waiter, the bill, water, ...), for owners and managers. */
+export const serviceRequestsApi = {
+  list: (params: Omit<z.input<typeof listServiceRequestsQuerySchema>, 'page' | 'pageSize'> & { page?: number; pageSize?: number }) => request<Paginated<OwnerServiceRequest>>(`/v1/service-requests${query(params)}`),
+  stats: (params: { branchId?: string | null; days?: number }) => request<ServiceRequestStats>(`/v1/service-requests/stats${query(params)}`),
+  assignees: (branchId?: string | null) => request<ServiceRequestStaff[]>(`/v1/service-requests/assignees${query({ branchId })}`),
+  update: (requestId: string, body: z.input<typeof updateServiceRequestSchema>) => request<OwnerServiceRequest>(`/v1/service-requests/${id(requestId)}`, { method: 'PATCH', body }),
+};
+
+/** Bookings taken by staff; `from`/`to` bound the day (or days) shown. */
+export const reservationsApi = {
+  list: (params: { branchId?: string | null; from: string; to: string }) => request<Reservation[]>(`/v1/reservations${query(params)}`),
+  create: (body: z.input<typeof createReservationSchema>) => request<Reservation>('/v1/reservations', { method: 'POST', body }),
+  update: (reservationId: string, body: z.input<typeof updateReservationSchema>) => request<Reservation>(`/v1/reservations/${id(reservationId)}`, { method: 'PATCH', body }),
+};
+
+/** Seating areas of a branch (Main hall, Garden, ...). */
+export const tableAreasApi = {
+  list: (branchId?: string | null) => request<TableArea[]>(`/v1/table-areas${query({ branchId })}`),
+  create: (body: z.input<typeof createTableAreaSchema>) => request<TableArea>('/v1/table-areas', { method: 'POST', body }),
+  update: (areaId: string, body: z.output<typeof updateTableAreaSchema>) => request<TableArea>(`/v1/table-areas/${id(areaId)}`, { method: 'PATCH', body }),
+  /** `moveTo`: where its tables go (another area, or 'none'); required while it has tables. */
+  remove: (areaId: string, moveTo?: string) => request<void>(`/v1/table-areas/${id(areaId)}${query({ moveTo })}`, { method: 'DELETE' }),
+};
+
 /** The owner's kitchen accounts (the kitchen screens' sign-ins). */
 export const kitchenAccountsApi = {
   list: () => request<KitchenAccount[]>('/v1/kitchen-accounts'),
@@ -227,6 +326,10 @@ export const kitchenAccountsApi = {
   /** Signs the account's screens out. */
   setPassword: (accountId: string, password: string) => post(`/v1/kitchen-accounts/${id(accountId)}/password`, { password }),
   remove: (accountId: string) => request<void>(`/v1/kitchen-accounts/${id(accountId)}`, { method: 'DELETE' }),
+  /** The roles and extra permissions the caller may give. */
+  options: () => request<StaffOptions>('/v1/kitchen-accounts/options'),
+  /** Who created, changed, (de)activated or removed which account (staff.manage). */
+  activity: () => request<StaffAuditEntry[]>('/v1/kitchen-accounts/activity'),
 };
 
 /** Branches: locations of the restaurant, with their own hours, ordering switches, tables, staff and menu overrides. */
@@ -251,4 +354,53 @@ export const branchesApi = {
 /** What the kitchen screen reads about its restaurant. */
 export const kitchenApi = {
   context: () => request<KitchenContext>('/v1/kitchen/context'),
+};
+
+type Range = { from: string; to: string; branchId?: string | null; employeeId?: string | null };
+type RecordFilters = Range & { status?: string | null; method?: string | null; page?: number; pageSize?: number };
+
+/** Staff attendance: rules, employees, shifts, records, corrections, kiosks, and the signed-in employee's own. */
+export const attendanceApi = {
+  policies: () => request<AttendancePolicies>('/v1/attendance/policies'),
+  setRestaurantPolicy: (body: AttendancePolicyInput) => request<AttendancePolicies>('/v1/attendance/policies/restaurant', { method: 'PUT', body }),
+  setBranchPolicy: (branchId: string, body: AttendancePolicyInput) => request<AttendancePolicies>(`/v1/attendance/policies/branches/${id(branchId)}`, { method: 'PUT', body }),
+  inheritPolicy: (branchId: string) => request<AttendancePolicies>(`/v1/attendance/policies/branches/${id(branchId)}`, { method: 'DELETE' }),
+  regenerateQr: (branchId: string) => request<AttendancePolicies>(`/v1/attendance/policies/branches/${id(branchId)}/qr`, { method: 'POST' }),
+  liveQr: (branchId: string) => request<{ url: string; expiresAt: string } | null>(`/v1/attendance/qr/${id(branchId)}`),
+
+  employees: () => request<Employee[]>('/v1/attendance/employees'),
+  createEmployee: (body: z.input<typeof createEmployeeSchema>) => request<Employee>('/v1/attendance/employees', { method: 'POST', body }),
+  updateEmployee: (employeeId: string, body: z.input<typeof updateEmployeeSchema>) => request<Employee>(`/v1/attendance/employees/${id(employeeId)}`, { method: 'PATCH', body }),
+  resetPin: (employeeId: string) => request<EmployeePin>(`/v1/attendance/employees/${id(employeeId)}/pin`, { method: 'POST' }),
+
+  shifts: (range: Range) => request<Shift[]>(`/v1/attendance/shifts${query(range)}`),
+  createShifts: (body: z.input<typeof createShiftsSchema>) => request<Shift[]>('/v1/attendance/shifts', { method: 'POST', body }),
+  deleteShift: (shiftId: string) => request<void>(`/v1/attendance/shifts/${id(shiftId)}`, { method: 'DELETE' }),
+
+  overview: (date: string, branchId?: string | null) => request<AttendanceOverview>(`/v1/attendance/overview${query({ date, branchId })}`),
+  records: (filters: RecordFilters) => request<Paginated<AttendanceRecord>>(`/v1/attendance/records${query(filters)}`),
+  summary: (range: Range) => request<AttendanceSummaryRow[]>(`/v1/attendance/reports/summary${query(range)}`),
+  /** A CSV or Excel file of the records or the summary. */
+  exportFile: (filters: RecordFilters & { format: 'csv' | 'xls'; report: 'records' | 'summary'; lang: 'ar' | 'en' }) =>
+    apiClient.requestBlob(`/v1/attendance/reports/export${query(filters)}`),
+  manual: (body: z.input<typeof manualRecordSchema>) => request<ManualAttendanceResult>('/v1/attendance/records', { method: 'POST', body }),
+  updateRecord: (recordId: string, body: z.input<typeof updateRecordSchema>) => request<ManualAttendanceResult>(`/v1/attendance/records/${id(recordId)}`, { method: 'PATCH', body }),
+
+  corrections: (status?: string | null, branchId?: string | null) => request<AttendanceCorrection[]>(`/v1/attendance/corrections${query({ status, branchId })}`),
+  approveCorrection: (correctionId: string, note: string | null) => request<AttendanceCorrection>(`/v1/attendance/corrections/${id(correctionId)}/approve`, { method: 'POST', body: { note } }),
+  rejectCorrection: (correctionId: string, note: string | null) => request<AttendanceCorrection>(`/v1/attendance/corrections/${id(correctionId)}/reject`, { method: 'POST', body: { note } }),
+
+  kiosks: () => request<AttendanceKiosk[]>('/v1/attendance/kiosks'),
+  createKiosk: (body: { name: string; branchId: string }) => request<{ kiosk: AttendanceKiosk; activation: KioskActivationCode }>('/v1/attendance/kiosks', { method: 'POST', body }),
+  kioskCode: (kioskId: string) => request<KioskActivationCode>(`/v1/attendance/kiosks/${id(kioskId)}/code`, { method: 'POST' }),
+  setKioskDisabled: (kioskId: string, disabled: boolean) => request<AttendanceKiosk>(`/v1/attendance/kiosks/${id(kioskId)}/${disabled ? 'disable' : 'enable'}`, { method: 'POST' }),
+
+  me: () => request<MyAttendance>('/v1/attendance/me'),
+  punch: (body: { action: 'CHECK_IN' | 'CHECK_OUT'; idempotencyKey: string; location?: { latitude: number; longitude: number; accuracy?: number } | null }) =>
+    request<PunchResult>('/v1/attendance/me/punch', { method: 'POST', body }),
+  scan: (body: { code: string; idempotencyKey: string; location?: { latitude: number; longitude: number; accuracy?: number } | null }) =>
+    request<PunchResult>('/v1/attendance/me/qr', { method: 'POST', body }),
+  changePin: (pin: string) => post('/v1/attendance/me/pin', { pin }),
+  myCorrections: () => request<AttendanceCorrection[]>('/v1/attendance/me/corrections'),
+  requestCorrection: (body: z.input<typeof createCorrectionSchema>) => request<AttendanceCorrection>('/v1/attendance/me/corrections', { method: 'POST', body }),
 };

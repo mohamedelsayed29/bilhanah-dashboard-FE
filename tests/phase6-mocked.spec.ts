@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type {
   AdminOverview, AdminPayment, AdminStandOrder, BillingSummary, OwnerPayment, Paginated, PlatformStats, RestaurantStats, ShopSettings, StandOrderStatus,
 } from '@bilhanah/contracts';
-import { expectAccessible, expectNoOverflow } from './helpers';
+import { ADMIN_URL, expectAccessible, expectNoOverflow } from './helpers';
 import { adminUser, MockApi, ownerApi, PNG, signedIn } from './mock-api';
 
 // These specs answer every API request themselves (see mock-api.ts), so they run without bilhanah-BE.
@@ -42,6 +42,7 @@ function restaurantStats(days: number, ordering = true): RestaurantStats {
     ] : [],
     ordering,
     branchId: null,
+    financial: true,
   };
 }
 
@@ -254,6 +255,7 @@ function adminApi() {
 }
 
 test.describe('admin stand orders', () => {
+  test.use({ baseURL: ADMIN_URL });
   test('queue with filter, search and badge; detail with lines, logo, status moves, cash and note', async ({ page }) => {
     let order = standOrder();
     const api = adminApi()
@@ -357,6 +359,7 @@ test.describe('admin stand orders', () => {
 });
 
 test.describe('admin settings, reports and payments', () => {
+  test.use({ baseURL: ADMIN_URL });
   test('shop settings: fee or by phone, at least one way to pay, saved with PUT', async ({ page }) => {
     let shop: ShopSettings = { deliveryFeePiastres: 6_000, cashOnDelivery: true, onlinePayment: false };
     const api = adminApi()
@@ -368,6 +371,9 @@ test.describe('admin settings, reports and payments', () => {
       .on('PUT', '/v1/admin/settings/shop', request => { shop = request.postDataJSON() as ShopSettings; return { json: shop }; });
     await api.install(page);
     await page.goto('/admin/settings');
+    // The shop has its own section in the settings list.
+    await page.getByRole('link', { name: /متجر الستاندات/ }).click();
+    await expect(page).toHaveURL(/\/admin\/settings\/shop$/);
     const card = page.getByTestId('shop-settings');
     await expect(card.getByTestId('delivery-fee')).toHaveValue('60');
     await card.getByRole('switch', { name: 'كاش عند الاستلام' }).click();

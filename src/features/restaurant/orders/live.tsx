@@ -11,10 +11,11 @@ import type { ConnectionState, OwnerRealtime } from '../../../lib/realtime/owner
 import { sessionStore } from '../../../lib/session';
 import { useBranchScope } from '../../branches/BranchScope';
 import { contextFollowsBranch, withBranchOrdering } from '../../branches/scope';
-import { queryKeys } from '../queries';
+import { queryKeys, useOpenServiceRequestsQuery } from '../queries';
+import { SERVICE_TYPES } from '../service/service-types';
 import { type BoardScope, isActiveStatus, mergeIntoBoard } from './board';
 import { updateBoards } from './board-cache';
-import { getAudioState, playChime, subscribeAudio, unlockAudio, type AudioState } from './chime';
+import { getAudioState, getChimeStyle, playChime, subscribeAudio, unlockAudio, type AudioState } from './chime';
 import { orderNo } from './labels';
 
 const SOUND_KEY = 'bilhanah:order-sound:v1';
@@ -36,6 +37,10 @@ type LiveValue = {
   newCount: number;
   /** Goes up by one each time new orders arrive (not on the first load); the sidebar animates on it. */
   arrivals: number;
+  /** Table service requests still waiting on the staff (the navigation badge); 0 where they are not handled (the kitchen). */
+  serviceOpen: number;
+  /** Goes up by one each time a table asks for service live; the sidebar animates on it. */
+  serviceArrivals: number;
   sound: { on: boolean; setOn: (on: boolean) => void; audio: AudioState; unlock: () => Promise<boolean> };
 };
 
@@ -76,7 +81,13 @@ function useTitleCount(count: number) {
  * branch scope being worked on (a device at one branch does not ring for another's orders).
  * `enabled`: ordering is part of the plan.
  */
-export function OrdersLiveProvider({ enabled, scope, children }: { enabled: boolean; scope: BoardScope; children: ReactNode }) {
+export function OrdersLiveProvider({ enabled, scope, serviceRequests = false, children }: {
+  enabled: boolean;
+  scope: BoardScope;
+  /** This viewer handles table service requests (owners and managers, not the kitchen). */
+  serviceRequests?: boolean;
+  children: ReactNode;
+}) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const { text, number } = useLanguage();
@@ -84,11 +95,13 @@ export function OrdersLiveProvider({ enabled, scope, children }: { enabled: bool
   const [connection, setConnection] = useState<ConnectionState>('stopped');
   const [unseen, setUnseen] = useState<ReadonlySet<string>>(() => new Set());
   const [arrivals, setArrivals] = useState(0);
+  const [serviceArrivals, setServiceArrivals] = useState(0);
+  const openRequests = useOpenServiceRequestsQuery(scope, enabled && serviceRequests);
   const [soundOn, setSoundOnState] = useState(readSoundPreference);
   const audio = useSyncExternalStore(subscribeAudio, getAudioState, () => 'unsupported' as const);
 
-  const latest = useRef({ soundOn, text, number, toast });
-  latest.current = { soundOn, text, number, toast };
+  const latest = useRef({ soundOn, text, number, toast, scope, serviceRequests });
+  latest.current = { soundOn, text, number, toast, scope, serviceRequests };
 
   // The live feed: events go straight into the board cache; every (re)connection refetches.
   useEffect(() => {
@@ -119,7 +132,19 @@ export function OrdersLiveProvider({ enabled, scope, children }: { enabled: bool
           queryClient.setQueryData<OwnerRestaurant>(queryKeys.restaurant, current => (current && current.mainBranchId === event.branchId ? { ...current, ordering: event.ordering } : current));
           queryClient.setQueryData<KitchenContext>(queryKeys.kitchenContext, current => (current && contextFollowsBranch(current, event.branchId) ? { ...current, ordering: event.ordering } : current));
         },
+        // A table asked for service, or a request changed: refetch the lists, and ring for new ones of this branch.
+        onServiceRequest: (kind, request) => {
+          const { serviceRequests: handles, scope: current, soundOn: sound, text: t, toast: notify } = latest.current;
+          if (!handles) return;
+          void queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests });
+          if (kind !== 'created' || (current !== 'all' && current !== request.branchId)) return;
+          setServiceArrivals(count => count + 1);
+          if (sound) playChime();
+          const type = SERVICE_TYPES[request.type];
+          notify.success(t(`${request.tableLabel}: ${type.ar}`, `${request.tableLabel}: ${type.en}`));
+        },
         onResync: () => {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequests });
           void queryClient.invalidateQueries({ queryKey: queryKeys.boards });
           void queryClient.invalidateQueries({ queryKey: queryKeys.floors });
           void queryClient.invalidateQueries({ queryKey: queryKeys.branches });
@@ -166,7 +191,7 @@ export function OrdersLiveProvider({ enabled, scope, children }: { enabled: bool
   // Repeat the sound while new orders are waiting to be seen.
   useEffect(() => {
     if (unseen.size === 0 || !soundOn) return;
-    const timer = window.setInterval(() => playChime(), REPEAT_MS);
+    const timer = window.setInterval(() => { if (getChimeStyle().repeat) playChime(); }, REPEAT_MS);
     return () => window.clearInterval(timer);
   }, [unseen.size, soundOn]);
 
@@ -192,10 +217,11 @@ export function OrdersLiveProvider({ enabled, scope, children }: { enabled: bool
   }, []);
 
   const newCount = board.data?.filter(order => order.status === 'PLACED').length ?? 0;
+  const serviceOpen = openRequests.data?.length ?? 0;
   const value = useMemo<LiveValue>(() => ({
-    enabled, scope, connection, unseen, markSeen, newCount, arrivals,
+    enabled, scope, connection, unseen, markSeen, newCount, arrivals, serviceOpen, serviceArrivals,
     sound: { on: soundOn, setOn: setSoundOn, audio, unlock: unlockAudio },
-  }), [enabled, scope, connection, unseen, markSeen, newCount, arrivals, soundOn, setSoundOn, audio]);
+  }), [enabled, scope, connection, unseen, markSeen, newCount, arrivals, serviceOpen, serviceArrivals, soundOn, setSoundOn, audio]);
   return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>;
 }
 
@@ -206,7 +232,7 @@ export function useOrdersLive(): LiveValue {
 }
 
 /** The live board of the branch chosen in the shell (or every branch). */
-export function LiveForScope({ enabled, children }: { enabled: boolean; children: ReactNode }) {
+export function LiveForScope({ enabled, serviceRequests = false, children }: { enabled: boolean; serviceRequests?: boolean; children: ReactNode }) {
   const { selected } = useBranchScope();
-  return <OrdersLiveProvider enabled={enabled} scope={selected}>{children}</OrdersLiveProvider>;
+  return <OrdersLiveProvider enabled={enabled} scope={selected} serviceRequests={serviceRequests}>{children}</OrdersLiveProvider>;
 }

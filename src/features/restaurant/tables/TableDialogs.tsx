@@ -1,7 +1,8 @@
 import { useEffect, useId, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { MinusIcon, PlusIcon } from '@phosphor-icons/react';
-import { ORDER_ERROR_CODES, ORDER_LIMITS, type RestaurantTable, TABLE_SEATS, type TableShape } from '@bilhanah/contracts';
+import { HouseLineIcon, MinusIcon, PlusIcon, TreeIcon } from '@phosphor-icons/react';
+import type { Icon } from '@phosphor-icons/react';
+import { ORDER_ERROR_CODES, ORDER_LIMITS, type RestaurantTable, TABLE_SEATS, type TableArea, type TableAttribute, type TableLocation, type TableShape } from '@bilhanah/contracts';
 import { Alert } from '../../../components/Alert';
 import { Button } from '../../../components/Button';
 import { Dialog } from '../../../components/Dialog';
@@ -10,7 +11,7 @@ import { useToast } from '../../../components/Toast';
 import { isApiError } from '../../../lib/api';
 import { tablesApi } from '../../../lib/api/endpoints';
 import { errorMessage } from '../../../lib/api/error-messages';
-import { normalizeDigits } from '../../../lib/format';
+import { egpToPiastres, normalizeDigits, piastresToInput } from '../../../lib/format';
 import { useLanguage } from '../../../lib/language';
 import { queryKeys } from '../queries';
 import { rangeLabel } from './qr-download';
@@ -22,14 +23,46 @@ export const TABLE_SHAPE_OPTIONS = [
   { value: 'RECTANGLE', ar: 'مستطيلة', en: 'Rectangle' },
 ] as const satisfies readonly { value: TableShape; ar: string; en: string }[];
 
-type TableLayout = { shape: TableShape; seats: number };
-const DEFAULT_LAYOUT: TableLayout = { shape: 'SQUARE', seats: TABLE_SEATS.default };
+/** Where a table stands: inside the restaurant, or outside (a terrace, the street). */
+export const TABLE_LOCATION_OPTIONS = [
+  { value: 'INDOOR', ar: 'داخلي', en: 'Indoor', icon: HouseLineIcon },
+  { value: 'OUTDOOR', ar: 'خارجي', en: 'Outdoor', icon: TreeIcon },
+] as const satisfies readonly { value: TableLocation; ar: string; en: string; icon: Icon }[];
+/** What a table offers, as shown on its details. */
+export const TABLE_ATTRIBUTE_OPTIONS = [
+  { value: 'WINDOW', ar: 'جنب الشباك', en: 'By the window' },
+  { value: 'SOFA', ar: 'كنبة', en: 'Sofa seating' },
+  { value: 'VIP', ar: 'VIP', en: 'VIP' },
+  { value: 'ACCESSIBLE', ar: 'مناسبة للكراسي المتحركة', en: 'Wheelchair accessible' },
+  { value: 'POWER_OUTLET', ar: 'فيها فيشة', en: 'Power outlet' },
+  { value: 'QUIET', ar: 'هادية', en: 'Quiet corner' },
+  { value: 'SMOKING', ar: 'للتدخين', en: 'Smoking' },
+] as const satisfies readonly { value: TableAttribute; ar: string; en: string }[];
+
+export const tableLocationOption = (location: TableLocation) => TABLE_LOCATION_OPTIONS.find(option => option.value === location) ?? TABLE_LOCATION_OPTIONS[0];
+
+type TableLayout = { shape: TableShape; seats: number; location: TableLocation; areaId: string | null };
+const DEFAULT_LAYOUT: TableLayout = { shape: 'SQUARE', seats: TABLE_SEATS.default, location: 'INDOOR', areaId: null };
+/** A new table's starting layout: in `areaId` (and so in its location) when adding from an area. */
+const startLayout = (areas: TableArea[], areaId: string | null = null): TableLayout => {
+  const area = areas.find(entry => entry.id === areaId);
+  return area ? { ...DEFAULT_LAYOUT, areaId: area.id, location: area.location } : DEFAULT_LAYOUT;
+};
 const clampSeats = (value: number) => Math.min(TABLE_SEATS.max, Math.max(TABLE_SEATS.min, value));
 
-/** The table's shape and how many guests it seats, with a drawing of how it shows on the floor. */
-function TableLayoutFields({ value, onChange, label }: { value: TableLayout; onChange: (layout: TableLayout) => void; label: string }) {
+/**
+ * The table's area and where it stands, its shape and how many guests it seats, with a drawing of
+ * how it shows on the floor. A table in an area stands where the area does.
+ */
+function TableLayoutFields({ value, onChange, label, areas }: { value: TableLayout; onChange: (layout: TableLayout) => void; label: string; areas: TableArea[] }) {
   const { text, number, count } = useLanguage();
   const name = useId();
+  const locationName = useId();
+  const area = areas.find(entry => entry.id === value.areaId);
+  const pickArea = (areaId: string) => {
+    const picked = areas.find(entry => entry.id === areaId);
+    onChange({ ...value, areaId: picked?.id ?? null, location: picked?.location ?? value.location });
+  };
   const [draft, setDraft] = useState(String(value.seats));
   useEffect(() => setDraft(String(value.seats)), [value.seats]);
   const setSeats = (seats: number) => onChange({ ...value, seats: clampSeats(seats) });
@@ -38,6 +71,21 @@ function TableLayoutFields({ value, onChange, label }: { value: TableLayout; onC
     if (Number.isInteger(seats)) setSeats(seats); else setDraft(String(value.seats));
   };
   return <div className="table-layout-fields">
+    {areas.length > 0 && <Field label={text('المنطقة', 'Area')} hint={area ? text('مكان الترابيزة بييجي من المنطقة.', 'The table stands where its area is.') : undefined}>
+      {control => <select {...control} className="select" value={value.areaId ?? ''} onChange={event => pickArea(event.target.value)}>
+        <option value="">{text('بدون منطقة', 'No area')}</option>
+        {areas.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+      </select>}
+    </Field>}
+    <fieldset className="field" disabled={area !== undefined}>
+      <legend className="field-label">{text('مكان الترابيزة', 'Table location')}</legend>
+      <div className="segmented">
+        {TABLE_LOCATION_OPTIONS.map(option => <label key={option.value}>
+          <input type="radio" name={locationName} value={option.value} checked={value.location === option.value} onChange={() => onChange({ ...value, location: option.value })} />
+          <option.icon size={18} aria-hidden="true" />{text(option.ar, option.en)}
+        </label>)}
+      </div>
+    </fieldset>
     <fieldset className="field">
       <legend className="field-label">{text('شكل الترابيزة', 'Table shape')}</legend>
       <div className="segmented">
@@ -66,19 +114,21 @@ function TableLayoutFields({ value, onChange, label }: { value: TableLayout; onC
 }
 
 /** Adds one table. TABLE_LABEL_TAKEN is shown on the field. */
-export function AddTableDialog({ branchId, open, onClose }: { branchId: string; open: boolean; onClose: () => void }) {
+export function AddTableDialog({ branchId, open, onClose, areas, areaId = null }: { branchId: string; open: boolean; onClose: () => void; areas: TableArea[]; areaId?: string | null }) {
   const { text } = useLanguage();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [label, setLabel] = useState('');
   const [layout, setLayout] = useState(DEFAULT_LAYOUT);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { if (open) { setLabel(''); setLayout(DEFAULT_LAYOUT); setError(null); } }, [open]);
+  // Reset only when the dialog opens, not when the areas refetch behind it.
+  useEffect(() => { if (open) { setLabel(''); setLayout(startLayout(areas, areaId)); setError(null); } }, [open]);
   const create = useMutation({
     mutationFn: (value: string) => tablesApi.create({ branchId, label: value, ...layout }),
     onSuccess: table => {
       queryClient.setQueryData<RestaurantTable[]>(queryKeys.branchTables(branchId), current => [...(current ?? []), table]);
       void queryClient.invalidateQueries({ queryKey: queryKeys.branches });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.branchTableAreas(branchId) });
       toast.success(text(`ضفنا «${table.label}»`, `“${table.label}” added`));
       onClose();
     },
@@ -101,7 +151,7 @@ export function AddTableDialog({ branchId, open, onClose }: { branchId: string; 
         error={labelProblem ? { message: labelProblem } : undefined}>
         <input className="input" data-autofocus maxLength={40} value={label} onChange={event => { setLabel(event.target.value); setError(null); create.reset(); }} />
       </Field>
-      <TableLayoutFields value={layout} onChange={setLayout} label={label.trim() || text('طاولة', 'Table')} />
+      <TableLayoutFields value={layout} onChange={setLayout} label={label.trim() || text('طاولة', 'Table')} areas={areas} />
     </div>
   </Dialog>;
 }
@@ -109,7 +159,7 @@ export function AddTableDialog({ branchId, open, onClose }: { branchId: string; 
 const PREFIXES = [['طاولة', 'Table'], ['ترابيزة', 'T-'], ['تراس', 'Terrace']] as const;
 
 /** Adds "{prefix} {from}" … "{prefix} {to}" at once; names that already exist are skipped by the API. */
-export function AddRangeDialog({ branchId, open, onClose, existing }: { branchId: string; open: boolean; onClose: () => void; existing: number }) {
+export function AddRangeDialog({ branchId, open, onClose, existing, areas, areaId = null }: { branchId: string; open: boolean; onClose: () => void; existing: number; areas: TableArea[]; areaId?: string | null }) {
   const { text, count: counted } = useLanguage();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -122,7 +172,8 @@ export function AddRangeDialog({ branchId, open, onClose, existing }: { branchId
     setPrefix(text('طاولة', 'Table'));
     setFrom('1');
     setTo('10');
-    setLayout(DEFAULT_LAYOUT);
+    setLayout(startLayout(areas, areaId));
+    // Reset only when the dialog opens, not when the areas refetch behind it.
   }, [open, text]);
   const create = useMutation({
     mutationFn: (body: { from: number; to: number; prefix: string }) => tablesApi.createRange({ branchId, ...body, ...layout }),
@@ -132,6 +183,7 @@ export function AddRangeDialog({ branchId, open, onClose, existing }: { branchId
       const added = tables.length - existing;
       queryClient.setQueryData(queryKeys.branchTables(branchId), tables);
       void queryClient.invalidateQueries({ queryKey: queryKeys.branches });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.branchTableAreas(branchId) });
       toast.success(added > 0 ? text(`ضفنا ${counted(added, 'table')}`, `${counted(added, 'table')} added`) : text('كل الطاولات دي موجودة بالفعل', 'All these tables already exist'));
       onClose();
     },
@@ -178,36 +230,83 @@ export function AddRangeDialog({ branchId, open, onClose, existing }: { branchId
         <strong>{preview}</strong>
         <small className="muted">{text(`${counted(count, 'table')}. الأسماء الموجودة بالفعل مش هتتكرر.`, `${counted(count, 'table')}. Names that already exist are skipped.`)}</small>
       </div>}
-      <TableLayoutFields value={layout} onChange={setLayout} label={rangeLabel(prefix, Number.isInteger(start) ? start : 1)} />
+      <TableLayoutFields value={layout} onChange={setLayout} label={rangeLabel(prefix, Number.isInteger(start) ? start : 1)} areas={areas} />
     </div>
   </Dialog>;
 }
 
-/** Changes a table's shape and seats; its name and QR code stay the same. */
-export function TableLayoutDialog({ branchId, table, onClose }: { branchId: string; table: RestaurantTable | null; onClose: () => void }) {
+/**
+ * Edits a table: its name, area and location, shape and seats, minimum order, notes and what it
+ * offers. Its QR code stays the same. TABLE_LABEL_TAKEN is shown on the name.
+ */
+export function TableEditDialog({ branchId, table, onClose, areas }: { branchId: string; table: RestaurantTable | null; onClose: () => void; areas: TableArea[] }) {
   const { text } = useLanguage();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const [label, setLabel] = useState('');
   const [layout, setLayout] = useState(DEFAULT_LAYOUT);
-  useEffect(() => { if (table) setLayout({ shape: table.shape, seats: table.seats }); }, [table]);
+  const [minOrder, setMinOrder] = useState('');
+  const [notes, setNotes] = useState('');
+  const [attributes, setAttributes] = useState<TableAttribute[]>([]);
+  const [problem, setProblem] = useState<{ field: 'label' | 'minOrder'; message: string } | null>(null);
+  useEffect(() => {
+    if (!table) return;
+    setLabel(table.label);
+    setLayout({ shape: table.shape, seats: table.seats, location: table.location, areaId: table.areaId });
+    setMinOrder(table.minOrderPiastres === null ? '' : piastresToInput(table.minOrderPiastres));
+    setNotes(table.notes ?? '');
+    setAttributes(table.attributes);
+    setProblem(null);
+  }, [table]);
   const save = useMutation({
-    mutationFn: (target: RestaurantTable) => tablesApi.update(target.id, layout),
+    mutationFn: ({ target, body }: { target: RestaurantTable; body: Parameters<typeof tablesApi.update>[1] }) => tablesApi.update(target.id, body),
     onSuccess: updated => {
       queryClient.setQueryData<RestaurantTable[]>(queryKeys.branchTables(branchId), tables => tables?.map(entry => (entry.id === updated.id ? updated : entry)));
       void queryClient.invalidateQueries({ queryKey: queryKeys.floors });
-      toast.success(text(`اتحفظ شكل «${updated.label}»`, `“${updated.label}” updated`));
+      void queryClient.invalidateQueries({ queryKey: queryKeys.branchTableAreas(branchId) });
+      toast.success(text(`اتحفظت «${updated.label}»`, `“${updated.label}” saved`));
       onClose();
     },
+    onError: error => { if (isApiError(error, ORDER_ERROR_CODES.TABLE_LABEL_TAKEN)) setProblem({ field: 'label', message: errorMessage(error, text) }); },
   });
-  return <Dialog open={table !== null} onClose={onClose} size="small" busy={save.isPending} onSubmit={() => table && save.mutate(table)}
-    title={table ? text(`شكل «${table.label}»`, `“${table.label}” layout`) : ''}
+  const submit = () => {
+    if (!table) return;
+    const name = label.trim();
+    if (!name) { setProblem({ field: 'label', message: text('اكتب اسم الطاولة.', 'Enter a table name.') }); return; }
+    const amount = minOrder.trim() ? egpToPiastres(minOrder) : null;
+    if (minOrder.trim() && amount === null) { setProblem({ field: 'minOrder', message: text('اكتب مبلغ صحيح، زي ٢٥٠.', 'Enter an amount, for example 250.') }); return; }
+    save.mutate({ target: table, body: { label: name, ...layout, minOrderPiastres: amount, notes: notes.trim(), attributes } });
+  };
+  const toggle = (value: TableAttribute) => setAttributes(current => (current.includes(value) ? current.filter(entry => entry !== value) : [...current, value]));
+  return <Dialog open={table !== null} onClose={onClose} busy={save.isPending} onSubmit={submit}
+    title={table ? text(`تعديل «${table.label}»`, `Edit “${table.label}”`) : ''}
     footer={<>
       <Button variant="secondary" onClick={onClose} disabled={save.isPending}>{text('إلغاء', 'Cancel')}</Button>
       <Button type="submit" loading={save.isPending}>{text('احفظ', 'Save')}</Button>
     </>}>
-    <div className="form">
-      {save.isError && <Alert kind="error">{errorMessage(save.error, text)}</Alert>}
-      {table && <TableLayoutFields value={layout} onChange={setLayout} label={table.label} />}
-    </div>
+    {table && <div className="form">
+      {save.isError && !isApiError(save.error, ORDER_ERROR_CODES.TABLE_LABEL_TAKEN) && <Alert kind="error">{errorMessage(save.error, text)}</Alert>}
+      <Field label={text('اسم الطاولة', 'Table name')} error={problem?.field === 'label' ? { message: problem.message } : undefined}>
+        <input className="input" data-autofocus maxLength={40} value={label} onChange={event => { setLabel(event.target.value); setProblem(null); save.reset(); }} />
+      </Field>
+      <TableLayoutFields value={layout} onChange={setLayout} label={label.trim() || table.label} areas={areas} />
+      <div className="form-grid">
+        <Field label={text('أقل طلب (ج.م)', 'Minimum order (EGP)')} optional hint={text('سيبه فاضي لو مفيش حد أدنى.', 'Leave it empty for none.')}
+          error={problem?.field === 'minOrder' ? { message: problem.message } : undefined}>
+          <input className="input" inputMode="decimal" dir="ltr" maxLength={9} value={minOrder} onChange={event => { setMinOrder(event.target.value); setProblem(null); }} />
+        </Field>
+        <Field label={text('ملاحظات', 'Notes')} optional hint={text('زي «جنب الشباك» أو «مناسبة للعائلات».', 'For example “Near the window”.')}>
+          <input className="input" maxLength={200} value={notes} onChange={event => setNotes(event.target.value)} />
+        </Field>
+      </div>
+      <fieldset className="field">
+        <legend className="field-label">{text('مميزات الطاولة', 'Table features')}</legend>
+        <div className="chips">
+          {TABLE_ATTRIBUTE_OPTIONS.map(option => <button type="button" key={option.value} className="chip" aria-pressed={attributes.includes(option.value)} onClick={() => toggle(option.value)}>
+            {text(option.ar, option.en)}
+          </button>)}
+        </div>
+      </fieldset>
+    </div>}
   </Dialog>;
 }

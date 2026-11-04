@@ -1,3 +1,4 @@
+import { SESSION_ROUTES } from '../config';
 import type { SessionResponse } from '@bilhanah/contracts';
 import type { SessionStore } from '../session/session-store';
 import { ApiError, CLIENT_ERROR_CODES, toApiError } from './api-error';
@@ -77,7 +78,7 @@ export function createApiClient(options: ApiClientOptions) {
 
   /** One refresh at a time, shared by every caller in this tab and serialized with other tabs. */
   const refreshOnce = singleFlight(async (): Promise<boolean> => {
-    const raw = await send('/v1/auth/refresh', { method: 'POST', token: null });
+    const raw = await send(SESSION_ROUTES.refresh, { method: 'POST', token: null });
     if (raw.status === 200) {
       store.setSession(raw.body as SessionResponse);
       return true;
@@ -184,12 +185,12 @@ export function createApiClient(options: ApiClientOptions) {
     refreshSession: () => refreshOnce(),
     /** Restaurant owners. */
     login: (credentials: { email: string; password: string }) => signIn('/v1/auth/login', credentials),
-    /** Platform administrators: password plus the 6-digit authenticator code. Same session and refresh cookie as owners. */
+    /** Platform administrators (admin console only): password plus the 6-digit authenticator code; their own session cookie. */
     adminLogin: (credentials: { email: string; password: string; code: string }) => signIn('/v1/auth/admin/login', credentials),
     /** Ends the session on the server (best effort) and forgets it locally, in every tab. */
     async logout(): Promise<void> {
       try {
-        await exclusive(() => request<void>('/v1/auth/logout', { method: 'POST', auth: false }));
+        await exclusive(() => request<void>(SESSION_ROUTES.logout, { method: 'POST', auth: false }));
       } catch {
         // The local session ends regardless; the server session expires on its own.
       }

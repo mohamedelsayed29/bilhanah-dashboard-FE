@@ -13,7 +13,7 @@ import { actionDone, orderNo } from './labels';
 
 /** Orders never move back to PLACED. */
 export type NextStatus = Exclude<OrderStatus, 'PLACED'>;
-type Change = { order: OwnerOrder; status: NextStatus; reason?: string | null };
+type Change = { order: OwnerOrder; status: NextStatus; reason?: string | null; prepMinutes?: number };
 
 /**
  * Moves an order on the board right away and sends the change; rolls the card back when the
@@ -24,7 +24,7 @@ export function useOrderStatus({ announce }: { announce?: (message: string) => v
   const toast = useToast();
   const { text, number } = useLanguage();
   return useMutation({
-    mutationFn: ({ order, status, reason }: Change) => ordersApi.updateStatus(order.id, { status, reason: reason ?? null }),
+    mutationFn: ({ order, status, reason, prepMinutes }: Change) => ordersApi.updateStatus(order.id, { status, reason: reason ?? null, ...(prepMinutes && { prepMinutes }) }),
     onMutate: async ({ order, status, reason }: Change) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.boards });
       updateBoards(queryClient, current => withStatus(current, order.id, status, reason ?? null));

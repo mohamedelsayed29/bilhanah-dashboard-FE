@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
-import { BellRingingIcon, CheckCircleIcon, ClockIcon, ForkKnifeIcon, PhoneIcon, ShoppingBagIcon, StorefrontIcon } from '@phosphor-icons/react';
-import type { OrderStatus, OwnerOrder } from '@bilhanah/contracts';
+import { useEffect, useId, useState } from 'react';
+import { BellRingingIcon, CheckCircleIcon, ClockIcon, TimerIcon, ForkKnifeIcon, PhoneIcon, ShoppingBagIcon, StorefrontIcon } from '@phosphor-icons/react';
+import { ORDER_STATUS_PERMISSION, type OrderStatus, type OwnerOrder, type Permission } from '@bilhanah/contracts';
 import { Button } from '../../../components/Button';
 import { useCopy } from '../../../lib/copy';
 import { formatDate, formatPrice } from '../../../lib/format';
 import { useLanguage } from '../../../lib/language';
-import { minutesSince, needsReason, orderActions } from './board';
+import { isActiveStatus, minutesSince, needsReason, orderActions } from './board';
 import { actionName, elapsedLabel, lineName, OrderNo, OrderStatusBadge, orderTypeName } from './labels';
 
 /** Re-renders every `ms` so "time since placed" stays current. */
@@ -51,6 +51,11 @@ export function OrderLines({ order, prices = false }: { order: OwnerOrder; price
           <span className="order-qty">{number(line.quantity)}×</span>
           <div>
             <span className="order-line-name">{name}{size && <span className="order-line-size"> — {size}</span>}</span>
+            {/* What the kitchen display says about this dish, once it moved past "new". */}
+            {(line.prepStatus === 'PREPARING' || line.prepStatus === 'READY' || line.prepStatus === 'CANCELLED') && isActiveStatus(order.status)
+              && <span className={`order-line-prep is-${line.prepStatus.toLowerCase()}`} data-testid="line-prep">
+                {line.prepStatus === 'READY' ? text('جاهز', 'Ready') : line.prepStatus === 'PREPARING' ? text('بيتحضّر', 'Cooking') : text('اتلغى', 'Cancelled')}
+              </span>}
             {line.note && <p className="order-line-note"><span className="visually-hidden">{text('ملاحظة:', 'Note:')} </span>{line.note}</p>}
           </div>
           {prices && <span className="order-line-price">{formatPrice(line.lineTotalPiastres, language)}</span>}
@@ -81,17 +86,37 @@ function OrderNotifies({ ready }: { ready: boolean }) {
   </span>;
 }
 
+/** Preparation times offered when accepting an order, in minutes. */
+export const PREP_CHOICES = [10, 15, 20, 30, 45, 60] as const;
+
+/** When the diner was told to expect it; flagged once that time has passed. */
+function OrderEstimate({ order, now }: { order: OwnerOrder; now: number }) {
+  const { text, language } = useLanguage();
+  if (!order.estimatedReadyAt || (order.status !== 'ACCEPTED' && order.status !== 'PREPARING')) return null;
+  const overdue = new Date(order.estimatedReadyAt).getTime() < now;
+  const at = formatDate(order.estimatedReadyAt, language, { timeStyle: 'short' });
+  return <p className={`order-estimate ${overdue ? 'is-late' : ''}`} data-testid="order-estimate">
+    <TimerIcon size={14} weight="bold" aria-hidden="true" />
+    {overdue ? text(`كان المفروض يجهز ${at}`, `Was due at ${at}`) : text(`الزبون مستنيه ${at}`, `Diner expects it at ${at}`)}
+  </p>;
+}
+
 type Props = {
   order: OwnerOrder;
   now: number;
   isNew: boolean;
-  onAction: (order: OwnerOrder, status: OrderStatus) => void;
+  /** `prepMinutes`: when accepting, the time the diner is told (the usual time when omitted). */
+  onAction: (order: OwnerOrder, status: OrderStatus, prepMinutes?: number) => void;
+  /** The restaurant's usual preparation time, offered first when accepting. */
+  usualPrepMinutes?: number | null;
   /** Marks a dine-in bill paid, freeing the table. */
   onPaid?: (order: OwnerOrder) => void;
   /** The kitchen screen: what to cook only, without prices, payment or the diner's phone. */
   kitchen?: boolean;
   /** The board shows several branches: say which one the order is for. */
   showBranch?: boolean;
+  /** Whether the viewer holds a permission: status buttons they may not use are left out. */
+  can?: (permission: Permission) => boolean;
 };
 
 /** Which branch an order is for, on boards that show several. */
@@ -108,11 +133,13 @@ export function OrderBranch({ order }: { order: OwnerOrder }) {
  * waited, where it goes, what to make, the note, and one primary action. A strip on the card's
  * edge carries its column's color; the waiting time turns red once the order is late.
  */
-export function OrderCard({ order, now, isNew, onAction, onPaid, kitchen = false, showBranch = false }: Props) {
+export function OrderCard({ order, now, isNew, onAction, onPaid, kitchen = false, showBranch = false, usualPrepMinutes = null, can = () => true }: Props) {
   const { text, number, language } = useLanguage();
+  const prepId = useId();
+  const [prep, setPrep] = useState('');
   const minutes = minutesSince(order.placedAt, now);
   const late = minutes >= (LATE_MINUTES[order.status] ?? Infinity);
-  const { primary, secondary } = orderActions(order.status);
+  const { primary, secondary } = orderActions(order.status, status => can(ORDER_STATUS_PERMISSION[status]));
   const headingId = `order-${order.id}-title`;
   return <article className={`order-card order-card-${order.status.toLowerCase()} ${isNew ? 'is-new' : ''} ${late ? 'is-late' : ''}`} aria-labelledby={headingId} data-testid={`order-${order.number}`}>
     <header className="order-card-head">
@@ -130,6 +157,7 @@ export function OrderCard({ order, now, isNew, onAction, onPaid, kitchen = false
     </header>
     {showBranch && <OrderBranch order={order} />}
     <OrderWhere order={order} phone={!kitchen} />
+    <OrderEstimate order={order} now={now} />
     <OrderLines order={order} prices={!kitchen} />
     {!kitchen && <div className="order-bill">
       <p className="order-total"><span>{text('الإجمالي', 'Subtotal')}</span><strong>{formatPrice(order.subtotalPiastres, language)}</strong></p>
@@ -140,7 +168,14 @@ export function OrderCard({ order, now, isNew, onAction, onPaid, kitchen = false
       </div>}
     </div>}
     {(primary || secondary.length > 0) && <footer className="order-actions">
-      {primary && <Button className="order-primary" onClick={() => onAction(order, primary)}>{actionName(primary, text)}</Button>}
+      {primary === 'ACCEPTED' && <label className="order-prep" htmlFor={prepId}>
+        <span><TimerIcon size={14} weight="bold" aria-hidden="true" />{text('يجهز خلال', 'Ready in')}</span>
+        <select id={prepId} className="select" value={prep} onChange={event => setPrep(event.target.value)}>
+          <option value="">{usualPrepMinutes ? text(`${number(usualPrepMinutes)} دقيقة (المعتاد)`, `${usualPrepMinutes} min (usual)`) : text('من غير وقت', 'No estimate')}</option>
+          {PREP_CHOICES.filter(minutes => minutes !== usualPrepMinutes).map(minutes => <option key={minutes} value={minutes}>{text(`${number(minutes)} دقيقة`, `${minutes} min`)}</option>)}
+        </select>
+      </label>}
+      {primary && <Button className="order-primary" onClick={() => onAction(order, primary, primary === 'ACCEPTED' && prep ? Number(prep) : undefined)}>{actionName(primary, text)}</Button>}
       {secondary.map(status => <Button key={status} variant={needsReason(status) ? 'danger-outline' : 'secondary'} className="order-secondary" onClick={() => onAction(order, status)}>
         {actionName(status, text)}
       </Button>)}

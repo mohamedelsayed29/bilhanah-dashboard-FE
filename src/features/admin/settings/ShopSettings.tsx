@@ -10,20 +10,31 @@ import { Switch } from '../../../components/Switch';
 import { useToast } from '../../../components/Toast';
 import { adminApi } from '../../../lib/api/endpoints';
 import { errorMessage } from '../../../lib/api/error-messages';
-import { useLanguage } from '../../../lib/language';
+import { useLanguage, usePageTitle } from '../../../lib/language';
+import { Section } from '../../../components/Section';
+import { SettingsAside } from './AdminSettingsPage';
 import { adminKeys, useShopSettingsQuery } from '../queries';
 import { fromShopForm, onlineHidden, toShopForm, type ShopForm, type ShopProblem } from './shop-settings';
 
-/** What the stand shop's checkout offers: the delivery fee and the ways to pay. */
-export function ShopSettingsCard() {
+/** /admin/settings/shop: what the stand shop's checkout offers, the delivery fee and the ways to pay. */
+export function ShopSettingsPage() {
   const { text } = useLanguage();
+  usePageTitle('متجر الستاندات', 'Stand shop');
   const settings = useShopSettingsQuery();
-  return <section className="section" aria-labelledby="shop-settings-title" data-testid="shop-settings">
-    <div className="section-head"><div><h2 id="shop-settings-title">{text('متجر الستاندات', 'Stand shop')}</h2><p>{text('رسوم التوصيل وطرق الدفع اللي بتظهر في صفحة طلب الستاندات على الموقع.', 'The delivery fee and ways to pay offered at the website’s stand checkout.')}</p></div></div>
-    {settings.isPending && <div className="skeleton-stack" role="status" aria-label={text('جاري التحميل', 'Loading')}><Skeleton height={46} /><Skeleton height={44} /><Skeleton height={44} /></div>}
-    {settings.isError && <ErrorPanel error={settings.error} onRetry={() => void settings.refetch()} />}
-    {settings.data && <ShopSettingsForm key={JSON.stringify(settings.data)} settings={settings.data} />}
-  </section>;
+  return <div className="settings-grid">
+    <div className="settings-main">
+      <Section id="shop-settings-title" title={text('متجر الستاندات', 'Stand shop')} data-testid="shop-settings"
+        description={text('رسوم التوصيل وطرق الدفع اللي بتظهر في صفحة طلب الستاندات على الموقع.', 'The delivery fee and ways to pay offered at the website’s stand checkout.')}>
+        {settings.isPending && <div className="skeleton-stack" role="status" aria-label={text('جاري التحميل', 'Loading')}><Skeleton height={46} /><Skeleton height={44} /><Skeleton height={44} /></div>}
+        {settings.isError && <ErrorPanel error={settings.error} onRetry={() => void settings.refetch()} />}
+        {settings.data && <ShopSettingsForm key={JSON.stringify(settings.data)} settings={settings.data} />}
+      </Section>
+    </div>
+    <SettingsAside id="shop-note-title" title={text('الدفع الأونلاين', 'Online payment')}>
+      <p className="field-hint">{text('الدفع الأونلاين محتاج Paymob يكون متظبط على السيرفر ورسوم توصيل ثابتة. لو Paymob مش متظبط، الدفع الأونلاين مش هيظهر للعملاء.',
+        'Online payment needs Paymob configured on the server and a fixed delivery fee. Without Paymob, customers are not offered online payment.')}</p>
+    </SettingsAside>
+  </div>;
 }
 
 function ShopSettingsForm({ settings }: { settings: ShopSettings }) {
@@ -78,8 +89,6 @@ function ShopSettingsForm({ settings }: { settings: ShopSettings }) {
     </div>
     {payError && (submitted || problem === 'online-needs-fee') && <p className="field-error" role="alert" data-testid="shop-pay-error">{payError}</p>}
     {onlineHidden(form) && problem !== 'online-needs-fee' && <Alert kind="warning" live={false}>{text('والتوصيل بيتأكد بالتليفون، الدفع الأونلاين مش هيظهر على الموقع.', 'While delivery is confirmed by phone, online payment is not shown on the website.')}</Alert>}
-    <Alert kind="info" live={false}>{text('الدفع الأونلاين محتاج Paymob يكون متظبط على السيرفر ورسوم توصيل ثابتة. لو Paymob مش متظبط، الدفع الأونلاين مش هيظهر للعملاء.',
-      'Online payment needs Paymob configured on the server and a fixed delivery fee. Without Paymob, customers are not offered online payment.')}</Alert>
     <div className="form-actions form-actions-end">
       <Button variant="secondary" disabled={!dirty || save.isPending} onClick={() => { setForm(initial); setSubmitted(false); }}>{text('تراجع', 'Discard')}</Button>
       <Button type="submit" loading={save.isPending} disabled={!dirty}>{text('احفظ إعدادات المتجر', 'Save shop settings')}</Button>

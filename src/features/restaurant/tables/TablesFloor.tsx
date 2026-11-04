@@ -91,10 +91,11 @@ export function TablesFloor({ branchId, title, picker }: { branchId: string; tit
 }
 
 /** An occupied table's open orders and the button that frees it once the guests paid. */
-function TableBillDialog({ branchId, table, onClose }: { branchId: string; table: TableOccupancy | null; onClose: () => void }) {
+export function TableBillDialog({ branchId, table, onClose }: { branchId: string; table: TableOccupancy | null; onClose: () => void }) {
   const { text, language } = useLanguage();
   const queryClient = useQueryClient();
   const toast = useToast();
+  const canSettle = useWorkspace().can('payments.process');
   const settle = useMutation({
     mutationFn: (tableId: string) => ordersApi.settleTable(tableId),
     onSuccess: floor => {
@@ -110,9 +111,9 @@ function TableBillDialog({ branchId, table, onClose }: { branchId: string; table
     title={table ? <bdi>{table.label}</bdi> : ''}
     footer={<>
       <Button variant="secondary" onClick={onClose} disabled={settle.isPending}>{text('إغلاق', 'Close')}</Button>
-      <Button loading={settle.isPending} onClick={() => table && settle.mutate(table.id)} icon={<CheckCircleIcon size={18} weight="bold" aria-hidden="true" />}>
+      {canSettle && <Button loading={settle.isPending} onClick={() => table && settle.mutate(table.id)} icon={<CheckCircleIcon size={18} weight="bold" aria-hidden="true" />}>
         {text('اتدفع الحساب، فضّي الترابيزة', 'Paid, free the table')}
-      </Button>
+      </Button>}
     </>}>
     {table && <div className="floor-bill">
       <p className="floor-bill-note">{text('الطلبات دي لسه مدفوعتش. لما الزباين يدفعوا، علّمها مدفوعة والترابيزة هترجع فاضية.', 'These orders are not paid yet. Once the guests pay, mark them paid and the table frees up.')}</p>

@@ -1,8 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { ChartBarIcon, ForkKnifeIcon, GearSixIcon, ReceiptIcon, SignOutIcon, StorefrontIcon, TableIcon } from '@phosphor-icons/react';
+import { ChartBarIcon, ClockIcon, ForkKnifeIcon, UserCheckIcon, GearSixIcon, ReceiptIcon, SignOutIcon, StorefrontIcon, TableIcon, BellRingingIcon, UsersThreeIcon } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
-import type { KitchenContext } from '@bilhanah/contracts';
+import { type KitchenContext, type Permission, ROLE_LABELS } from '@bilhanah/contracts';
 import { Brand } from '../../components/Brand';
 import { ErrorBoundary, ErrorPanel } from '../../components/ErrorBoundary';
 import { LanguageToggle } from '../../components/LanguageToggle';
@@ -13,35 +13,50 @@ import { useCopy } from '../../lib/copy';
 import { useLanguage } from '../../lib/language';
 import { useRouteFocus } from '../../lib/use-route-focus';
 import { BranchSwitcher, useBranchScope } from '../branches/BranchScope';
-import { managerWorkspace, WorkspaceProvider } from '../branches/workspace';
+import { managerWorkspace, useWorkspace, WorkspaceProvider } from '../branches/workspace';
+import { DeniedNotice } from '../../app/router/permission-guard';
 import { StaffBranchScope, useKitchenContextQuery } from '../kitchen/KitchenLayout';
 import { LiveForScope, useOrdersLive } from '../restaurant/orders/live';
+import { ServiceRequestsCount } from '../restaurant/service/ServiceCount';
 import { useBranchesQuery } from '../restaurant/queries';
 
-type NavItem = { to: string; end?: boolean; icon: Icon; label: (t: ReturnType<typeof useCopy>) => string; orders?: boolean };
-const NAV_GROUPS: { label: (t: ReturnType<typeof useCopy>) => string; items: NavItem[] }[] = [
+/** `need`: shown only with one of these permissions (the route checks the same; the API again). */
+/** `always`: every staff account (their own attendance). */
+type NavItem = { to: string; end?: boolean; icon: Icon; label: (t: ReturnType<typeof useCopy>) => string; need: Permission[]; always?: boolean; orders?: boolean; service?: boolean };
+const ALL_NAV_GROUPS: { label: (t: ReturnType<typeof useCopy>) => string; items: NavItem[] }[] = [
   { label: t => t.manager.groupDaily, items: [
-    { to: '/manager', end: true, icon: ReceiptIcon, label: t => t.manager.navOrders, orders: true },
-    { to: '/manager/tables', icon: TableIcon, label: t => t.manager.navTables },
-    { to: '/manager/insights', icon: ChartBarIcon, label: t => t.manager.navInsights },
+    { to: '/manager', end: true, icon: ReceiptIcon, label: t => t.manager.navOrders, need: ['orders.view'], orders: true },
+    { to: '/manager/service', icon: BellRingingIcon, label: t => t.manager.navService, need: ['service.view'], service: true },
+    { to: '/manager/tables', icon: TableIcon, label: t => t.manager.navTables, need: ['tables.view', 'reservations.view'] },
+    { to: '/manager/insights', icon: ChartBarIcon, label: t => t.manager.navInsights, need: ['analytics.view'] },
+    { to: '/manager/attendance', icon: UserCheckIcon, label: t => t.manager.navAttendance, need: ['attendance.view'] },
+    { to: '/manager/my-attendance', icon: ClockIcon, label: t => t.manager.navMyAttendance, need: [], always: true },
   ] },
   { label: t => t.manager.groupSetup, items: [
-    { to: '/manager/menu', icon: ForkKnifeIcon, label: t => t.manager.navMenu },
-    { to: '/manager/settings', icon: GearSixIcon, label: t => t.manager.navSettings },
+    { to: '/manager/menu', icon: ForkKnifeIcon, label: t => t.manager.navMenu, need: ['menu.view', 'menu.branch', 'menu.availability'] },
+    { to: '/manager/staff', icon: UsersThreeIcon, label: t => t.manager.navStaff, need: ['staff.view'] },
+    { to: '/manager/settings', icon: GearSixIcon, label: t => t.manager.navSettings, need: ['settings.operational'] },
   ] },
 ];
-const NAV = NAV_GROUPS.flatMap(group => group.items);
+const ALL_NAV = ALL_NAV_GROUPS.flatMap(group => group.items);
 
 /**
- * A branch manager's dashboard: the owner's shell, cut down to running one branch (orders, floor
- * and tables, the branch's menu changes, its settings and insights). Managers working at every
- * branch get the branch switcher.
+ * The staff dashboard (managers, cashiers and waiters): the owner's shell, cut down to what the
+ * account's permissions allow (orders, floor and tables, service, the branch's menu, staff, its
+ * settings and insights). Accounts working at every branch get the branch switcher.
  */
 export function ManagerLayout() {
   const context = useKitchenContextQuery();
   const branches = useBranchesQuery();
   const restaurant = context.data?.restaurant;
-  const workspace = useMemo(() => managerWorkspace({ name: restaurant?.name ?? '', subdomain: restaurant?.subdomain ?? '', logoUrl: null, brandColor: null }), [restaurant?.name, restaurant?.subdomain]);
+  const prep = context.data?.orderPrepMinutes ?? null;
+  const role = context.data?.role ?? 'MANAGER';
+  const permissions = context.data?.permissions;
+  const workspace = useMemo(() => {
+    const held = permissions ?? [];
+    const home = ALL_NAV.find(item => item.always || item.need.some(permission => held.includes(permission)))?.to ?? '/manager';
+    return managerWorkspace({ name: restaurant?.name ?? '', subdomain: restaurant?.subdomain ?? '', logoUrl: null, brandColor: null, orderPrepMinutes: prep }, role, held, home);
+  }, [restaurant?.name, restaurant?.subdomain, prep, role, permissions]);
   if (context.isPending || branches.isPending) return <Splash />;
   if (context.isError || branches.isError) {
     const failed = context.isError ? context : branches;
@@ -50,7 +65,7 @@ export function ManagerLayout() {
   if (context.data.branches.length === 0 || branches.data.branches.every(branch => !branch.isActive)) return <NoBranch />;
   return <WorkspaceProvider value={workspace}>
     <StaffBranchScope context={context.data}>
-      <LiveForScope enabled={context.data.ordering.included}><ManagerShell context={context.data} /></LiveForScope>
+      <LiveForScope enabled={context.data.ordering.included} serviceRequests={context.data.permissions.includes('service.view')}><ManagerShell context={context.data} /></LiveForScope>
     </StaffBranchScope>
   </WorkspaceProvider>;
 }
@@ -76,6 +91,9 @@ function NewOrdersCount() {
 function ManagerShell({ context }: { context: KitchenContext }) {
   const t = useCopy();
   const { text } = useLanguage();
+  const { can } = useWorkspace();
+  const NAV_GROUPS = ALL_NAV_GROUPS.map(group => ({ ...group, items: group.items.filter(item => item.always || item.need.some(can)) })).filter(group => group.items.length > 0);
+  const NAV = NAV_GROUPS.flatMap(group => group.items);
   const { pathname } = useLocation();
   const scope = useBranchScope();
   useRouteFocus();
@@ -98,6 +116,7 @@ function ManagerShell({ context }: { context: KitchenContext }) {
           {group.items.map(item => <NavLink key={item.to} to={item.to} end={item.end} className="sidebar-link" ref={item.orders ? element => { ordersLinks.current.sidebar = element; } : undefined}>
             <span className="sidebar-icon"><item.icon size={21} aria-hidden="true" /></span><span className="sidebar-label">{item.label(t)}</span>
             {item.orders && <NewOrdersCount />}
+            {item.service && <ServiceRequestsCount />}
           </NavLink>)}
         </Fragment>)}
         <button type="button" className="sidebar-link sidebar-signout" onClick={signOut.ask}><span className="sidebar-icon"><SignOutIcon size={21} className="directional" aria-hidden="true" /></span><span className="sidebar-label">{t.common.signOut}</span></button>
@@ -120,10 +139,11 @@ function ManagerShell({ context }: { context: KitchenContext }) {
           <p className="manager-place">
             <span className="manager-restaurant"><bdi>{context.restaurant.name}</bdi></span>
             {branchName && !scope.multi && <strong className="manager-branch" data-testid="manager-branch"><bdi>{branchName}</bdi></strong>}
-            <span className="badge badge-guava">{t.manager.roleTag}</span>
+            <span className="badge badge-guava" data-testid="staff-role">{text(...ROLE_LABELS[context.role])}</span>
           </p>
           <BranchSwitcher className="owner-branch-switch" />
         </div>
+        <DeniedNotice />
         <ErrorBoundary resetKey={pathname}><Outlet /></ErrorBoundary>
       </div>
     </main>

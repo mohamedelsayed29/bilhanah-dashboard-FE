@@ -276,7 +276,8 @@ test('changes the password and signs in with the new one', async () => {
   // The session survives a reload (restored from the refresh cookie), then ends on sign-out.
   await page.reload();
   await expect(page.getByRole('heading', { level: 1, name: 'الإعدادات' })).toBeVisible();
-  await page.locator('.sidebar').getByRole('button', { name: 'تسجيل الخروج' }).click();
+  await page.locator('.sidebar').getByRole('button', { name: 'كل الاختيارات' }).click();
+  await page.getByRole('dialog', { name: 'القائمة' }).getByRole('button', { name: 'تسجيل الخروج' }).click();
   await page.getByRole('dialog', { name: 'تسجيل الخروج' }).getByRole('button', { name: 'اخرج' }).click();
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByText('خرجت من حسابك.')).toBeVisible();

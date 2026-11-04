@@ -3,13 +3,13 @@ import type { OwnerMenu, OwnerMenuItem } from '@bilhanah/contracts';
 import { reorderCategories, reorderItems, upsertItem } from './menu-cache';
 
 const item = (id: string, categoryId: string): OwnerMenuItem => ({
-  id, categoryId, nameAr: id, nameEn: null, descriptionAr: null, descriptionEn: null, image: null, isAvailable: true, isVisible: true,
+  id, categoryId, nameAr: id, nameEn: null, descriptionAr: null, descriptionEn: null, image: null, isAvailable: true, isVisible: true, stationId: null,
   variants: [{ id: `${id}-v`, nameAr: null, nameEn: null, pricePiastres: 1000 }],
 });
 const menu: OwnerMenu = {
   categories: [
-    { id: 'a', nameAr: 'أ', nameEn: null, isVisible: true, items: [item('a1', 'a'), item('a2', 'a')] },
-    { id: 'b', nameAr: 'ب', nameEn: null, isVisible: true, items: [item('b1', 'b')] },
+    { id: 'a', nameAr: 'أ', nameEn: null, isVisible: true, stationId: null, items: [item('a1', 'a'), item('a2', 'a')] },
+    { id: 'b', nameAr: 'ب', nameEn: null, isVisible: true, stationId: null, items: [item('b1', 'b')] },
   ],
 };
 

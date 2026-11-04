@@ -6,6 +6,8 @@ import { mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 export const API_URL = process.env['E2E_API_URL'] ?? 'http://127.0.0.1:3000';
+/** The admin console (its own app and origin; the API allows it as ADMIN_ORIGINS). */
+export const ADMIN_URL = `http://127.0.0.1:${process.env['ADMIN_E2E_PORT'] ?? 5175}`;
 export const MAILPIT_URL = process.env['E2E_MAILPIT_URL'] ?? 'http://127.0.0.1:8025';
 export const screenshotDir = fileURLToPath(new URL('../test-results/screens/', import.meta.url));
 

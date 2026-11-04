@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router';
+import { useLocation } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { ShieldCheckIcon } from '@phosphor-icons/react';
 import { ADMIN_ERROR_CODES, adminLoginSchema, AUTH_ERROR_CODES } from '@bilhanah/contracts';
@@ -66,6 +66,5 @@ export function AdminLoginPage() {
       </Field>
       <Button type="submit" block loading={isSubmitting}>{text('دخول', 'Sign in')}</Button>
     </form>
-    <p className="auth-alt">{text('صاحب مطعم؟', 'Restaurant owner?')} <Link className="link" to="/login">{text('ادخل من هنا', 'Sign in here')}</Link></p>
   </AuthCard>;
 }

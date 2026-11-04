@@ -1,8 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { ArrowSquareOutIcon, BellIcon, ChartBarIcon, CreditCardIcon, ForkKnifeIcon, GearSixIcon, HouseIcon, QrCodeIcon, ReceiptIcon, SignOutIcon, StorefrontIcon, TableIcon } from '@phosphor-icons/react';
+import { ArrowSquareOutIcon, BellIcon, BellRingingIcon, SparkleIcon, ChartBarIcon, CreditCardIcon, ForkKnifeIcon, GearSixIcon, HouseIcon, QrCodeIcon, UserCheckIcon, ReceiptIcon, SignOutIcon, StorefrontIcon, TableIcon } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
-import type { OwnerRestaurant } from '@bilhanah/contracts';
+import { type OwnerRestaurant, type Permission, ROLE_PERMISSIONS } from '@bilhanah/contracts';
 import { Brand } from '../components/Brand';
 import { ErrorBoundary, ErrorPanel } from '../components/ErrorBoundary';
 import { LanguageToggle } from '../components/LanguageToggle';
@@ -10,35 +10,43 @@ import { useSignOut } from '../components/SignOutDialog';
 import { Splash } from '../app/providers/SessionBootstrap';
 import { BranchScopeProvider, BranchSwitcher } from '../features/branches/BranchScope';
 import { toOption } from '../features/branches/scope';
-import { ownerWorkspace, WorkspaceProvider } from '../features/branches/workspace';
+import { ownerWorkspace, useWorkspace, WorkspaceProvider } from '../features/branches/workspace';
+import { DeniedNotice } from '../app/router/permission-guard';
 import { LiveForScope, useOrdersLive } from '../features/restaurant/orders/live';
+import { ServiceRequestsCount } from '../features/restaurant/service/ServiceCount';
 import { useBranchesQuery } from '../features/restaurant/queries';
 import { fallInto } from '../lib/drop-motion';
 import { useLanguage } from '../lib/language';
 import { useSession } from '../lib/session';
 import { useRouteFocus } from '../lib/use-route-focus';
+import { SidebarDrawer } from './SidebarDrawer';
 
 /** `phone`: also in the bottom tab bar (five fit at 390 px; insights, the QR code and subscription are linked from the overview). */
-type NavItem = { to: string; end?: boolean; icon: Icon; ar: string; en: string; phone?: boolean; orders?: boolean };
+/** `more`: only in the ⋯ panel, kept off the rail so it holds the eight pages used most. */
+/** `need`: shown only to accounts holding one of these permissions (the route checks the same). */
+type NavItem = { to: string; end?: boolean; icon: Icon; ar: string; en: string; need: Permission[]; phone?: boolean; orders?: boolean; service?: boolean; more?: boolean };
 /** The sidebar in two labelled groups: the day's work, then the restaurant's setup. */
-const NAV_GROUPS: { ar: string; en: string; items: NavItem[] }[] = [
+const ALL_NAV_GROUPS: { ar: string; en: string; items: NavItem[] }[] = [
   { ar: 'الشغل اليومي', en: 'Daily work', items: [
-    { to: '/', end: true, icon: HouseIcon, ar: 'الرئيسية', en: 'Overview', phone: true },
-    { to: '/orders', icon: ReceiptIcon, ar: 'الطلبات', en: 'Orders', phone: true, orders: true },
-    { to: '/tables', icon: TableIcon, ar: 'الطاولات', en: 'Tables', phone: true },
-    { to: '/insights', icon: ChartBarIcon, ar: 'الإحصائيات', en: 'Insights' },
+    { to: '/', end: true, icon: HouseIcon, ar: 'الرئيسية', en: 'Overview', need: ['dashboard.view'], phone: true },
+    { to: '/orders', icon: ReceiptIcon, ar: 'الطلبات', en: 'Orders', need: ['orders.view'], phone: true, orders: true },
+    { to: '/service', icon: BellRingingIcon, ar: 'طلبات الخدمة', en: 'Service requests', need: ['service.view'], service: true },
+    { to: '/tables', icon: TableIcon, ar: 'الطاولات', en: 'Tables', need: ['tables.view'], phone: true },
+    { to: '/insights', icon: ChartBarIcon, ar: 'الإحصائيات', en: 'Insights', need: ['analytics.view'] },
+    { to: '/attendance', icon: UserCheckIcon, ar: 'الحضور', en: 'Attendance', need: ['attendance.view', 'attendance.settings'] },
   ] },
   { ar: 'إعداد المطعم', en: 'Your restaurant', items: [
-    { to: '/menu', icon: ForkKnifeIcon, ar: 'المنيو', en: 'Menu', phone: true },
-    { to: '/branches', icon: StorefrontIcon, ar: 'الفروع', en: 'Branches' },
-    { to: '/qr-codes', icon: QrCodeIcon, ar: 'كود QR', en: 'QR code' },
-    { to: '/subscription', icon: CreditCardIcon, ar: 'الاشتراك', en: 'Subscription' },
-    { to: '/settings', icon: GearSixIcon, ar: 'الإعدادات', en: 'Settings', phone: true },
+    { to: '/menu', icon: ForkKnifeIcon, ar: 'المنيو', en: 'Menu', need: ['menu.manage'], phone: true },
+    { to: '/branches', icon: StorefrontIcon, ar: 'الفروع', en: 'Branches', need: ['branches.manage', 'menu.branch'], more: true },
+    { to: '/recommendations', icon: SparkleIcon, ar: 'الترشيحات', en: 'Recommendations', need: ['promotions.manage'], more: true },
+    { to: '/qr-codes', icon: QrCodeIcon, ar: 'كود QR', en: 'QR code', need: ['settings.manage'] },
+    { to: '/subscription', icon: CreditCardIcon, ar: 'الاشتراك', en: 'Subscription', need: ['billing.manage'], more: true },
+    { to: '/settings', icon: GearSixIcon, ar: 'الإعدادات', en: 'Settings', need: ['settings.manage', 'staff.view'], phone: true },
   ] },
 ];
-const NAV = NAV_GROUPS.flatMap(group => group.items);
+const NAV = ALL_NAV_GROUPS.flatMap(group => group.items);
 /** The bottom tab bar keeps its familiar order. */
-const PHONE_NAV = ['/', '/orders', '/menu', '/tables', '/settings'].map(to => NAV.find(item => item.to === to)!);
+const ALL_PHONE_NAV = ['/', '/orders', '/menu', '/tables', '/settings'].map(to => NAV.find(item => item.to === to)!);
 
 /** Orders waiting to be accepted, on the Orders navigation item. */
 function NewOrdersCount({ testId = 'new-orders-count' }: { testId?: string }) {
@@ -66,16 +74,19 @@ export function OwnerLayout({ restaurant }: { restaurant: OwnerRestaurant }) {
   const session = useSession();
   const branches = useBranchesQuery();
   const options = useMemo(() => branches.data?.branches.map(toOption) ?? [], [branches.data]);
+  // The owner's permissions as the server sent them (every one, today); the API checks them again.
+  const permissions = (session.status === 'authenticated' && session.user.permissions?.length ? session.user.permissions : ROLE_PERMISSIONS.OWNER);
   const workspace = useMemo(() => ownerWorkspace({
     name: restaurant.name, subdomain: restaurant.subdomain, brandColor: restaurant.brandColor,
-    logoUrl: restaurant.logo?.sources[0]?.url ?? restaurant.logo?.url ?? null,
-  }), [restaurant.name, restaurant.subdomain, restaurant.brandColor, restaurant.logo]);
+    logoUrl: restaurant.logo?.sources[0]?.url ?? restaurant.logo?.url ?? null, orderPrepMinutes: restaurant.orderPrepMinutes,
+  }, permissions, NAV.find(item => item.need.some(permission => permissions.includes(permission)))?.to ?? '/settings/account'),
+  [restaurant.name, restaurant.subdomain, restaurant.brandColor, restaurant.logo, restaurant.orderPrepMinutes, permissions]);
   if (branches.isPending) return <Splash />;
   if (branches.isError) return <main className="state-page"><ErrorPanel error={branches.error} onRetry={() => void branches.refetch()} /></main>;
   const userId = session.status === 'authenticated' ? session.user.id : 'owner';
   return <WorkspaceProvider value={workspace}>
     <BranchScopeProvider branches={options} storageKey={`bilhanah:branch:v1:${userId}`}>
-      <LiveForScope enabled={restaurant.ordering.included}><OwnerShell restaurant={restaurant} /></LiveForScope>
+      <LiveForScope enabled={restaurant.ordering.included} serviceRequests><OwnerShell restaurant={restaurant} /></LiveForScope>
     </BranchScopeProvider>
   </WorkspaceProvider>;
 }
@@ -83,16 +94,24 @@ export function OwnerLayout({ restaurant }: { restaurant: OwnerRestaurant }) {
 
 function OwnerShell({ restaurant }: { restaurant: OwnerRestaurant }) {
   const { text } = useLanguage();
+  const { can } = useWorkspace();
+  const allowed = (item: NavItem) => item.need.some(can);
+  const NAV_GROUPS = ALL_NAV_GROUPS.map(group => ({ ...group, items: group.items.filter(allowed) })).filter(group => group.items.length > 0);
+  const NAV = NAV_GROUPS.flatMap(group => group.items);
+  const PHONE_NAV = ALL_PHONE_NAV.filter(allowed);
   const { pathname } = useLocation();
   useRouteFocus();
   // A new order falls like a drop onto Orders: in the sidebar, or in the tab bar on phones.
-  const { arrivals } = useOrdersLive();
+  const { arrivals, serviceArrivals } = useOrdersLive();
   const ordersLinks = useRef<{ sidebar: HTMLAnchorElement | null; tabbar: HTMLAnchorElement | null }>({ sidebar: null, tabbar: null });
+  const serviceLink = useRef<HTMLAnchorElement | null>(null);
   useEffect(() => {
     if (arrivals === 0) return;
     const { sidebar, tabbar } = ordersLinks.current;
     fallInto(sidebar?.getClientRects().length ? sidebar : tabbar);
   }, [arrivals]);
+  // A table asking for service falls onto its navigation item the same way.
+  useEffect(() => { if (serviceArrivals > 0) fallInto(serviceLink.current?.getClientRects().length ? serviceLink.current : null); }, [serviceArrivals]);
   const signOut = useSignOut(text('هتخرج من حسابك على الجهاز ده، والطلبات الجديدة مش هتوصلك هنا لحد ما تدخل تاني.', 'You will be signed out on this device, and new orders will not reach it until you sign back in.'));
   return <div className="owner-shell">
     <a className="skip-link" href="#main-content">{text('انتقل للمحتوى', 'Skip to content')}</a>
@@ -101,12 +120,21 @@ function OwnerShell({ restaurant }: { restaurant: OwnerRestaurant }) {
       <nav aria-label={text('القائمة الرئيسية', 'Main navigation')} className="sidebar-nav">
         {NAV_GROUPS.map(group => <Fragment key={group.en}>
           <p className="sidebar-group">{text(group.ar, group.en)}</p>
-          {group.items.map(item => <NavLink key={item.to} to={item.to} end={item.end} className="sidebar-link" ref={item.orders ? element => { ordersLinks.current.sidebar = element; } : undefined}>
+          {group.items.filter(item => !item.more).map(item => <NavLink key={item.to} to={item.to} end={item.end} className="sidebar-link"
+            ref={item.orders ? element => { ordersLinks.current.sidebar = element; } : item.service ? element => { serviceLink.current = element; } : undefined}>
             <span className="sidebar-icon"><item.icon size={21} aria-hidden="true" /></span><span className="sidebar-label">{text(item.ar, item.en)}</span>
             {item.orders && <NewOrdersCount />}
+            {item.service && <ServiceRequestsCount />}
           </NavLink>)}
         </Fragment>)}
-        <button type="button" className="sidebar-link sidebar-signout" onClick={signOut.ask}><span className="sidebar-icon"><SignOutIcon size={21} className="directional" aria-hidden="true" /></span><span className="sidebar-label">{text('تسجيل الخروج', 'Sign out')}</span></button>
+        {/* Sign-out, the public menu and the language live in the panel this opens, with every page by name. */}
+        <SidebarDrawer
+          active={NAV.some(item => item.more && pathname.startsWith(item.to))}
+          groups={NAV_GROUPS.map(group => ({ ...group, items: group.items.map(item => ({ ...item, badge: item.orders ? <NewOrdersCount testId="drawer-new-orders" /> : item.service ? <ServiceRequestsCount testId="drawer-service-count" /> : undefined })) }))}
+          header={<><RestaurantAvatar restaurant={restaurant} size={40} /><span><strong><bdi>{restaurant.name}</bdi></strong><small>{text('لوحة التحكم', 'Dashboard')}</small></span></>}
+          publicUrl={restaurant.publicUrl}
+          onSignOut={signOut.ask}
+        />
       </nav>
       <div className="sidebar-footer">
         <a className="sidebar-round" href={restaurant.publicUrl} target="_blank" rel="noreferrer"
@@ -133,6 +161,7 @@ function OwnerShell({ restaurant }: { restaurant: OwnerRestaurant }) {
     <main id="main-content" tabIndex={-1} className="owner-main">
       <div className="owner-content">
         <BranchSwitcher className="owner-branch-switch" />
+        <DeniedNotice />
         <ErrorBoundary resetKey={pathname}><Outlet /></ErrorBoundary>
       </div>
     </main>

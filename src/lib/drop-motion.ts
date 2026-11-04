@@ -33,7 +33,7 @@ function ripples(x: number, y: number, surface: HTMLElement | null, size = 36) {
  * under the drop, stretches back up and settles, with no rings. In the sidebar, the button bounces,
  * the panel wobbles like a water surface from the point of impact and rings spread across it.
  */
-export function splash(button: HTMLElement | null) {
+export function splash(button: HTMLElement | null, { rings = true }: { rings?: boolean } = {}) {
   if (!button || !button.isConnected || reducedMotion()) return;
   const target = button.querySelector<HTMLElement>('.sidebar-icon') ?? button;
   const panel = button.closest<HTMLElement>('.sidebar-nav');
@@ -55,7 +55,7 @@ export function splash(button: HTMLElement | null) {
   const y = hit.top + hit.height / 2;
   target.animate([{ transform: 'scale(0.7)' }, { transform: 'scale(1.18)' }, { transform: 'scale(0.94)' }, { transform: 'scale(1)' }],
     { duration: 560, easing: 'cubic-bezier(0.3, 0.7, 0.3, 1)' });
-  ripples(x, y, panel);
+  if (rings) ripples(x, y, panel);
   // The panel hangs from the window edge, so it wobbles from that edge at the height of the impact.
   const box = panel.getBoundingClientRect();
   const edge = document.documentElement.dir === 'rtl' ? '100%' : '0%';

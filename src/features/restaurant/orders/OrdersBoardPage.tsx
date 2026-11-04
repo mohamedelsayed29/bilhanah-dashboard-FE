@@ -105,9 +105,9 @@ export function OrdersBoardPage() {
     };
   }, [unseen.size, markSeen]);
 
-  const act = (order: OwnerOrder, next: OrderStatus) => {
+  const act = (order: OwnerOrder, next: OrderStatus, prepMinutes?: number) => {
     if (needsReason(next)) setClosing({ order, status: next as 'REJECTED' | 'CANCELLED' });
-    else if (next !== 'PLACED') status.mutate({ order, status: next });
+    else if (next !== 'PLACED') status.mutate({ order, status: next, prepMinutes });
   };
 
   const header = <PageHeader title={text('الطلبات', 'Orders')}
@@ -199,7 +199,8 @@ export function OrdersBoardPage() {
               ? <div className="board-empty"><EmptyIcon size={22} aria-hidden="true" /><p>{text(COLUMN_TEXT[key].emptyAr, COLUMN_TEXT[key].emptyEn)}</p></div>
               : <div className="board-cards">
                 {columns[key].map(order => <OrderCard key={order.id} order={order} now={now} isNew={live.unseen.has(order.id)} showBranch={branches.labelled}
-                  onAction={act} onPaid={paid => payment.mutate({ order: paid, paid: true })} />)}
+                  onAction={act} usualPrepMinutes={workspace.restaurant.orderPrepMinutes} can={workspace.can}
+                  onPaid={workspace.can('payments.process') ? paid => payment.mutate({ order: paid, paid: true }) : undefined} />)}
               </div>}
           </section>;
         })}

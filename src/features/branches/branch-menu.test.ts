@@ -5,7 +5,7 @@ import { availabilityChoice, availabilityValue, clearPrices, filterMenu, isOverr
 const item = (id: string, extra: Partial<BranchMenuItem> = {}): BranchMenuItem => {
   const variants = [{ id: `${id}-s`, nameAr: 'صغير', nameEn: 'Small', pricePiastres: 3500 }, { id: `${id}-l`, nameAr: 'كبير', nameEn: 'Large', pricePiastres: 6500 }];
   return {
-    id, categoryId: 'c', nameAr: 'كشري', nameEn: 'Koshary', descriptionAr: null, descriptionEn: null, image: null, isAvailable: true, isVisible: true, variants,
+    id, categoryId: 'c', nameAr: 'كشري', nameEn: 'Koshary', descriptionAr: null, descriptionEn: null, image: null, isAvailable: true, isVisible: true, variants, stationId: null,
     override: { available: null, hidden: false, prices: {} },
     effective: { available: true, visible: true, variants },
     ...extra,

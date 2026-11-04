@@ -5,7 +5,7 @@ import { ApiError } from './api-error';
 import { createApiClient } from './client';
 import { createExclusive, type LockManagerLike, singleFlight } from './single-flight';
 
-const user = { id: 'u1', email: 'owner@example.com', fullName: 'Owner', preferredLanguage: 'ar', role: 'OWNER', emailVerified: true } as const;
+const user = { id: 'u1', email: 'owner@example.com', fullName: 'Owner', preferredLanguage: 'ar', role: 'OWNER', emailVerified: true, permissions: [] as never[] } as const;
 const session = (token: string): SessionResponse => ({ accessToken: token, accessTokenExpiresIn: 900, user });
 
 const json = (status: number, body: unknown) =>

@@ -1,5 +1,5 @@
 import type { Page, Request } from '@playwright/test';
-import type { AuthUser, BranchList, OwnerRestaurant, SessionResponse } from '@bilhanah/contracts';
+import { type AuthUser, type BranchList, type OwnerRestaurant, ROLE_PERMISSIONS, type SessionResponse } from '@bilhanah/contracts';
 
 /**
  * A fake API for specs that must not depend on bilhanah-BE (features it has not shipped yet):
@@ -69,15 +69,17 @@ export class MockApi {
   }
 }
 
-export const ownerUser: AuthUser = { id: 'u-owner', email: 'owner@example.test', fullName: 'منى الاختبار', preferredLanguage: 'ar', role: 'OWNER', emailVerified: true };
-export const adminUser: AuthUser = { id: 'u-admin', email: 'admin@example.test', fullName: 'سارة الإدارة', preferredLanguage: 'ar', role: 'ADMIN', emailVerified: true };
+export const ownerUser: AuthUser = { id: 'u-owner', email: 'owner@example.test', fullName: 'منى الاختبار', preferredLanguage: 'ar', role: 'OWNER', emailVerified: true, permissions: [...ROLE_PERMISSIONS.OWNER] };
+export const adminUser: AuthUser = { id: 'u-admin', email: 'admin@example.test', fullName: 'سارة الإدارة', preferredLanguage: 'ar', role: 'ADMIN', emailVerified: true, permissions: [] };
 
 /** A signed-in session restored from the refresh cookie, as on every page load. */
 export function signedIn(api: MockApi, user: AuthUser) {
   const session: SessionResponse = { accessToken: `token-${user.role}`, accessTokenExpiresIn: 900, user };
   api.on('POST', '/v1/auth/refresh', { json: session });
+  api.on('POST', '/v1/auth/admin/refresh', { json: session });
   api.on('GET', '/v1/auth/me', { json: user });
   api.on('POST', '/v1/auth/logout', { status: 204 });
+  api.on('POST', '/v1/auth/admin/logout', { status: 204 });
   return api;
 }
 
@@ -88,6 +90,8 @@ export function restaurant(changes: Partial<OwnerRestaurant> = {}): OwnerRestaur
     access: { status: 'PAID', planCode: 'ORDERS', features: { menu: true, ordering: true, readyAlerts: false, branches: 3 }, currentPeriodEndsAt: '2026-12-01T00:00:00.000Z', trialEndsAt: null },
     // The board and its socket stay off in mocked runs.
     ordering: { included: false, enabled: false, acceptsDineIn: true, acceptsPickup: true, paused: false },
+    serviceRequests: { enabled: true, cooldownSeconds: 120, hourlyLimit: 20 },
+    orderPrepMinutes: null,
     logo: null, cover: null, brandColor: null, openingHours: null, menuTheme: 'classic', mainBranchId: 'b-main', branchCount: 1,
     ...changes,
   };
@@ -111,7 +115,11 @@ export function ownerApi(changes: Partial<OwnerRestaurant> = {}) {
   return signedIn(new MockApi(), ownerUser)
     .on('GET', '/v1/restaurants/mine', { json: owner })
     .on('GET', '/v1/branches', { json: branchList(owner) })
-    .on('GET', '/v1/menu', { json: { categories: [] } });
+    .on('GET', '/v1/menu', { json: { categories: [] } })
+    .on('GET', '/v1/orders/tracking-stats', { json: {
+      days: 30, orders: 0, tracked: 0, trackingRate: null, readyAlertOrders: 0, readyNotified: 0, readyDeliveryRate: null,
+      estimatedOrders: 0, readyOnTime: 0, onTimeRate: null, statusEnquiries: 0,
+    } });
 }
 
 /** A 1×1 PNG. */

@@ -40,7 +40,7 @@ function BranchMenu({ branch, page }: { branch: OwnerBranch; page: ReturnType<ty
   const copy = t.branchMenu;
   const { text, count, language } = useLanguage();
   const toast = useToast();
-  const { role } = useWorkspace();
+  const { role, can } = useWorkspace();
   const owner = role === 'OWNER';
   usePageTitle(owner ? copy.title : copy.managerTitle, owner ? copy.title : copy.managerTitle);
   const list = useBranchList();
@@ -56,7 +56,7 @@ function BranchMenu({ branch, page }: { branch: OwnerBranch; page: ReturnType<ty
 
   const header = <PageHeader title={owner ? copy.title : copy.managerTitle} description={owner ? copy.description : copy.managerDescription}
     actions={<>
-      {owner && <Link className="button button-secondary" to="/menu"><ForkKnifeIcon size={18} aria-hidden="true" />{copy.editShared}</Link>}
+      {can('menu.manage') && <Link className="button button-secondary" to="/menu"><ForkKnifeIcon size={18} aria-hidden="true" />{copy.editShared}</Link>}
       <a className="button button-secondary" href={branch.publicUrl} target="_blank" rel="noreferrer"><ArrowSquareOutIcon size={18} aria-hidden="true" />{copy.openPublic}</a>
     </>} />;
 
@@ -81,8 +81,8 @@ function BranchMenu({ branch, page }: { branch: OwnerBranch; page: ReturnType<ty
             <small>{copy.followExplain}</small>
           </p>
           <div className="branch-menu-actions">
-            {owner && others.length > 0 && <Button small variant="secondary" onClick={() => setCopying(true)} icon={<CopyIcon size={16} aria-hidden="true" />}>{copy.copy}</Button>}
-            <Button small variant="ghost" disabled={summary.changed === 0} onClick={() => setResetting(true)} icon={<ArrowCounterClockwiseIcon size={16} aria-hidden="true" />}>{copy.reset}</Button>
+            {can('branches.manage') && others.length > 0 && <Button small variant="secondary" onClick={() => setCopying(true)} icon={<CopyIcon size={16} aria-hidden="true" />}>{copy.copy}</Button>}
+            {can('menu.branch') && <Button small variant="ghost" disabled={summary.changed === 0} onClick={() => setResetting(true)} icon={<ArrowCounterClockwiseIcon size={16} aria-hidden="true" />}>{copy.reset}</Button>}
           </div>
         </div>
         <div className="branch-menu-filters">
@@ -122,6 +122,10 @@ function BranchItemRow({ item, branch, categoryVisible, onPrices }: { item: Bran
   const copy = t.branchMenu;
   const { language, text } = useLanguage();
   const setItem = useSetBranchItem(branch.id);
+  // Sold out needs menu.availability; hiding and prices menu.branch. Others only read the menu.
+  const { can } = useWorkspace();
+  const canAvailability = can('menu.availability');
+  const canBranch = can('menu.branch');
   const name = dishName(item, language);
   const choice = availabilityChoice(item.override);
   const groupId = useId();
@@ -159,8 +163,8 @@ function BranchItemRow({ item, branch, categoryVisible, onPrices }: { item: Bran
         </ul>
       </div>
     </div>
-    <div className="branch-item-controls">
-      <div className="branch-item-availability">
+    {(canAvailability || canBranch) && <div className="branch-item-controls">
+      {canAvailability && <div className="branch-item-availability">
         <span className="field-label" id={`${groupId}-label`}>{copy.availability}</span>
         <div className="segmented" role="radiogroup" aria-labelledby={`${groupId}-label`}
           title={fill(copy.followHint, { state: item.isAvailable ? copy.sharedAvailable : copy.sharedSoldOut })}>
@@ -170,8 +174,8 @@ function BranchItemRow({ item, branch, categoryVisible, onPrices }: { item: Bran
             {option.label}
           </label>)}
         </div>
-      </div>
-      <label className="check-row branch-item-hide">
+      </div>}
+      {canBranch && <><label className="check-row branch-item-hide">
         <input type="checkbox" checked={item.override.hidden} onChange={event => save({ hidden: event.target.checked })} />
         <span>{copy.hide}</span>
       </label>
@@ -180,8 +184,8 @@ function BranchItemRow({ item, branch, categoryVisible, onPrices }: { item: Bran
           aria-label={`${copy.prices}: ${name}`}>{copy.prices}</Button>
         {changed && <Button small variant="ghost" onClick={() => save({ available: null, hidden: false, prices: clearPrices(item) }, copy.reverted)}
           icon={<ArrowCounterClockwiseIcon size={16} aria-hidden="true" />} aria-label={`${copy.revert}: ${name}`}>{copy.revert}</Button>}
-      </div>
-    </div>
+      </div></>}
+    </div>}
     {setItem.isError && <p className="field-error">{errorMessage(setItem.error, text)}</p>}
   </li>;
 }

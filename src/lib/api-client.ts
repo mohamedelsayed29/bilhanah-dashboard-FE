@@ -1,4 +1,5 @@
 import type { ApiError as ApiErrorBody, SessionResponse } from '@bilhanah/contracts';
+import { SESSION_ROUTES } from './config';
 
 const API_URL = (import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '');
 
@@ -51,7 +52,7 @@ let refreshInFlight: Promise<SessionResponse | null> | null = null;
 export function refreshSession(): Promise<SessionResponse | null> {
   refreshInFlight ??= (async () => {
     const run = async () => {
-      const response = await fetch(`${API_URL}/v1/auth/refresh`, { method: 'POST', credentials: 'include' });
+      const response = await fetch(`${API_URL}${SESSION_ROUTES.refresh}`, { method: 'POST', credentials: 'include' });
       if (response.status === 401) return null;
       if (!response.ok) throw await toApiError(response);
       return (await response.json()) as SessionResponse;

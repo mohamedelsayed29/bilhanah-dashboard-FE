@@ -73,6 +73,5 @@ export function LoginPage() {
     </form>
     <div className="auth-divider"><span>{text('أو', 'or')}</span></div>
     <Link className="button button-secondary button-block auth-signup" to="/register">{text('معندكش حساب؟', 'New here?')} <b>{text('ابدأ تجربتك المجانية', 'Start your free trial')}</b></Link>
-    <p className="auth-alt auth-team">{text('من فريق بالهنا؟', 'Bilhanah team?')} <Link className="link-muted" to="/admin/login">{text('ادخل من هنا', 'Sign in here')}</Link></p>
   </AuthCard>;
 }

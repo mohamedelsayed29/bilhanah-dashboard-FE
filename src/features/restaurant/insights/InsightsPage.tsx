@@ -18,6 +18,7 @@ import { useBranchScope } from '../../branches/BranchScope';
 import { useWorkspace } from '../../branches/workspace';
 import { useStatsQuery } from '../queries';
 import { BranchComparison } from './BranchComparison';
+import { TrackingInsights } from './TrackingInsights';
 import { dishName, hasStats, SOURCE_ORDER, statsDays } from './insights';
 
 const SOURCES: Record<VisitSource, { icon: Icon; ar: string; en: string; hintAr: string; hintEn: string }> = {
@@ -53,6 +54,7 @@ export function InsightsPage() {
     {stats.data && <div className={`insights-body ${stats.isPlaceholderData ? 'is-refreshing' : ''}`} aria-busy={stats.isFetching}>
       {stats.isError && <Alert kind="error" title={text('مقدرناش نحدّث الأرقام', 'We couldn’t refresh the figures')}>{text('بنعرض آخر أرقام وصلتنا. جرّب تاني بعد شوية.', 'Showing the last figures we received. Please try again shortly.')}</Alert>}
       <InsightsBody stats={stats.data} days={days} branchView={branchId !== null} />
+      {stats.data.ordering && <TrackingInsights days={days} branchId={branchId} />}
       {compare && <BranchComparison days={days} />}
     </div>}
   </div>;
