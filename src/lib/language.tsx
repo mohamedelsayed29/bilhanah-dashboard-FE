@@ -66,6 +66,6 @@ export function useLanguage() {
 export function usePageTitle(ar: string, en: string) {
   const { language } = useLanguage();
   useEffect(() => {
-    document.title = `${language === 'ar' ? ar : en} | ${language === 'ar' ? 'بالهنا' : 'Bilhanah'}`;
+    document.title = `${language === 'ar' ? ar : en} | ${language === 'ar' ? 'إدارة بالهنا' : 'Bilhanah Admin'}`;
   }, [language, ar, en]);
 }

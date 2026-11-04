@@ -16,14 +16,5 @@
     "types": ["vite/client"]
   },
   "include": ["src"],
-  "exclude": [
-    "src/app/router/router.tsx",
-    "src/features/auth/pages",
-    "src/features/restaurant/api.ts",
-    "src/features/restaurant/settings/SettingsPage.tsx",
-    "src/layouts/DashboardLayout.tsx",
-    "src/lib/api-client.ts",
-    "src/lib/errors.ts",
-    "src/lib/session-context.tsx"
-  ]
+  "exclude": ["src/lib/api-client.ts", "src/lib/errors.ts", "src/lib/session-context.tsx"]
 }

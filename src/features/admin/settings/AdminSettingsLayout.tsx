@@ -7,9 +7,18 @@ import { PageHeader } from '../../../components/PageHeader';
 import { PageSkeleton } from '../../../components/Skeleton';
 import { useLanguage, usePageTitle } from '../../../lib/language';
 import { planName } from '../../billing/labels';
-import { scrollTabIntoView } from '../../restaurant/settings/SettingsLayout';
 import { useAdminSettingsQuery, useShopSettingsQuery } from '../queries';
 import { methodsShown } from './payment-methods';
+
+/** Scrolls a sideways tab strip so its current tab is fully visible, in either reading direction. */
+function scrollTabIntoView(strip: HTMLElement | null) {
+  const tab = strip?.querySelector<HTMLElement>('.active');
+  if (!strip || !tab) return;
+  const outer = strip.getBoundingClientRect();
+  const inner = tab.getBoundingClientRect();
+  if (inner.left < outer.left) strip.scrollLeft -= outer.left - inner.left + 16;
+  else if (inner.right > outer.right) strip.scrollLeft += inner.right - outer.right + 16;
+}
 
 /**
  * The platform settings in the same shell as a restaurant's: a list of sections (each with a

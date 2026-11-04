@@ -50,7 +50,7 @@ function fakeApi(options: { refreshDelay?: Promise<void>; refreshStatus?: number
     const url = String(input);
     const auth = (init?.headers as Record<string, string> | undefined)?.['Authorization'] ?? null;
     calls.push({ url, auth, credentials: init?.credentials });
-    if (url.endsWith('/v1/auth/refresh')) {
+    if (url.endsWith('/v1/auth/admin/refresh')) {
       refreshes += 1;
       concurrentRefreshes += 1;
       maxConcurrentRefreshes = Math.max(maxConcurrentRefreshes, concurrentRefreshes);
@@ -208,7 +208,7 @@ describe('api client', () => {
       const url = String(input);
       const auth = (init?.headers as Record<string, string> | undefined)?.['Authorization'] ?? null;
       seen.push(`${url.replace('http://api.test', '')} ${auth}`);
-      if (url.endsWith('/v1/auth/refresh')) return json(200, session('fresh'));
+      if (url.endsWith('/v1/auth/admin/refresh')) return json(200, session('fresh'));
       if (auth !== 'Bearer fresh') return json(401, { error: { code: 'UNAUTHENTICATED', message: 'x', requestId: 'r' } });
       return new Response(new Uint8Array([0x52, 0x49, 0x46, 0x46]), { status: 200, headers: { 'content-type': 'image/webp' } });
     });
@@ -217,7 +217,7 @@ describe('api client', () => {
     expect(blob).toBeInstanceOf(Blob);
     expect(blob.type).toBe('image/webp');
     expect(new Uint8Array(await blob.arrayBuffer())).toEqual(new Uint8Array([0x52, 0x49, 0x46, 0x46]));
-    expect(seen).toEqual(['/v1/billing/payments/p1/proof Bearer stale', '/v1/auth/refresh null', '/v1/billing/payments/p1/proof Bearer fresh']);
+    expect(seen).toEqual(['/v1/billing/payments/p1/proof Bearer stale', '/v1/auth/admin/refresh null', '/v1/billing/payments/p1/proof Bearer fresh']);
     expect(fetchImpl.mock.calls.every(([, init]) => init?.credentials === 'include')).toBe(true);
   });
 

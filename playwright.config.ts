@@ -1,10 +1,9 @@
 import { defineConfig } from '@playwright/test';
 
-// The API only allows credentialed requests from http://127.0.0.1:5174 (CORS_ORIGINS), so that is the default.
+// The API only allows the admin console's credentialed requests from http://127.0.0.1:5175 (ADMIN_ORIGINS).
 // Another port only works if the API also lists it.
-const port = Number(process.env['DASHBOARD_E2E_PORT'] ?? 5174);
+const port = Number(process.env['ADMIN_E2E_PORT'] ?? 5175);
 const baseURL = `http://127.0.0.1:${port}`;
-const adminPort = Number(process.env['ADMIN_E2E_PORT'] ?? 5175);
 
 export default defineConfig({
   testDir: './tests',
@@ -26,9 +25,7 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
   },
-  webServer: [
-    { command: `npm run dev -- --port ${port}`, url: baseURL, reuseExistingServer: true, timeout: 30_000 },
-    // The admin console is its own app (VITE_APP=admin), origin and session; admin specs use ADMIN_URL.
-    { command: `VITE_APP=admin npm run dev -- --port ${adminPort} --strictPort`, url: `http://127.0.0.1:${adminPort}`, reuseExistingServer: true, timeout: 30_000 },
-  ],
+  // billing-admin.spec.ts also drives the restaurants' dashboard (bilhanah-client-FE/dashboard) on
+  // DASHBOARD_ORIGIN; run it with the whole stack up (`npm run dev` in bilhanah-backend).
+  webServer: { command: `npm run dev -- --port ${port} --strictPort`, url: baseURL, reuseExistingServer: true, timeout: 30_000 },
 });

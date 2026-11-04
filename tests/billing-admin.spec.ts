@@ -2,7 +2,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from '@pla
 import type { AdminSettings, PublicMenuResponse, PublicPlan } from '@bilhanah/contracts';
 import {
   API_URL, authenticator, createAdmin, expectAccessible, expectNoOverflow, makeJpeg, registerOwner, screenshot, uniqueSuffix,
-  ADMIN_URL,
+  ADMIN_URL, DASHBOARD_ORIGIN,
 } from './helpers';
 
 // One owner and one administrator per run (registrations and admin sign-ins are rate-limited), shared by the steps below.
@@ -30,9 +30,9 @@ const errors: string[] = [];
 
 const arPrice = (piastres: number) => `${new Intl.NumberFormat('ar-EG', { maximumFractionDigits: 2 }).format(piastres / 100)} ج.م`;
 
-/** `baseURL`: ADMIN_URL for the admin console (its own app and session). */
-async function newPage(browser: Browser, baseURL?: string) {
-  const context = await browser.newContext(baseURL ? { baseURL } : {});
+/** `baseURL`: the console (ADMIN_URL, the default) or the restaurants' dashboard (DASHBOARD_ORIGIN): separate apps and sessions. */
+async function newPage(browser: Browser, baseURL = ADMIN_URL) {
+  const context = await browser.newContext({ baseURL });
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
   return { context, page };
@@ -43,7 +43,7 @@ function apiCall(page: Page, method: string, path: RegExp) {
 }
 
 test.beforeAll(async ({ browser }) => {
-  ({ context: ownerContext, page: ownerPage } = await newPage(browser));
+  ({ context: ownerContext, page: ownerPage } = await newPage(browser, DASHBOARD_ORIGIN));
   ({ context: adminContext, page: adminPage } = await newPage(browser, ADMIN_URL));
   adminPage.on('response', async response => {
     if (/\/v1\/auth\/admin\/(login|refresh)$/.test(new URL(response.url()).pathname) && response.ok()) {
@@ -429,7 +429,7 @@ test('the console is its own app: owners never reach it, administrators never re
   await page.goto('/admin/restaurants');
   await expect(page).toHaveURL(/\/admin\/login\?next=%2Fadmin%2Frestaurants$/);
   await context.close();
-  const restaurant = await newPage(browser);
+  const restaurant = await newPage(browser, DASHBOARD_ORIGIN);
   await restaurant.page.goto('/login');
   await expect(restaurant.page.getByRole('link', { name: 'ادخل من هنا' })).toHaveCount(0);
   await restaurant.page.getByLabel('الإيميل').fill(admin.email);

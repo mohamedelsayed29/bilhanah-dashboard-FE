@@ -1,4 +1,3 @@
-import { APP } from '../../lib/config';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { authApi } from '../../lib/api/endpoints';
@@ -11,8 +10,7 @@ export function LogoutPage() {
   const { text } = useLanguage();
   usePageTitle('تسجيل الخروج', 'Signing out');
   const navigate = useNavigate();
-  // Each app returns to its own sign-in page (the admin console to the administrators').
-  const login = APP === 'admin' ? '/admin/login' : '/login';
+  const login = '/admin/login';
   useEffect(() => {
     signingOut ??= authApi.logout().finally(() => { signingOut = null; });
     let active = true;
