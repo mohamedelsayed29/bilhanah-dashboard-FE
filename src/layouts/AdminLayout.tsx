@@ -77,7 +77,7 @@ export function AdminLayout() {
     </aside></div>
     <header className="topbar">
       <div className="topbar-restaurant">
-        <img className="topbar-mark" src="/brand/bilhanah-mark.svg" alt="" width="445" height="479" />
+        <img className="topbar-mark" src="/brand/bilhanah-mark.svg" alt="" width="327" height="336" />
         <span className="topbar-console"><strong>{text('بالهنا', 'Bilhanah')}</strong><small>{text('لوحة الإدارة', 'Admin console')}</small></span>
       </div>
       <div className="topbar-actions">
