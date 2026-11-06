@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { BellIcon, ChartBarIcon, ChartLineUpIcon, ClipboardTextIcon, GearSixIcon, PackageIcon, ReceiptIcon, ShieldCheckIcon, SignOutIcon, StorefrontIcon } from '@phosphor-icons/react';
+import { BellIcon, ChartBarIcon, HeadsetIcon, ChartLineUpIcon, ClipboardTextIcon, GearSixIcon, PackageIcon, ReceiptIcon, ShieldCheckIcon, SignOutIcon, StorefrontIcon } from '@phosphor-icons/react';
 import type { AdminOverview } from '@bilhanah/contracts';
 import type { Icon } from '@phosphor-icons/react';
 import { Brand } from '../components/Brand';
@@ -8,11 +8,14 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { LanguageToggle } from '../components/LanguageToggle';
 import { useSignOut } from '../components/SignOutDialog';
 import { useAdminOverview } from '../features/admin/queries';
+import { supportKeys, useSupportNotifications } from '../features/admin/support/AdminSupportPage';
+import { useSupportSocket } from '../features/admin/support/support-socket';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLanguage } from '../lib/language';
 import { useRouteFocus } from '../lib/use-route-focus';
 
 /** `count`: the overview figure shown as a badge. `phone`: also in the bottom tab bar (five fit; reports and the audit log are linked from the overview). */
-type NavItem = { to: string; end?: boolean; icon: Icon; ar: string; en: string; short?: [string, string]; count?: 'pendingPayments' | 'newStandOrders'; phone?: boolean };
+type NavItem = { to: string; end?: boolean; icon: Icon; ar: string; en: string; short?: [string, string]; count?: 'pendingPayments' | 'newStandOrders'; support?: boolean; phone?: boolean };
 /** The sidebar in two labelled groups: what needs doing, then the platform's records and setup. */
 const NAV_GROUPS: { ar: string; en: string; items: NavItem[] }[] = [
   { ar: 'المتابعة', en: 'Daily work', items: [
@@ -20,6 +23,7 @@ const NAV_GROUPS: { ar: string; en: string; items: NavItem[] }[] = [
     { to: '/admin/payments', icon: ReceiptIcon, ar: 'التحويلات', en: 'Payments', count: 'pendingPayments', phone: true },
     { to: '/admin/stand-orders', icon: PackageIcon, ar: 'طلبات الستاندات', en: 'Stand orders', short: ['الستاندات', 'Stands'], count: 'newStandOrders', phone: true },
     { to: '/admin/restaurants', icon: StorefrontIcon, ar: 'المطاعم', en: 'Restaurants', phone: true },
+    { to: '/admin/support', icon: HeadsetIcon, ar: 'الدعم الفني', en: 'Support', support: true },
   ] },
   { ar: 'التقارير والإعداد', en: 'Records and setup', items: [
     { to: '/admin/stats', icon: ChartBarIcon, ar: 'التقارير', en: 'Reports' },
@@ -43,6 +47,19 @@ function NavCount({ kind, overview, testId }: { kind: NavItem['count']; overview
   </span>;
 }
 
+/** Unread support notifications for this agent (new tickets, replies, assignments). */
+function SupportCount() {
+  const { number, text } = useLanguage();
+  const queryClient = useQueryClient();
+  // New tickets, customer replies and live chats arrive over Socket.IO: refresh the support screens.
+  const refresh = () => void queryClient.invalidateQueries({ queryKey: supportKeys.all });
+  useSupportSocket({ onUpdated: refresh, onConnect: refresh });
+  const unread = useSupportNotifications().data?.unread ?? 0;
+  if (unread <= 0) return null;
+  return <span className="nav-count" data-testid="support-count"><span aria-hidden="true">{number(unread)}</span>
+    <span className="visually-hidden">({text(`${number(unread)} تنبيه دعم جديد`, `${unread} new support notifications`)})</span></span>;
+}
+
 /** Admin console shell: the owner shell's structure, marked as the admin console with its own colors. */
 export function AdminLayout() {
   const { text } = useLanguage();
@@ -63,6 +80,7 @@ export function AdminLayout() {
           {group.items.map(item => <NavLink key={item.to} to={item.to} end={item.end} className="sidebar-link">
             <span className="sidebar-icon"><item.icon size={21} aria-hidden="true" /></span><span className="sidebar-label">{text(item.ar, item.en)}</span>
             <NavCount kind={item.count} overview={overview.data} />
+            {item.support && <SupportCount />}
           </NavLink>)}
         </Fragment>)}
         <button type="button" className="sidebar-link sidebar-signout" onClick={signOut.ask}><span className="sidebar-icon"><SignOutIcon size={21} className="directional" aria-hidden="true" /></span><span className="sidebar-label">{text('تسجيل الخروج', 'Sign out')}</span></button>

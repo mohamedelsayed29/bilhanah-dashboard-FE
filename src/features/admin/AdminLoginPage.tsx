@@ -15,6 +15,9 @@ import { schemaResolver } from '../../lib/forms';
 import { useLanguage, usePageTitle } from '../../lib/language';
 import { AuthCard } from '../auth/AuthCard';
 
+/** Local development only (with the API's ADMIN_MFA_DISABLED): no authenticator code field. */
+const MFA_OFF = import.meta.env.DEV && import.meta.env['VITE_ADMIN_MFA_DISABLED'] === 'true';
+
 /** Administrators: email, password and the 6-digit code from their authenticator app. */
 export function AdminLoginPage() {
   const { text } = useLanguage();
@@ -45,7 +48,8 @@ export function AdminLoginPage() {
     : errorMessage(error, text);
   const code = register('code', { setValueAs: (value: string) => normalizeDigits(value).replace(/\D/g, '') });
   return <AuthCard icon={<ShieldCheckIcon size={28} weight="duotone" />} title={text('دخول فريق بالهنا', 'Bilhanah team sign-in')}
-    description={text('للمسؤولين بس. هتحتاج الكود اللي فيه ٦ أرقام من تطبيق المصادقة.', 'Administrators only. You will need the 6-digit code from your authenticator app.')}>
+    description={MFA_OFF ? text('للمسؤولين بس. كود التحقق متوقف على الجهاز ده (تطوير).', 'Administrators only. The authenticator code is off on this machine (development).')
+      : text('للمسؤولين بس. هتحتاج الكود اللي فيه ٦ أرقام من تطبيق المصادقة.', 'Administrators only. You will need the 6-digit code from your authenticator app.')}>
     {notice?.expired && !error && <Alert kind="info">{text('انتهت جلستك. سجّل دخولك تاني.', 'Your session has ended. Please sign in again.')}</Alert>}
     {notice?.signedOut && !error && <Alert kind="success">{text('خرجت من حسابك.', 'You have signed out.')}</Alert>}
     {error !== null && (isApiError(error, ADMIN_ERROR_CODES.MFA_NOT_SET_UP)
@@ -61,9 +65,9 @@ export function AdminLoginPage() {
       <Field label={text('كلمة السر', 'Password')} error={errors.password} required>
         <PasswordInput autoComplete="current-password" {...register('password')} />
       </Field>
-      <Field label={text('كود التحقق', 'Authentication code')} error={errors.code} required hint={text('الكود بيتغير كل ٣٠ ثانية.', 'The code changes every 30 seconds.')}>
+      {!MFA_OFF && <Field label={text('كود التحقق', 'Authentication code')} error={errors.code} required hint={text('الكود بيتغير كل ٣٠ ثانية.', 'The code changes every 30 seconds.')}>
         <input className="input otp-input" type="text" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]*" maxLength={6} dir="ltr" placeholder="123456" {...code} />
-      </Field>
+      </Field>}
       <Button type="submit" block loading={isSubmitting}>{text('دخول', 'Sign in')}</Button>
     </form>
   </AuthCard>;

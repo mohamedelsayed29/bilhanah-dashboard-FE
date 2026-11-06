@@ -186,7 +186,7 @@ export function createApiClient(options: ApiClientOptions) {
     /** Restaurant owners. */
     login: (credentials: { email: string; password: string }) => signIn('/v1/auth/login', credentials),
     /** Platform administrators (admin console only): password plus the 6-digit authenticator code; their own session cookie. */
-    adminLogin: (credentials: { email: string; password: string; code: string }) => signIn('/v1/auth/admin/login', credentials),
+    adminLogin: (credentials: { email: string; password: string; code?: string }) => signIn('/v1/auth/admin/login', credentials),
     /** Ends the session on the server (best effort) and forgets it locally, in every tab. */
     async logout(): Promise<void> {
       try {

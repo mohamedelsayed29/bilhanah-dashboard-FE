@@ -22,6 +22,18 @@ import type {
   updatePaymentSettingsSchema,
   updateStandOrderSchema,
   updateTrialSettingsSchema,
+  AdminFaqArticle,
+  AdminFaqCategory,
+  AgentTicket,
+  AgentTicketRow,
+  agentTicketsQuerySchema,
+  FaqRevision,
+  SupportAgent,
+  SupportCounts,
+  SupportNotifications,
+  TicketAttachment,
+  updateTicketSchema,
+  upsertFaqArticleSchema,
 } from '@bilhanah/contracts';
 import type { z } from 'zod';
 import { apiClient } from './index';
@@ -88,4 +100,29 @@ export const adminApi = {
     request<AdminStandOrder>(`/v1/admin/stand-orders/${id(orderId)}`, { method: 'PATCH', body }),
   /** Path of a line's uploaded logo (fetch it with `apiClient.requestBlob`). */
   standLogoPath: (orderId: string, lineId: string) => `/v1/admin/stand-orders/${id(orderId)}/lines/${id(lineId)}/logo`,
+};
+
+export type AgentTicketsQuery = { view?: z.input<typeof agentTicketsQuerySchema>['view']; q?: string; priority?: z.input<typeof agentTicketsQuerySchema>['priority']; page?: number; pageSize?: number };
+
+/** Bilhanah's support team: the ticket inbox, replies and notes, FAQ content and support notifications. */
+export const supportApi = {
+  agents: () => request<SupportAgent[]>('/v1/admin/support/agents'),
+  tickets: (params: AgentTicketsQuery, signal?: AbortSignal) =>
+    request<Paginated<AgentTicketRow> & { counts: SupportCounts }>(`/v1/admin/support/tickets${query(params)}`, { signal }),
+  ticket: (ticketId: string) => request<AgentTicket>(`/v1/admin/support/tickets/${id(ticketId)}`),
+  reply: (ticketId: string, body: { body: string; internal: boolean; attachmentIds: string[] }) =>
+    request<AgentTicket>(`/v1/admin/support/tickets/${id(ticketId)}/replies`, { method: 'POST', body }),
+  update: (ticketId: string, body: z.input<typeof updateTicketSchema>) => request<AgentTicket>(`/v1/admin/support/tickets/${id(ticketId)}`, { method: 'PATCH', body }),
+  upload: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return apiClient.uploadFile<TicketAttachment>('/v1/admin/support/attachments', form);
+  },
+  notifications: () => request<SupportNotifications>('/v1/admin/support/notifications'),
+  markRead: (body: { ids?: string[]; all?: boolean }) => request<void>('/v1/admin/support/notifications/read', { method: 'POST', body }),
+  faqCategories: () => request<AdminFaqCategory[]>('/v1/admin/support/faq/categories'),
+  faqArticles: (params: { lang?: string; status?: string; category?: string; q?: string }) => request<AdminFaqArticle[]>(`/v1/admin/support/faq/articles${query(params)}`),
+  createFaq: (body: z.input<typeof upsertFaqArticleSchema>) => request<AdminFaqArticle>('/v1/admin/support/faq/articles', { method: 'POST', body }),
+  updateFaq: (articleId: string, body: Partial<z.input<typeof upsertFaqArticleSchema>>) => request<AdminFaqArticle>(`/v1/admin/support/faq/articles/${id(articleId)}`, { method: 'PATCH', body }),
+  faqRevisions: (articleId: string) => request<FaqRevision[]>(`/v1/admin/support/faq/articles/${id(articleId)}/revisions`),
 };
