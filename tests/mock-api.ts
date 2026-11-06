@@ -87,7 +87,7 @@ export function restaurant(changes: Partial<OwnerRestaurant> = {}): OwnerRestaur
   return {
     id: 'r-1', name: 'كشري التحرير', subdomain: 'tahrir', publicUrl: 'https://tahrir.bilhanah.com', contactName: 'منى', phone: '01098765432', city: 'طنطا', address: '٥ شارع البحر',
     defaultLanguage: 'ar', timezone: 'Africa/Cairo', whatsappNumber: null, websiteUrl: null, facebookUrl: null, instagramUrl: null, createdAt: '2026-09-01T09:00:00.000Z',
-    access: { status: 'PAID', planCode: 'ORDERS', features: { menu: true, ordering: true, readyAlerts: false, inventory: true, reviews: true, branches: 3 }, currentPeriodEndsAt: '2026-12-01T00:00:00.000Z', trialEndsAt: null },
+    access: { status: 'PAID', planCode: 'ORDERS', features: { menu: true, ordering: true, readyAlerts: false, inventory: true, reviews: true, branches: 3 }, planFeatures: { menu: true, ordering: true, readyAlerts: false, inventory: true, reviews: true, branches: 3 }, currentPeriodEndsAt: '2026-12-01T00:00:00.000Z', trialEndsAt: null },
     // The board and its socket stay off in mocked runs.
     ordering: { included: false, enabled: false, acceptsDineIn: true, acceptsPickup: true, paused: false },
     tableSessions: { enabled: false, sharedEditing: false },
@@ -95,6 +95,7 @@ export function restaurant(changes: Partial<OwnerRestaurant> = {}): OwnerRestaur
     serviceRequests: { enabled: true, cooldownSeconds: 120, hourlyLimit: 20 },
     orderPrepMinutes: null,
     logo: null, cover: null, brandColor: null, openingHours: null, menuTheme: 'classic', mainBranchId: 'b-main', branchCount: 1,
+    setup: { menuSource: 'BILHANAH', externalMenuUrl: null, externalPosName: null, completedAt: null, services: { DIGITAL_MENU: true, QR_ORDERING: true, REVIEWS: true, INVENTORY: true, CASH_DRAWER: true, ATTENDANCE: true } },
     ...changes,
   };
 }
