@@ -1,5 +1,6 @@
 import type {
   AccessStatus,
+  AdminPosRestaurant, PosAccess, PosMode, PosPlatformSettings, PosStatus, AdminPosHealth,
   AdminEntitlement,
   AdminOverview,
   AdminPayment,
@@ -62,6 +63,18 @@ export type StandOrderFilter = StandOrderStatus | 'open';
 export type AdminStandOrdersQuery = { status?: StandOrderFilter; query?: string; page?: number; pageSize?: number };
 
 /** Platform administration (administrators only). */
+/** The POS for administrators (docs/POS.md): the platform switch and plans, and each restaurant's access. */
+export const adminPosApi = {
+  settings: () => request<PosPlatformSettings>('/v1/admin/pos/settings'),
+  saveSettings: (body: { enabled: boolean; plans: ('MENU' | 'ORDERS' | 'ADVANCED')[] }) => request<PosPlatformSettings>('/v1/admin/pos/settings', { method: 'PUT', body }),
+  restaurants: (params: { status?: PosStatus; q?: string; page?: number; pageSize?: number }, signal?: AbortSignal) =>
+    request<Paginated<AdminPosRestaurant>>(`/v1/admin/pos/restaurants${query(params)}`, { signal }),
+  setAccess: (restaurantId: string, body: { access: PosAccess; reason?: string | null; allowedModes: PosMode[] }) =>
+    request<AdminPosRestaurant>(`/v1/admin/pos/restaurants/${id(restaurantId)}`, { method: 'PATCH', body }),
+  health: () => request<AdminPosHealth>('/v1/admin/pos/health'),
+  audit: () => request<AuditEntry[]>('/v1/admin/pos/audit'),
+};
+
 export const adminApi = {
   overview: () => request<AdminOverview>('/v1/admin/overview'),
   restaurants: (params: AdminRestaurantsQuery, signal?: AbortSignal) =>

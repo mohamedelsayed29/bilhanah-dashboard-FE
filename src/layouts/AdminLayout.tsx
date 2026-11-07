@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { BellIcon, ChartBarIcon, HeadsetIcon, ChartLineUpIcon, ClipboardTextIcon, GearSixIcon, PackageIcon, ReceiptIcon, ShieldCheckIcon, SignOutIcon, StorefrontIcon } from '@phosphor-icons/react';
+import { BellIcon, CashRegisterIcon, ChartBarIcon, HeadsetIcon, ChartLineUpIcon, ClipboardTextIcon, GearSixIcon, PackageIcon, ReceiptIcon, ShieldCheckIcon, SignOutIcon, StorefrontIcon } from '@phosphor-icons/react';
 import type { AdminOverview } from '@bilhanah/contracts';
 import type { Icon } from '@phosphor-icons/react';
 import { Brand } from '../components/Brand';
@@ -26,6 +26,7 @@ const NAV_GROUPS: { ar: string; en: string; items: NavItem[] }[] = [
     { to: '/admin/support', icon: HeadsetIcon, ar: 'الدعم الفني', en: 'Support', support: true },
   ] },
   { ar: 'التقارير والإعداد', en: 'Records and setup', items: [
+    { to: '/admin/pos', icon: CashRegisterIcon, ar: 'الكاشير (POS)', en: 'Point of sale', short: ['الكاشير', 'POS'] },
     { to: '/admin/stats', icon: ChartBarIcon, ar: 'التقارير', en: 'Reports' },
     { to: '/admin/audit', icon: ClipboardTextIcon, ar: 'سجل المراجعة', en: 'Audit log', short: ['السجل', 'Audit'] },
     { to: '/admin/settings', icon: GearSixIcon, ar: 'الإعدادات', en: 'Settings', phone: true },

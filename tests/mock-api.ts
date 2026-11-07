@@ -95,7 +95,7 @@ export function restaurant(changes: Partial<OwnerRestaurant> = {}): OwnerRestaur
     serviceRequests: { enabled: true, cooldownSeconds: 120, hourlyLimit: 20 },
     orderPrepMinutes: null,
     logo: null, cover: null, brandColor: null, openingHours: null, menuTheme: 'classic', mainBranchId: 'b-main', branchCount: 1,
-    setup: { menuSource: 'BILHANAH', externalMenuUrl: null, externalPosName: null, completedAt: null, services: { DIGITAL_MENU: true, QR_ORDERING: true, REVIEWS: true, INVENTORY: true, CASH_DRAWER: true, ATTENDANCE: true } },
+    setup: { menuSource: 'BILHANAH', externalMenuUrl: null, externalPosName: null, completedAt: null, services: { DIGITAL_MENU: true, QR_ORDERING: true, REVIEWS: true, INVENTORY: true, CASH_DRAWER: true, ATTENDANCE: true, LOYALTY: true } },
     ...changes,
   };
 }

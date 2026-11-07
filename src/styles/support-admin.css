@@ -98,7 +98,7 @@ html[dir='rtl'] .tk-composer-bar .button svg { transform: scaleX(-1); }
 
 /* Side: properties, the restaurant, and the history. */
 .tk-side { position: sticky; top: var(--space-4); display: grid; gap: var(--space-4); }
-.tk-card { display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-5); border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.tk-card { display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-5); border: 1px solid var(--line); border-radius: 16px; background: var(--card); }
 .tk-card h2 { margin: 0; font-size: 13px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 html[lang='ar'] .tk-card h2 { text-transform: none; letter-spacing: 0; font-size: 14px; }
 .tk-props { display: grid; gap: 10px; }

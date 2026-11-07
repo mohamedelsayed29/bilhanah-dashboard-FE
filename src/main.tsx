@@ -19,6 +19,8 @@ import './styles/insights-shop.css';
 import './styles/branches.css';
 import './styles/tables.css';
 import './styles/support-admin.css';
+// The design layer goes last: it refines every page.
+import './styles/admin-theme.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

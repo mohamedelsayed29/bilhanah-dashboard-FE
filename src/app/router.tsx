@@ -46,6 +46,7 @@ const adminRoutes: RouteObject[] = [
             { path: 'support', lazy: page(() => import('../features/admin/support/AdminSupportPage'), module => module.AdminSupportPage) },
             { path: 'support/faq', lazy: page(() => import('../features/admin/support/AdminFaqPage'), module => module.AdminFaqPage) },
             { path: 'support/:ticketId', lazy: page(() => import('../features/admin/support/AdminTicketPage'), module => module.AdminTicketPage) },
+            { path: 'pos', lazy: page(() => import('../features/admin/pos/AdminPosPage'), module => module.AdminPosPage) },
             { path: 'audit', lazy: page(() => import('../features/admin/audit/AdminAuditPage'), module => module.AdminAuditPage) },
           ],
         }],

@@ -9,7 +9,7 @@
 .auth-visual-title { font-size: var(--text-xl); font-weight: 700; line-height: 1.5; max-width: 420px; }
 html[lang='en'] .auth-visual-title { line-height: 1.25; }
 .auth-visual-copy ul { display: grid; gap: var(--space-2); margin-top: var(--space-4); }
-.auth-visual-copy li { display: flex; align-items: center; gap: 10px; font-size: var(--text-sm); color: #fff3e7; }
+.auth-visual-copy li { display: flex; align-items: center; gap: 10px; font-size: var(--text-sm); color: #ffffff; }
 .auth-visual-copy li svg { flex: none; box-sizing: content-box; padding: 4px; border-radius: 50%; background: rgb(255 200 87 / .18); color: var(--guava); }
 .auth-main { display: flex; flex-direction: column; min-width: 0; min-height: 100dvh; }
 .auth-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-4) var(--space-6); }
