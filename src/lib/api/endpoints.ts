@@ -1,6 +1,6 @@
 import type {
   AccessStatus,
-  AdminPosRestaurant, PosAccess, PosMode, PosPlatformSettings, PosStatus, AdminPosHealth,
+  AdminPosRestaurant, PosDevice, PosAccess, PosMode, PosPlatformSettings, PosStatus, AdminPosHealth,
   AdminEntitlement,
   AdminOverview,
   AdminPayment,
@@ -69,8 +69,11 @@ export const adminPosApi = {
   saveSettings: (body: { enabled: boolean; plans: ('MENU' | 'ORDERS' | 'ADVANCED')[] }) => request<PosPlatformSettings>('/v1/admin/pos/settings', { method: 'PUT', body }),
   restaurants: (params: { status?: PosStatus; q?: string; page?: number; pageSize?: number }, signal?: AbortSignal) =>
     request<Paginated<AdminPosRestaurant>>(`/v1/admin/pos/restaurants${query(params)}`, { signal }),
-  setAccess: (restaurantId: string, body: { access: PosAccess; reason?: string | null; allowedModes: PosMode[] }) =>
+  setAccess: (restaurantId: string, body: { access: PosAccess; reason?: string | null; allowedModes: PosMode[]; maxDevices?: number }) =>
     request<AdminPosRestaurant>(`/v1/admin/pos/restaurants/${id(restaurantId)}`, { method: 'PATCH', body }),
+  devices: (restaurantId: string) => request<PosDevice[]>(`/v1/admin/pos/restaurants/${id(restaurantId)}/devices`),
+  deviceStatus: (deviceId: string, body: { status: 'ACTIVE' | 'DISABLED' | 'REVOKED'; reason?: string | null }) =>
+    request<PosDevice>(`/v1/admin/pos/devices/${id(deviceId)}/status`, { method: 'PATCH', body }),
   health: () => request<AdminPosHealth>('/v1/admin/pos/health'),
   audit: () => request<AuditEntry[]>('/v1/admin/pos/audit'),
 };

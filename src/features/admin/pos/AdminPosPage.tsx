@@ -3,7 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { Link } from 'react-router';
 import { CashRegisterIcon, DesktopIcon, MagnifyingGlassIcon, PlugsConnectedIcon, StorefrontIcon, WarningCircleIcon } from '@phosphor-icons/react';
 import type { Icon } from '@phosphor-icons/react';
-import { POS_MODE_LABELS, POS_MODES, POS_STATUS_LABELS, POS_STATUSES, type AdminPosRestaurant, type PosAccess, type PosMode, type PosStatus } from '@bilhanah/contracts';
+import { POS_DEVICE_LIMITS, POS_MODE_LABELS, POS_MODES, POS_STATUS_LABELS, POS_STATUSES, type AdminPosRestaurant, type PosAccess, type PosMode, type PosStatus } from '@bilhanah/contracts';
 import { Button } from '../../../components/Button';
 import { Dialog } from '../../../components/Dialog';
 import { ErrorPanel } from '../../../components/ErrorBoundary';
@@ -88,12 +88,13 @@ function Restaurants() {
     {rows.isError && <ErrorPanel error={rows.error} onRetry={() => void rows.refetch()} />}
     {rows.isPending && <Skeleton height={240} />}
     {rows.data && <div className="table-scroll"><table className="data-table">
-      <thead><tr><th>{text('المطعم', 'Restaurant')}</th><th>{text('الحالة', 'Status')}</th><th>{text('النوع', 'Mode')}</th><th>{text('الأنواع المسموحة', 'Allowed modes')}</th><th><span className="visually-hidden">{text('تحكّم', 'Manage')}</span></th></tr></thead>
-      <tbody>{rows.data.items.length === 0 ? <tr><td colSpan={5} className="muted">{text('مفيش مطاعم.', 'No restaurants.')}</td></tr> : rows.data.items.map(row => <tr key={row.id} data-testid="admin-pos-row">
+      <thead><tr><th>{text('المطعم', 'Restaurant')}</th><th>{text('الحالة', 'Status')}</th><th>{text('النوع', 'Mode')}</th><th>{text('الأنواع المسموحة', 'Allowed modes')}</th><th>{text('الأجهزة', 'Devices')}</th><th><span className="visually-hidden">{text('تحكّم', 'Manage')}</span></th></tr></thead>
+      <tbody>{rows.data.items.length === 0 ? <tr><td colSpan={6} className="muted">{text('مفيش مطاعم.', 'No restaurants.')}</td></tr> : rows.data.items.map(row => <tr key={row.id} data-testid="admin-pos-row">
         <td><Link to={`/admin/restaurants/${row.id}`}><strong>{row.name}</strong></Link><small className="muted ltr"> {row.subdomain}</small></td>
         <td><span className={`admin-pos-status ${STATUS_TONES[row.status]}`}>{text(...POS_STATUS_LABELS[row.status])}</span>{row.disabledReason && <small className="muted"> · {text(...REASONS[row.disabledReason]!)}</small>}{row.accessReason && <small className="muted"> · {row.accessReason}</small>}</td>
         <td>{row.mode ? text(...POS_MODE_LABELS[row.mode]) : '—'}</td>
         <td>{row.allowedModes.map(mode => text(...POS_MODE_LABELS[mode])).join('، ')}</td>
+        <td className={row.devicesInUse >= row.maxDevices ? 'admin-pos-full' : undefined}><span className="ltr">{number(row.devicesInUse)} / {number(row.maxDevices)}</span></td>
         <td><Button small variant="secondary" onClick={() => setEditing(row)}>{text('تحكّم', 'Manage')}</Button></td>
       </tr>)}</tbody>
     </table></div>}
@@ -109,8 +110,11 @@ function AccessDialog({ row, onClose }: { row: AdminPosRestaurant; onClose: () =
   const [access, setAccess] = useState<PosAccess>(row.access);
   const [modes, setModes] = useState<PosMode[]>(row.allowedModes);
   const [reason, setReason] = useState(row.accessReason ?? '');
+  const [maxDevices, setMaxDevices] = useState(String(row.maxDevices));
+  const limit = Number(maxDevices);
+  const limitValid = Number.isInteger(limit) && limit >= POS_DEVICE_LIMITS.min && limit <= POS_DEVICE_LIMITS.max;
   const save = useMutation({
-    mutationFn: () => adminPosApi.setAccess(row.id, { access, allowedModes: modes, reason: access === 'ENABLED' ? null : reason.trim() || null }),
+    mutationFn: () => adminPosApi.setAccess(row.id, { access, allowedModes: modes, reason: access === 'ENABLED' ? null : reason.trim() || null, maxDevices: limit }),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['admin', 'pos', 'restaurants'] }); toast.success(text('اتحفظ', 'Saved')); onClose(); },
     onError: () => toast.error(text('مقدرناش نحفظ. جرّب تاني.', 'Could not save. Try again.')),
   });
@@ -119,8 +123,8 @@ function AccessDialog({ row, onClose }: { row: AdminPosRestaurant; onClose: () =
     SUSPENDED: ['موقوف مؤقتًا', 'Suspended', 'الإعدادات محفوظة، بس الكاشير متوقف لحد ما ترجّعه.', 'Settings are kept; the POS stops until you restore it.'],
     DISABLED: ['مقفول', 'Disabled', 'الكاشير مش متاح للمطعم ده.', 'The POS is not available to this restaurant.'],
   };
-  return <Dialog open onClose={onClose} title={text(`الكاشير · ${row.name}`, `POS · ${row.name}`)} busy={save.isPending} onSubmit={() => { if (modes.length) save.mutate(); }}
-    footer={<><Button variant="secondary" onClick={onClose}>{text('إلغاء', 'Cancel')}</Button><Button type="submit" loading={save.isPending} disabled={!modes.length} data-testid="admin-pos-access-save">{text('احفظ', 'Save')}</Button></>}>
+  return <Dialog open onClose={onClose} title={text(`الكاشير · ${row.name}`, `POS · ${row.name}`)} busy={save.isPending} onSubmit={() => { if (modes.length && limitValid) save.mutate(); }}
+    footer={<><Button variant="secondary" onClick={onClose}>{text('إلغاء', 'Cancel')}</Button><Button type="submit" loading={save.isPending} disabled={!modes.length || !limitValid} data-testid="admin-pos-access-save">{text('احفظ', 'Save')}</Button></>}>
     <fieldset className="admin-pos-options"><legend className="field-label">{text('الوصول', 'Access')}</legend>
       {(['ENABLED', 'SUSPENDED', 'DISABLED'] as const).map(value => <label key={value} className={`admin-pos-option ${access === value ? 'is-checked' : ''}`}>
         <input type="radio" name="pos-access" checked={access === value} onChange={() => setAccess(value)} />
@@ -133,7 +137,40 @@ function AccessDialog({ row, onClose }: { row: AdminPosRestaurant; onClose: () =
         onChange={on => setModes(current => (on ? [...new Set([...current, mode])] : current.filter(entry => entry !== mode)))} />)}
       {!modes.length && <p className="field-error">{text('اختار نوع واحد على الأقل.', 'Choose at least one.')}</p>}
     </fieldset>
+    <label className="field"><span className="field-label">{text('أقصى عدد أجهزة', 'Device limit')}</span>
+      <input className="input ltr" dir="ltr" type="number" min={POS_DEVICE_LIMITS.min} max={POS_DEVICE_LIMITS.max} value={maxDevices} onChange={event => setMaxDevices(event.target.value)} data-testid="admin-pos-max-devices" />
+      <small className="field-hint">{text(`مستخدم دلوقتي ${row.devicesInUse}. الأجهزة الموقوفة بتتحسب، والملغية لأ.`, `${row.devicesInUse} in use now. Paused devices count; revoked ones do not.`)}</small>
+      {!limitValid && <small className="field-error">{text(`من ${POS_DEVICE_LIMITS.min} لـ ${POS_DEVICE_LIMITS.max}.`, `${POS_DEVICE_LIMITS.min} to ${POS_DEVICE_LIMITS.max}.`)}</small>}
+    </label>
+    <RestaurantDevices restaurantId={row.id} />
   </Dialog>;
+}
+
+/** A restaurant's registered devices: pause, resume or revoke any of them (each change is logged). */
+function RestaurantDevices({ restaurantId }: { restaurantId: string }) {
+  const { text, language } = useLanguage();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const devices = useQuery({ queryKey: ['admin', 'pos', 'devices', restaurantId], queryFn: () => adminPosApi.devices(restaurantId) });
+  const change = useMutation({
+    mutationFn: ({ deviceId, status }: { deviceId: string; status: 'ACTIVE' | 'DISABLED' | 'REVOKED' }) => adminPosApi.deviceStatus(deviceId, { status }),
+    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['admin', 'pos'] }); toast.success(text('اتحفظ', 'Saved')); },
+    onError: () => toast.error(text('مقدرناش نغيّر الجهاز.', 'Could not change the device.')),
+  });
+  const labels = { ACTIVE: text('شغال', 'Active'), DISABLED: text('موقوف', 'Paused'), REVOKED: text('ملغي', 'Revoked') } as const;
+  return <section className="admin-pos-devices" aria-label={text('الأجهزة', 'Devices')}>
+    <p className="field-label">{text('الأجهزة', 'Devices')}</p>
+    {devices.isPending && <Skeleton height={60} />}
+    {devices.isError && <ErrorPanel error={devices.error} onRetry={() => void devices.refetch()} />}
+    {devices.data && (devices.data.length === 0 ? <p className="field-hint">{text('مفيش أجهزة متسجلة.', 'No registered devices.')}</p>
+      : <ul>{devices.data.map(device => <li key={device.id} className={`is-${device.status.toLowerCase()}`}>
+        <span><strong>{device.name}</strong><small>{device.branchName} · {labels[device.status]}{device.lastSeenAt ? ` · ${new Intl.DateTimeFormat(language === 'ar' ? 'ar-EG' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(device.lastSeenAt))}` : ''}</small></span>
+        {device.status !== 'REVOKED' && <span className="admin-pos-device-actions">
+          <Button small variant="secondary" loading={change.isPending && change.variables?.deviceId === device.id} onClick={() => change.mutate({ deviceId: device.id, status: device.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' })}>{device.status === 'ACTIVE' ? text('وقّف', 'Pause') : text('شغّل', 'Resume')}</Button>
+          <Button small variant="danger-outline" onClick={() => change.mutate({ deviceId: device.id, status: 'REVOKED' })}>{text('ألغي', 'Revoke')}</Button>
+        </span>}
+      </li>)}</ul>)}
+  </section>;
 }
 
 /** Across restaurants: who runs the POS, devices, integrations and their failing sync jobs. */
